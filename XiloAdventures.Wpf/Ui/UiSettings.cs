@@ -40,7 +40,7 @@ public static class UiSettingsManager
     {
         var path = AppPaths.GlobalConfigPath;
         var json = JsonSerializer.Serialize(GlobalSettings, Options);
-        CryptoUtil.EncryptToFile(path, json);
+        CryptoUtil.EncryptToFile(path, json, "xac");
     }
 
     public static UiSettings LoadForWorld(string worldId)
@@ -71,6 +71,6 @@ public static class UiSettingsManager
     {
         var path = AppPaths.WorldConfigPath(worldId);
         var json = JsonSerializer.Serialize(settings, Options);
-        CryptoUtil.EncryptToFile(path, json);
+        CryptoUtil.EncryptToFile(path, json, "xac");
     }
 }

@@ -37,7 +37,7 @@ public partial class StartupWindow : Window
         if (!Directory.Exists(AppPaths.WorldsFolder))
             return;
 
-        var files = Directory.GetFiles(AppPaths.WorldsFolder, "*.json");
+        var files = Directory.GetFiles(AppPaths.WorldsFolder, "*.xaw");
         foreach (var file in files.OrderBy(f => f))
         {
             var name = Path.GetFileNameWithoutExtension(file);
@@ -49,7 +49,7 @@ public partial class StartupWindow : Window
     {
         if (WorldsList.SelectedItem is string name)
         {
-            return Path.Combine(AppPaths.WorldsFolder, name + ".json");
+            return Path.Combine(AppPaths.WorldsFolder, name + ".xaw");
         }
 
         new AlertWindow("Selecciona un mundo primero.", "Xilo Adventures") { Owner = this }.ShowDialog();
@@ -99,7 +99,7 @@ public partial class StartupWindow : Window
         var dlg = new OpenFileDialog
         {
             Title = "Cargar partida",
-            Filter = "Partidas guardadas (*.json)|*.json|Todos los archivos (*.*)|*.*",
+            Filter = "Partidas guardadas (*.xas)|*.xas|Todos los archivos (*.*)|*.*",
             InitialDirectory = AppPaths.SavesFolder
         };
 
@@ -128,7 +128,7 @@ public partial class StartupWindow : Window
         WorldModel? world = null;
         if (Directory.Exists(AppPaths.WorldsFolder))
         {
-            foreach (var f in Directory.GetFiles(AppPaths.WorldsFolder, "*.json"))
+            foreach (var f in Directory.GetFiles(AppPaths.WorldsFolder, "*.xaw"))
             {
                 try
                 {
@@ -186,7 +186,7 @@ public partial class StartupWindow : Window
         // Si hay un mundo seleccionado en la lista, intentamos abrir su fichero .json
         if (WorldsList.SelectedItem is string name)
         {
-            var candidate = System.IO.Path.Combine(AppPaths.WorldsFolder, name + ".json");
+            var candidate = System.IO.Path.Combine(AppPaths.WorldsFolder, name + ".xaw");
             if (System.IO.File.Exists(candidate))
             {
                 worldPath = candidate;

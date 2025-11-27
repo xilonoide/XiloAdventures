@@ -427,7 +427,7 @@ public partial class WorldEditorWindow : Window
         var dlg = new OpenFileDialog
         {
             Title = "Abrir mundo",
-            Filter = "Mundos (*.json)|*.json|Todos los archivos (*.*)|*.*",
+            Filter = "Mundos (*.xaw)|*.xaw|Todos los archivos (*.*)|*.*",
             InitialDirectory = AppPaths.WorldsFolder
         };
 
@@ -491,9 +491,9 @@ public partial class WorldEditorWindow : Window
         var dlg = new SaveFileDialog
         {
             Title = "Guardar mundo",
-            Filter = "Mundos (*.json)|*.json|Todos los archivos (*.*)|*.*",
+            Filter = "Mundos (*.xaw)|*.xaw|Todos los archivos (*.*)|*.*",
             InitialDirectory = AppPaths.WorldsFolder,
-            FileName = string.IsNullOrEmpty(_world.Game.Id) ? "nuevo_mundo.json" : _world.Game.Id + ".json"
+            FileName = string.IsNullOrEmpty(_world.Game.Id) ? "nuevo_mundo.json" : _world.Game.Id + ".xaw"
         };
 
         if (dlg.ShowDialog(this) == true)

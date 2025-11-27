@@ -234,9 +234,9 @@ public partial class MainWindow : Window
         var dlg = new SaveFileDialog
         {
             Title = "Guardar partida",
-            Filter = "Partidas guardadas (*.json)|*.json|Todos los archivos (*.*)|*.*",
+            Filter = "Partidas guardadas (*.xas)|*.xas|Todos los archivos (*.*)|*.*",
             InitialDirectory = AppPaths.SavesFolder,
-            FileName = $"{_engine.State.WorldId}_partida.json"
+            FileName = $"{_engine.State.WorldId}_partida.xas"
         };
 
         if (dlg.ShowDialog(this) == true)
@@ -257,7 +257,7 @@ public partial class MainWindow : Window
         var dlg = new OpenFileDialog
         {
             Title = "Cargar partida",
-            Filter = "Partidas guardadas (*.json)|*.json|Todos los archivos (*.*)|*.*",
+            Filter = "Partidas guardadas (*.xas)|*.xas|Todos los archivos (*.*)|*.*",
             InitialDirectory = AppPaths.SavesFolder
         };
 

@@ -13,7 +13,7 @@ public static class CryptoUtil
     private static readonly byte[] Iv =
         Encoding.UTF8.GetBytes("XiloAdv-IV-12345"); // 16 bytes
 
-    public static void EncryptToFile(string path, string plainText)
+    public static void EncryptToFile(string path, string plainText, string extension)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 
@@ -22,6 +22,9 @@ public static class CryptoUtil
         aes.IV = Iv;
         aes.Mode = CipherMode.CBC;
         aes.Padding = PaddingMode.PKCS7;
+
+        var filename = Path.GetFileNameWithoutExtension(path);
+        var newPath = Path.Combine(Path.GetDirectoryName(path)!, filename + "." + extension);
 
         using var fs = new FileStream(path, FileMode.Create, FileAccess.Write);
         using var crypto = new CryptoStream(fs, aes.CreateEncryptor(), CryptoStreamMode.Write);

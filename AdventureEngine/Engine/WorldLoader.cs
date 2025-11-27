@@ -95,7 +95,7 @@ public static class WorldLoader
     public static void SaveWorldModel(WorldModel world, string path)
     {
         var json = JsonSerializer.Serialize(world, Options);
-        CryptoUtil.EncryptToFile(path, json);
+        CryptoUtil.EncryptToFile(path, json, "xaw");
     }
 
     private static List<T> CloneList<T>(List<T> source)

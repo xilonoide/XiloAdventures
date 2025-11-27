@@ -8,9 +8,9 @@ public static class AppPaths
     public static string BaseDirectory => AppContext.BaseDirectory;
     public static string WorldsFolder => Path.Combine(BaseDirectory, "worlds");
     public static string SavesFolder => Path.Combine(BaseDirectory, "saves");
-    public static string SoundFolder => Path.Combine(BaseDirectory, "Sound");
-    public static string GlobalConfigPath => Path.Combine(BaseDirectory, "config.json");
-    public static string WorldConfigPath(string worldId) => Path.Combine(BaseDirectory, $"config_{worldId}.json");
+    public static string SoundFolder => Path.Combine(BaseDirectory, "sound");
+    public static string GlobalConfigPath => Path.Combine(BaseDirectory, "config.xac");
+    public static string WorldConfigPath(string worldId) => Path.Combine(BaseDirectory, $"config_{worldId}.xac");
 
     public static void EnsureDirectories()
     {

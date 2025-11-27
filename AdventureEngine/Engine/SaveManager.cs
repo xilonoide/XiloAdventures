@@ -68,7 +68,7 @@ public static class SaveManager
         };
 
         var json = JsonSerializer.Serialize(data, Options);
-        CryptoUtil.EncryptToFile(path, json);
+        CryptoUtil.EncryptToFile(path, json, "xas");
     }
 
     public static GameState LoadFromPath(string path, WorldModel world)
@@ -117,7 +117,7 @@ public static class SaveManager
     public static void AutoSave(GameState state, string savesFolder)
     {
         Directory.CreateDirectory(savesFolder);
-        var fileName = $"autosave_{state.WorldId}.json";
+        var fileName = $"autosave_{state.WorldId}.xas";
         var path = Path.Combine(savesFolder, fileName);
         SaveToPath(state, path);
     }
