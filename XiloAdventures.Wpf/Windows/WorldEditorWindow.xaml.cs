@@ -209,6 +209,9 @@ public partial class WorldEditorWindow : Window
 
         switch (item.Tag)
         {
+            case Room room:
+                MapPanel.CenterOnRoom(room);
+                break;
             case GameObject obj:
                 CenterOnObject(obj);
                 break;
@@ -518,7 +521,7 @@ public partial class WorldEditorWindow : Window
         MapPanel.SetWorld(_world);
         BuildTree();
         SelectRoomInTree(room);
-   
+
         PushUndoSnapshot();
     }
 
@@ -1051,7 +1054,7 @@ public partial class WorldEditorWindow : Window
         _world.Rooms.Remove(room);
     }
 
-    
+
 
 
     private static readonly JsonSerializerOptions SnapshotJsonOptions = new()
@@ -1203,7 +1206,7 @@ public partial class WorldEditorWindow : Window
         }
     }
 
-protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
         var dlg = new ConfirmWindow("¿Seguro que quieres cerrar el editor de mundos?", "Cerrar editor")
         {
