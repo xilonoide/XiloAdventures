@@ -1,0 +1,36 @@
+<Window x:Class="XiloAdventures.Wpf.Windows.StartupWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Xilo Adventures - Inicio"
+        Height="450" Width="800"
+        WindowStartupLocation="CenterScreen"
+        Background="#222222"
+        Foreground="White">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="Mundos disponibles" FontSize="20" Margin="0,0,0,10"/>
+
+        <ListBox x:Name="WorldsList"
+                 Grid.Row="1"
+                 Background="#333333"
+                 Foreground="White"
+                 BorderBrush="#555555" />
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <CheckBox x:Name="SoundCheckBox"
+                      Content="Sonido activado"
+                      Margin="0,0,20,0"
+                      VerticalAlignment="Center"
+                      Foreground="White"/>
+            <Button x:Name="NewGameButton" Content="Nueva partida" Width="120" Margin="0,0,10,0" Click="NewGameButton_Click"/>
+            <Button x:Name="LoadGameButton" Content="Cargar partida..." Width="120" Margin="0,0,10,0" Click="LoadGameButton_Click"/>
+            <Button x:Name="EditorButton" Content="Editor..." Width="120" Margin="0,0,10,0" Click="EditorButton_Click"/>
+            <Button x:Name="ExitButton" Content="Salir" Width="80" Click="ExitButton_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

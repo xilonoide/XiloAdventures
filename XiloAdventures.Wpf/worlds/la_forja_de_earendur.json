@@ -1,0 +1,152 @@
+{
+  "Game": {
+    "Id": "la_forja_de_earendur",
+    "Title": "La Forja de Eärendur",
+    "StartRoomId": "bosque_entrada",
+    "WorldMusicId": "mundo_tema.mp3"
+  },
+  "Rooms": [
+    {
+      "Id": "bosque_entrada",
+      "Name": "Entrada del Bosque de Ithilien",
+      "Description": "Te encuentras en la entrada de un bosque antiguo. Un sendero conduce hacia una forja al este.",
+      "ImageId": "bosque_entrada",
+      "MusicId": "bosque.mp3",
+      "Exits": [
+        {
+          "Direction": "este",
+          "TargetRoomId": "forja_exterior",
+          "IsLocked": false
+        }
+      ],
+      "ObjectIds": [],
+      "NpcIds": [],
+      "Tags": []
+    },
+    {
+      "Id": "forja_exterior",
+      "Name": "Exterior de la Forja de Eärendur",
+      "Description": "Ante ti se alza una forja enana excavada en la roca. La entrada principal está hacia el norte.",
+      "ImageId": "forja_exterior",
+      "MusicId": "forja_exterior.mp3",
+      "Exits": [
+        {
+          "Direction": "oeste",
+          "TargetRoomId": "bosque_entrada",
+          "IsLocked": false
+        },
+        {
+          "Direction": "norte",
+          "TargetRoomId": "forja_interior",
+          "IsLocked": false
+        }
+      ],
+      "ObjectIds": [],
+      "NpcIds": [
+        "earendur"
+      ],
+      "Tags": []
+    },
+    {
+      "Id": "forja_interior",
+      "Name": "Interior de la Forja de Eärendur",
+      "Description": "Braseros encendidos iluminan armas a medio forjar. El calor es intenso.",
+      "ImageId": "forja_interior",
+      "MusicId": "forja_interior.mp3",
+      "Exits": [
+        {
+          "Direction": "sur",
+          "TargetRoomId": "forja_exterior",
+          "IsLocked": false
+        }
+      ],
+      "ObjectIds": [
+        "espada_mithril"
+      ],
+      "NpcIds": [],
+      "Tags": []
+    }
+  ],
+  "Objects": [
+    {
+      "Id": "piedra_bosque",
+      "Name": "Piedra musgosa",
+      "Description": "Una piedra cubierta de musgo que parece fuera de lugar.",
+      "CanTake": true,
+      "IsContainer": false,
+      "ContainedObjectIds": [],
+      "Tags": [
+        "piedra"
+      ],
+      "BaseValue": 0,
+      "Quality": 1,
+      "RoomId": "bosque_entrada",
+      "Visible": true
+    },
+    {
+      "Id": "espada_mithril",
+      "Name": "Espada de mithril inacabada",
+      "Description": "Una hoja brillante de mithril, aún sin empuñadura.",
+      "CanTake": true,
+      "IsContainer": false,
+      "ContainedObjectIds": [],
+      "Tags": [
+        "arma",
+        "mithril"
+      ],
+      "BaseValue": 1000,
+      "Quality": 5,
+      "RoomId": "forja_interior",
+      "Visible": true
+    }
+  ],
+  "Npcs": [
+    {
+      "Id": "earendur",
+      "Name": "Eärendur, maestro herrero",
+      "Description": "Un enano de barba plateada y mirada profunda.",
+      "RoomId": "forja_exterior",
+      "Dialogue": [
+        {
+          "Index": 1,
+          "Text": "Bienvenido, viajero. Buscas la Última Espada de Mithril, ¿verdad?"
+        },
+        {
+          "Index": 2,
+          "Text": "Trae la hoja inacabada desde el interior de la forja y hablaremos de tu destino."
+        }
+      ],
+      "InventoryObjectIds": [],
+      "Stats": {
+        "Level": 10,
+        "Strength": 12,
+        "Dexterity": 8,
+        "Intelligence": 14,
+        "MaxHealth": 30,
+        "CurrentHealth": 30,
+        "Gold": 100
+      },
+      "Behavior": "mentor",
+      "Tags": [
+        "herrero"
+      ],
+      "Visible": true
+    }
+  ],
+  "Quests": [
+    {
+      "Id": "ultima_espada_mithril",
+      "Name": "La Última Espada de Mithril",
+      "Description": "Ayuda a Eärendur a completar la última espada de mithril.",
+      "StartRoomId": "forja_exterior",
+      "Objectives": [
+        "Habla con Eärendur en el exterior de la forja.",
+        "Encuentra la hoja de mithril en el interior de la forja.",
+        "Devuelve la hoja a Eärendur."
+      ]
+    }
+  ],
+  "UseRules": [],
+  "TradeRules": [],
+  "Events": []
+}

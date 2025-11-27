@@ -1,0 +1,47 @@
+<Window x:Class="XiloAdventures.Wpf.Windows.RenameRoomWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Renombrar sala"
+        Height="180" Width="460"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="#222222"
+        Foreground="White"
+        ShowInTaskbar="False">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock x:Name="MessageText"
+                   Grid.Row="0"
+                   Text="Nuevo nombre para la sala:"
+                   TextWrapping="Wrap"
+                   Margin="0,0,0,8" />
+
+        <TextBox x:Name="NameTextBox"
+                 Grid.Row="1"
+                 Margin="0,0,0,8"
+                 Background="#333333"
+                 Foreground="White"
+                 BorderBrush="#555555"
+                 BorderThickness="1" />
+
+        <StackPanel Grid.Row="2"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,8,0,0">
+            <Button Content="Aceptar"
+                    Width="90"
+                    Margin="0,0,8,0"
+                    IsDefault="True"
+                    Click="OkButton_Click" />
+            <Button Content="Cancelar"
+                    Width="90"
+                    IsCancel="True"
+                    Click="CancelButton_Click" />
+        </StackPanel>
+    </Grid>
+</Window>
