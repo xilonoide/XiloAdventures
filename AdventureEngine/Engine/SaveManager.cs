@@ -20,6 +20,9 @@ public class SaveData
     public List<GameObject>? Objects { get; set; }
     public List<Npc>? Npcs { get; set; }
 
+    public List<Door>? Doors { get; set; }
+    public List<KeyDefinition>? Keys { get; set; }
+
     public Dictionary<string, QuestState>? Quests { get; set; }
     public List<UseRule>? UseRules { get; set; }
     public List<TradeRule>? TradeRules { get; set; }
@@ -53,6 +56,8 @@ public static class SaveManager
             Rooms = new List<Room>(state.Rooms),
             Objects = new List<GameObject>(state.Objects),
             Npcs = new List<Npc>(state.Npcs),
+            Doors = new List<Door>(state.Doors),
+            Keys = new List<KeyDefinition>(state.Keys),
 
             Quests = new Dictionary<string, QuestState>(state.Quests),
             UseRules = new List<UseRule>(state.UseRules),
@@ -81,6 +86,8 @@ public static class SaveManager
         var objects = data.Objects ?? world.Objects;
         var npcs = data.Npcs ?? world.Npcs;
         var quests = data.Quests ?? new Dictionary<string, QuestState>(StringComparer.OrdinalIgnoreCase);
+        var doors = data.Doors ?? world.Doors;
+        var keys = data.Keys ?? world.Keys;
 
         var state = new GameState
         {
@@ -95,6 +102,8 @@ public static class SaveManager
             Rooms = rooms,
             Objects = objects,
             Npcs = npcs,
+            Doors = doors,
+            Keys = keys,
 
             Quests = quests,
             UseRules = data.UseRules ?? world.UseRules,

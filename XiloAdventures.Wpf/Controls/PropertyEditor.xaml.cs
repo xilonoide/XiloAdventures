@@ -70,7 +70,9 @@ public partial class PropertyEditor : UserControl
             else
             {
                 // StartRoomId: selector de sala
-                if (prop.Name == "StartRoomId" && prop.PropertyType == typeof(string) && GetRooms != null)
+                // Selectores de sala (StartRoomId, RoomId, RoomIdA, RoomIdB)
+                if (prop.PropertyType == typeof(string) && GetRooms != null &&
+                    (prop.Name == "StartRoomId" || prop.Name == "RoomId" || prop.Name == "RoomIdA" || prop.Name == "RoomIdB"))
                 {
                     var rooms = GetRooms().ToList();
                     var combo = new ComboBox
@@ -103,7 +105,6 @@ public partial class PropertyEditor : UserControl
 
                     editor = combo;
                 }
-                // WorldMusicId: textbox + botón para elegir archivo de música del mundo
                 else if (prop.Name == "WorldMusicId" && prop.PropertyType == typeof(string))
                 {
                     var valueObj = prop.GetValue(obj);

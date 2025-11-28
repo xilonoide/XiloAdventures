@@ -15,6 +15,9 @@ public class WorldModel
     public List<TradeRule> TradeRules { get; set; } = new();
     public List<EventRule> Events { get; set; } = new();
 
+    public List<Door> Doors { get; set; } = new();
+    public List<KeyDefinition> Keys { get; set; } = new();
+
     /// <summary>
     /// Posiciones del mapa para cada sala (coordenadas lógicas X/Y) usadas por el editor.
     /// </summary>
@@ -61,6 +64,12 @@ public class Exit
 
     public bool IsLocked { get; set; }
     public string? LockId { get; set; }
+
+    /// <summary>
+    /// Si esta salida está asociada a una puerta física del mundo, su Id.
+    /// Si es null, la salida funciona como hasta ahora (solo con IsLocked/LockId).
+    /// </summary>
+    public string? DoorId { get; set; }
 
     public string? RequiredQuestId { get; set; }
     public QuestStatus? RequiredQuestStatus { get; set; }
@@ -221,6 +230,9 @@ public class GameState
     public List<UseRule> UseRules { get; set; } = new();
     public List<TradeRule> TradeRules { get; set; } = new();
     public List<EventRule> Events { get; set; } = new();
+
+    public List<Door> Doors { get; set; } = new();
+    public List<KeyDefinition> Keys { get; set; } = new();
 
     public Dictionary<string, bool> Flags { get; set; } = new();
     public List<string> InventoryObjectIds { get; set; } = new();

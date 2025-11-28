@@ -116,6 +116,12 @@ public partial class WorldEditorWindow : Window
                 case QuestDefinition q:
                     headerText = q.Name;
                     break;
+                case Door d:
+                    headerText = d.Name;
+                    break;
+                case KeyDefinition k:
+                    headerText = string.IsNullOrWhiteSpace(k.ObjectId) ? k.Id : $"Llave ({k.ObjectId})";
+                    break;
             }
 
             item.Header = headerText;
@@ -143,6 +149,9 @@ public partial class WorldEditorWindow : Window
     {
         WorldTree.Items.Clear();
 
+        _world.Doors ??= new List<Door>();
+        _world.Keys ??= new List<KeyDefinition>();
+
         var gameNode = new TreeViewItem { Header = "Juego", Tag = _world.Game, Foreground = Brushes.White };
         WorldTree.Items.Add(gameNode);
 
@@ -152,6 +161,13 @@ public partial class WorldEditorWindow : Window
             roomsRoot.Items.Add(new TreeViewItem { Header = room.Name, Tag = room, Foreground = Brushes.White });
         }
         WorldTree.Items.Add(roomsRoot);
+
+        var doorsRoot = new TreeViewItem { Header = "Puertas", Foreground = Brushes.White };
+        foreach (var door in _world.Doors)
+        {
+            doorsRoot.Items.Add(new TreeViewItem { Header = door.Name, Tag = door, Foreground = Brushes.White });
+        }
+        WorldTree.Items.Add(doorsRoot);
 
         var objsRoot = new TreeViewItem { Header = "Objetos", Foreground = Brushes.White };
         foreach (var obj in _world.Objects)
@@ -173,6 +189,15 @@ public partial class WorldEditorWindow : Window
             questsRoot.Items.Add(new TreeViewItem { Header = q.Name, Tag = q, Foreground = Brushes.White });
         }
         WorldTree.Items.Add(questsRoot);
+
+        var keysRoot = new TreeViewItem { Header = "Llaves", Foreground = Brushes.White };
+        foreach (var k in _world.Keys)
+        {
+            // Mostramos el nombre del objeto asociado o el Id de la llave
+            var header = string.IsNullOrWhiteSpace(k.ObjectId) ? k.Id : $"Llave ({k.ObjectId})";
+            keysRoot.Items.Add(new TreeViewItem { Header = header, Tag = k, Foreground = Brushes.White });
+        }
+        WorldTree.Items.Add(keysRoot);
 
         // Seleccionar por defecto el nodo Juego al (re)construir el árbol
         gameNode.IsSelected = true;
@@ -571,6 +596,58 @@ public partial class WorldEditorWindow : Window
         }
     }
 
+    private void AddDoor_Click(object sender, RoutedEventArgs e)
+    {
+        _world.Doors ??= new List<Door>();
+
+        var index = _world.Doors.Count + 1;
+        var door = new Door
+        {
+            Id = $"door_{index}",
+            Name = $"Puerta {index}",
+            Description = "Nueva puerta.",
+            IsOpen = false,
+            HasLock = false,
+            LockId = string.Empty,
+            OpenFromSide = DoorOpenSide.Both
+        };
+
+        // Si hay una sala seleccionada, la usamos como RoomIdA por defecto
+        if (WorldTree.SelectedItem is TreeViewItem item && item.Tag is Room room)
+        {
+            door.RoomIdA = room.Id;
+        }
+
+        _world.Doors.Add(door);
+        BuildTree();
+        PropertyEditor.SetObject(door);
+        PushUndoSnapshot();
+    }
+
+    private void AddKey_Click(object sender, RoutedEventArgs e)
+    {
+        _world.Keys ??= new List<KeyDefinition>();
+
+        var index = _world.Keys.Count + 1;
+        var key = new KeyDefinition
+        {
+            Id = $"key_{index}",
+            ObjectId = string.Empty
+        };
+
+        // Si hay un objeto seleccionado, lo usamos como objeto asociado a la llave
+        if (WorldTree.SelectedItem is TreeViewItem item && item.Tag is GameObject obj)
+        {
+            key.ObjectId = obj.Id;
+        }
+
+        _world.Keys.Add(key);
+        BuildTree();
+        PropertyEditor.SetObject(key);
+        PushUndoSnapshot();
+    }
+
+
     private void AddObject_Click(object sender, RoutedEventArgs e)
     {
         var index = _world.Objects.Count + 1;
@@ -688,6 +765,12 @@ public partial class WorldEditorWindow : Window
             case QuestDefinition quest:
                 DeleteQuest(quest);
                 break;
+            case Door door:
+                DeleteDoor(door);
+                break;
+            case KeyDefinition key:
+                DeleteKey(key);
+                break;
         }
     }
 
@@ -707,6 +790,14 @@ public partial class WorldEditorWindow : Window
         foreach (var r in _world.Rooms)
         {
             r.Exits.RemoveAll(ex => string.Equals(ex.TargetRoomId, room.Id, StringComparison.OrdinalIgnoreCase));
+        }
+
+        // Quitar puertas que conecten con esta sala
+        if (_world.Doors != null)
+        {
+            _world.Doors.RemoveAll(d =>
+                string.Equals(d.RoomIdA, room.Id, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(d.RoomIdB, room.Id, StringComparison.OrdinalIgnoreCase));
         }
 
         // Desasociar objetos y NPCs de esta sala
@@ -765,6 +856,55 @@ public partial class WorldEditorWindow : Window
         BuildTree();
         MapPanel.SetWorld(_world);
     }
+
+    private void DeleteDoor(Door door)
+    {
+        if (door is null) return;
+
+        var dlg = new ConfirmWindow($"¿Eliminar la puerta '{door.Name}'?", "Confirmar eliminación")
+        {
+            Owner = this
+        };
+
+        if (dlg.ShowDialog() != true)
+            return;
+
+        // Quitar referencias a esta puerta desde las salidas
+        foreach (var room in _world.Rooms)
+        {
+            foreach (var ex in room.Exits)
+            {
+                if (string.Equals(ex.DoorId, door.Id, StringComparison.OrdinalIgnoreCase))
+                {
+                    ex.DoorId = null;
+                }
+            }
+        }
+
+        _world.Doors?.Remove(door);
+
+        BuildTree();
+        MapPanel.SetWorld(_world);
+    }
+
+    private void DeleteKey(KeyDefinition key)
+    {
+        if (key is null) return;
+
+        var dlg = new ConfirmWindow($"¿Eliminar la definición de llave '{key.Id}'?", "Confirmar eliminación")
+        {
+            Owner = this
+        };
+
+        if (dlg.ShowDialog() != true)
+            return;
+
+        _world.Keys?.Remove(key);
+
+        BuildTree();
+        MapPanel.SetWorld(_world);
+    }
+
 
     private void DeleteNpc(Npc npc)
     {

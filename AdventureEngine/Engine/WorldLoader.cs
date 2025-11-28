@@ -28,6 +28,8 @@ public static class WorldLoader
         world.UseRules ??= new List<UseRule>();
         world.TradeRules ??= new List<TradeRule>();
         world.Events ??= new List<EventRule>();
+        world.Doors ??= new List<Door>();
+        world.Keys ??= new List<KeyDefinition>();
         world.RoomPositions ??= new Dictionary<string, MapPosition>();
 
         return world;
@@ -45,7 +47,9 @@ public static class WorldLoader
             Npcs = CloneList(world.Npcs),
             UseRules = CloneList(world.UseRules),
             TradeRules = CloneList(world.TradeRules),
-            Events = CloneList(world.Events)
+            Events = CloneList(world.Events),
+            Doors = CloneList(world.Doors),
+            Keys = CloneList(world.Keys)
         };
 
         state.Quests = new Dictionary<string, QuestState>();

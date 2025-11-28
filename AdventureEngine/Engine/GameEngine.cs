@@ -11,6 +11,7 @@ public class GameEngine
     private readonly WorldModel _world;
     private readonly SoundManager _sound;
     private readonly GameState _state;
+    private readonly DoorService _doorService;
     private DateTime _lastRealTime;
 
     public GameState State => _state;
@@ -22,6 +23,7 @@ public class GameEngine
         _world = world;
         _sound = soundManager;
         _state = state;
+        _doorService = new DoorService(_state.Doors, _state.Keys);
 
         // Inicializar hora de juego al comenzar la partida si no viene informada.
         if (_state.GameTime == default)
@@ -76,6 +78,14 @@ public class GameEngine
 
             case "go":
                 sb.AppendLine(HandleGo(parsed));
+                break;
+
+            case "open":
+                sb.AppendLine(HandleOpen(parsed));
+                break;
+
+            case "close":
+                sb.AppendLine(HandleClose(parsed));
                 break;
 
             case "inventory":
@@ -264,8 +274,17 @@ public class GameEngine
         if (exit == null)
             return "No puedes ir en esa dirección.";
 
-        if (exit.IsLocked)
+        // Si la salida está asociada a una puerta, usamos el estado de la puerta.
+        if (!string.IsNullOrEmpty(exit.DoorId))
+        {
+            var door = _state.Doors.FirstOrDefault(d => d.Id.Equals(exit.DoorId, StringComparison.OrdinalIgnoreCase));
+            if (door != null && !door.IsOpen)
+                return "La puerta está cerrada.";
+        }
+        else if (exit.IsLocked)
+        {
             return "La salida está bloqueada.";
+        }
 
         var target = _state.Rooms.FirstOrDefault(r => r.Id.Equals(exit.TargetRoomId, StringComparison.OrdinalIgnoreCase));
         if (target == null)
@@ -277,7 +296,118 @@ public class GameEngine
         return DescribeCurrentRoom();
     }
 
-    private string HandleTake(ParsedCommand parsed)
+    
+
+    private Door? FindDoorInCurrentRoomByName(Room room, string arg)
+    {
+        if (string.IsNullOrWhiteSpace(arg))
+            return null;
+
+        return _state.Doors.FirstOrDefault(d =>
+            (string.Equals(d.RoomIdA, room.Id, StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(d.RoomIdB, room.Id, StringComparison.OrdinalIgnoreCase)) &&
+            !string.IsNullOrEmpty(d.Name) &&
+            d.Name.Contains(arg, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private string HandleOpen(ParsedCommand parsed)
+    {
+        var room = CurrentRoom;
+        if (room == null)
+            return "Estás perdido.";
+
+        var arg = (parsed.DirectObject ?? string.Empty).Trim();
+        if (string.IsNullOrEmpty(arg))
+            return "¿Qué quieres abrir?";
+
+        // 1) Buscar puerta por nombre en la sala actual.
+        var door = FindDoorInCurrentRoomByName(room, arg);
+
+        // 2) Si no encontramos por nombre, probamos si es una dirección
+        //    (por ejemplo: "abrir norte").
+        if (door == null)
+        {
+            var exit = room.Exits.FirstOrDefault(e =>
+                string.Equals(NormalizeDirection(e.Direction), NormalizeDirection(arg), StringComparison.OrdinalIgnoreCase));
+
+            if (exit != null && !string.IsNullOrEmpty(exit.DoorId))
+            {
+                door = _state.Doors.FirstOrDefault(d => d.Id.Equals(exit.DoorId, StringComparison.OrdinalIgnoreCase));
+            }
+        }
+
+        if (door == null)
+            return "Aquí no hay ninguna puerta así.";
+
+        // Objetos disponibles: inventario + objetos de la sala.
+        var availableObjectIds = new List<string>(_state.InventoryObjectIds);
+        availableObjectIds.AddRange(room.ObjectIds);
+
+        var result = _doorService.TryOpenDoor(door.Id, room.Id, availableObjectIds);
+
+        switch (result.MessageKey)
+        {
+            case "door_wrong_side":
+                return "No puedes abrir la puerta desde este lado.";
+            case "door_requires_key":
+                return "La puerta está cerrada con llave.";
+            case "door_already_open":
+                return "La puerta ya está abierta.";
+            case "door_opened":
+                return $"Abres {door.Name}.";
+            case "door_not_found":
+            default:
+                return "Aquí no hay ninguna puerta así.";
+        }
+    }
+
+    private string HandleClose(ParsedCommand parsed)
+    {
+        var room = CurrentRoom;
+        if (room == null)
+            return "Estás perdido.";
+
+        var arg = (parsed.DirectObject ?? string.Empty).Trim();
+        if (string.IsNullOrEmpty(arg))
+            return "¿Qué quieres cerrar?";
+
+        var door = FindDoorInCurrentRoomByName(room, arg);
+
+        if (door == null)
+        {
+            var exit = room.Exits.FirstOrDefault(e =>
+                string.Equals(NormalizeDirection(e.Direction), NormalizeDirection(arg), StringComparison.OrdinalIgnoreCase));
+
+            if (exit != null && !string.IsNullOrEmpty(exit.DoorId))
+            {
+                door = _state.Doors.FirstOrDefault(d => d.Id.Equals(exit.DoorId, StringComparison.OrdinalIgnoreCase));
+            }
+        }
+
+        if (door == null)
+            return "Aquí no hay ninguna puerta así.";
+
+        var availableObjectIds = new List<string>(_state.InventoryObjectIds);
+        availableObjectIds.AddRange(room.ObjectIds);
+
+        var result = _doorService.TryCloseDoor(door.Id, room.Id, availableObjectIds);
+
+        switch (result.MessageKey)
+        {
+            case "door_wrong_side":
+                return "No puedes cerrar la puerta desde este lado.";
+            case "door_requires_key":
+                return "La puerta está cerrada con llave y no tienes la llave adecuada.";
+            case "door_already_closed":
+                return "La puerta ya está cerrada.";
+            case "door_closed":
+                return $"Cierras {door.Name}.";
+            case "door_not_found":
+            default:
+                return "Aquí no hay ninguna puerta así.";
+        }
+    }
+private string HandleTake(ParsedCommand parsed)
     {
         var room = CurrentRoom;
         if (room == null)
