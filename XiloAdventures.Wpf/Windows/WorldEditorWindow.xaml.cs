@@ -11,6 +11,7 @@ using System.Text.Json;
 using XiloAdventures.Engine;
 using XiloAdventures.Engine.Models;
 using XiloAdventures.Wpf.Controls;
+using XiloAdventures.Wpf.Ui;
 
 namespace XiloAdventures.Wpf.Windows;
 
@@ -25,15 +26,14 @@ public partial class WorldEditorWindow : Window
 
     private readonly UndoRedoManager _undoRedo = new();
 
+    private bool _isPlayRunning;
+
     public WorldEditorWindow()
     {
         InitializeComponent();
         PropertyEditor.PropertyEdited += PropertyEditor_PropertyEdited;
         PropertyEditor.GetRooms = () => _world.Rooms;
         MapPanel.RoomClicked += MapPanel_RoomClicked;
-        MapPanel.DoorClicked += MapPanel_DoorClicked;
-        MapPanel.DoorKeyRequested += MapPanel_DoorKeyRequested;
-        MapPanel.ExitDoubleClicked += MapPanel_ExitDoubleClicked;
         MapPanel.MapEdited += MapPanel_MapEdited;
         BuildTree();
         MapPanel.SetWorld(_world);
@@ -97,7 +97,6 @@ public partial class WorldEditorWindow : Window
         }
 
         PushUndoSnapshot();
-        MapPanel.InvalidateVisual();
     }
 
     private void UpdateTreeHeaderRecursive(TreeViewItem item, object target)
@@ -137,98 +136,11 @@ public partial class WorldEditorWindow : Window
         }
     }
 
-        private void MapPanel_RoomClicked(Room room)
+    private void MapPanel_RoomClicked(Room room)
     {
         // seleccionar en el árbol la sala correspondiente
         SelectRoomInTree(room);
         MapPanel.SetSelectedRoom(room);
-    }
-
-    private void MapPanel_DoorClicked(Door door)
-    {
-        if (door is null) return;
-
-        SelectDoorInTree(door);
-        PropertyEditor.SetObject(door);
-    }
-
-
-    private void MapPanel_DoorKeyRequested(Door door)
-    {
-        if (door is null)
-            return;
-
-        CreateKeyForDoor(door);
-    }
-
-    private void MapPanel_ExitDoubleClicked(Room room, int exitIndex)
-    {
-        if (room == null || room.Exits == null)
-            return;
-
-        if (exitIndex < 0 || exitIndex >= room.Exits.Count)
-            return;
-
-        var exit = room.Exits[exitIndex];
-        if (exit == null || string.IsNullOrEmpty(exit.TargetRoomId))
-            return;
-
-        var target = _world.Rooms.FirstOrDefault(r => r.Id == exit.TargetRoomId);
-        if (target == null)
-            return;
-
-        _world.Doors ??= new List<Door>();
-
-        // Buscar si ya existe una puerta que conecte estas salas.
-        var existingDoor = _world.Doors.FirstOrDefault(d =>
-            !string.IsNullOrEmpty(d.RoomIdA) &&
-            !string.IsNullOrEmpty(d.RoomIdB) &&
-            ((string.Equals(d.RoomIdA, room.Id, StringComparison.OrdinalIgnoreCase) &&
-              string.Equals(d.RoomIdB, target.Id, StringComparison.OrdinalIgnoreCase)) ||
-             (string.Equals(d.RoomIdB, room.Id, StringComparison.OrdinalIgnoreCase) &&
-              string.Equals(d.RoomIdA, target.Id, StringComparison.OrdinalIgnoreCase))));
-
-        Door door;
-        if (existingDoor != null)
-        {
-            door = existingDoor;
-        }
-        else
-        {
-            int index = _world.Doors.Count + 1;
-            door = new Door
-            {
-                Id = $"door_{index}",
-                Name = $"Puerta {index}",
-                Description = "Puerta creada desde una salida.",
-                IsOpen = true,
-                HasLock = false,
-                LockId = string.Empty,
-                OpenFromSide = DoorOpenSide.Both,
-                RoomIdA = room.Id,
-                RoomIdB = target.Id
-            };
-            _world.Doors.Add(door);
-            BuildTree();
-        }
-
-        // Asociar la salida (y su posible salida opuesta) con la puerta.
-        exit.DoorId ??= door.Id;
-        if (target.Exits != null)
-        {
-            var opposite = target.Exits.FirstOrDefault(ex =>
-                !string.IsNullOrEmpty(ex.TargetRoomId) &&
-                string.Equals(ex.TargetRoomId, room.Id, StringComparison.OrdinalIgnoreCase));
-            if (opposite != null && string.IsNullOrEmpty(opposite.DoorId))
-            {
-                opposite.DoorId = door.Id;
-            }
-        }
-
-        SelectDoorInTree(door);
-        PropertyEditor.SetObject(door);
-        MapPanel.InvalidateVisual();
-        PushUndoSnapshot();
     }
 
     private void MapPanel_MapEdited()
@@ -564,7 +476,102 @@ public partial class WorldEditorWindow : Window
         }
     }
 
-    private void SaveMenu_Click(object sender, RoutedEventArgs e)
+    
+
+    private void PlayButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isPlayRunning)
+            return;
+
+        if (_world == null)
+            return;
+
+        _isPlayRunning = true;
+        PlayButton.IsEnabled = false;
+
+        try
+        {
+            // Sincronizamos posiciones del mapa con el modelo y guardamos el mundo actual.
+            try
+            {
+                var roomIds = _world.Rooms.Select(r => r.Id);
+                var positions = MapPanel.GetRoomPositions(roomIds);
+
+                _world.RoomPositions ??= new Dictionary<string, MapPosition>();
+                _world.RoomPositions.Clear();
+
+                foreach (var kv in positions)
+                {
+                    _world.RoomPositions[kv.Key] = new MapPosition
+                    {
+                        X = kv.Value.X,
+                        Y = kv.Value.Y
+                    };
+                }
+
+                Directory.CreateDirectory(AppPaths.WorldsFolder);
+
+                if (string.IsNullOrEmpty(_currentPath))
+                {
+                    var baseName = string.IsNullOrWhiteSpace(_world.Game.Id)
+                        ? "mundo_desde_editor"
+                        : _world.Game.Id;
+                    _currentPath = Path.Combine(AppPaths.WorldsFolder, baseName + ".xaw");
+                }
+
+                WorldLoader.SaveWorldModel(_world, _currentPath);
+            }
+            catch (Exception ex)
+            {
+                new AlertWindow($"Error al guardar el mundo para probarlo:\n{ex.Message}", "Error")
+                {
+                    Owner = this
+                }.ShowDialog();
+                return;
+            }
+
+            WorldModel world;
+            GameState state;
+            try
+            {
+                world = WorldLoader.LoadWorldModel(_currentPath);
+                state = WorldLoader.CreateInitialState(world);
+            }
+            catch (Exception ex)
+            {
+                new AlertWindow($"Error al preparar la partida de prueba:\n{ex.Message}", "Error")
+                {
+                    Owner = this
+                }.ShowDialog();
+                return;
+            }
+
+            var uiSettings = UiSettingsManager.LoadForWorld(world.Game.Id);
+            // Respetar la configuración de sonido global
+            uiSettings.SoundEnabled = UiSettingsManager.GlobalSettings.SoundEnabled;
+
+            var soundManager = new SoundManager(AppPaths.SoundFolder)
+            {
+                SoundEnabled = uiSettings.SoundEnabled
+            };
+
+            var main = new MainWindow(world, state, soundManager, uiSettings)
+            {
+                Owner = this
+            };
+
+            // Mostramos la ventana de juego como diálogo modal para no abrir varios tests a la vez.
+            main.ShowDialog();
+        }
+        finally
+        {
+            _isPlayRunning = false;
+            if (PlayButton != null)
+                PlayButton.IsEnabled = true;
+        }
+    }
+
+private void SaveMenu_Click(object sender, RoutedEventArgs e)
     {
         if (string.IsNullOrEmpty(_currentPath))
         {
@@ -1060,28 +1067,6 @@ public partial class WorldEditorWindow : Window
                     }
                 }
             }
-        }    }
-
-    private void SelectDoorInTree(Door door)
-    {
-        if (door is null) return;
-
-        foreach (TreeViewItem root in WorldTree.Items)
-        {
-            if (root.Header?.ToString() == "Puertas")
-            {
-                foreach (TreeViewItem child in root.Items.OfType<TreeViewItem>())
-                {
-                    if (child.Tag == door)
-                    {
-                        WorldTree.Focus();
-                        child.IsSelected = true;
-                        child.BringIntoView();
-                        child.Focus();
-                        return;
-                    }
-                }
-            }
         }
     }
 
@@ -1476,81 +1461,7 @@ public partial class WorldEditorWindow : Window
         base.OnClosing(e);
     }
 
-    
-
-    private void CreateKeyForDoor(Door door)
-    {
-        if (door == null)
-            return;
-
-        if (_world.Objects == null || _world.Objects.Count == 0)
-        {
-            var alert = new AlertWindow("No hay objetos definidos en el mundo para usar como llave.", "Crear llave");
-            alert.Owner = this;
-            alert.ShowDialog();
-            return;
-        }
-
-        var dialog = new DoorKeyWindow(door, _world.Objects)
-        {
-            Owner = this
-        };
-
-        bool? result = dialog.ShowDialog();
-        if (result != true || string.IsNullOrWhiteSpace(dialog.SelectedObjectId))
-            return;
-
-        string selectedObjectId = dialog.SelectedObjectId!;
-
-        _world.Keys ??= new List<KeyDefinition>();
-
-        string lockId;
-        if (door.HasLock && !string.IsNullOrWhiteSpace(door.LockId))
-        {
-            lockId = door.LockId!;
-        }
-        else
-        {
-            lockId = $"lock_{_world.Keys.Count + 1}";
-            door.HasLock = true;
-            door.LockId = lockId;
-        }
-
-        var key = new KeyDefinition
-        {
-            ObjectId = selectedObjectId
-        };
-        key.LockIds.Add(lockId);
-        _world.Keys.Add(key);
-
-        // Marcar las salidas asociadas a esta puerta como bloqueadas con este LockId.
-        foreach (var room in _world.Rooms)
-        {
-            if (room.Exits == null)
-                continue;
-
-            foreach (var exit in room.Exits)
-            {
-                if (exit == null)
-                    continue;
-
-                if (!string.IsNullOrEmpty(exit.DoorId) &&
-                    string.Equals(exit.DoorId, door.Id, StringComparison.OrdinalIgnoreCase))
-                {
-                    exit.IsLocked = true;
-                    exit.LockId = lockId;
-                }
-            }
-        }
-
-        BuildTree();
-        SelectDoorInTree(door);
-        PropertyEditor.SetObject(door);
-        MapPanel.InvalidateVisual();
-        PushUndoSnapshot();
-    }
-
-public class SelectRoomWindow : Window
+    public class SelectRoomWindow : Window
     {
         private readonly ComboBox _combo;
         public Room? SelectedRoom { get; private set; }

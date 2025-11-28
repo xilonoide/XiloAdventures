@@ -73,7 +73,7 @@ public class GameEngine
         switch (parsed.Verb)
         {
             case "look":
-                sb.AppendLine(HandleLook(parsed));
+                sb.AppendLine(DescribeCurrentRoom());
                 break;
 
             case "go":
@@ -222,11 +222,10 @@ public class GameEngine
     public string DescribeInventory()
     {
         var sb = new StringBuilder();
-        sb.AppendLine("Inventario:");
 
         if (!_state.InventoryObjectIds.Any())
         {
-            sb.AppendLine(" (no llevas nada)");
+            sb.AppendLine("No llevas nada.");
         }
         else
         {
@@ -256,97 +255,6 @@ public class GameEngine
         return sb.ToString().TrimEnd();
     }
 
-
-    private string HandleLook(ParsedCommand parsed)
-    {
-        var room = CurrentRoom;
-        if (room == null)
-            return "Estás perdido.";
-
-        var arg = (parsed.DirectObject ?? string.Empty).Trim();
-
-        // Sin objeto directo: mirar la sala actual como siempre.
-        if (string.IsNullOrEmpty(arg))
-            return DescribeCurrentRoom();
-
-        var lower = arg.ToLowerInvariant();
-
-        // Patrones tipo "examinar puerta norte", "examinar la puerta norte"
-        if (lower.StartsWith("puerta "))
-        {
-            var dirPart = arg.Substring("puerta ".Length).Trim();
-            if (string.IsNullOrEmpty(dirPart))
-                return "¿Qué puerta quieres examinar?";
-            return DescribeDoorInDirection(room, dirPart);
-        }
-
-        if (lower.StartsWith("la puerta "))
-        {
-            var dirPart = arg.Substring("la puerta ".Length).Trim();
-            if (string.IsNullOrEmpty(dirPart))
-                return "¿Qué puerta quieres examinar?";
-            return DescribeDoorInDirection(room, dirPart);
-        }
-
-        // "examinar puerta" / "examinar la puerta" con una sola puerta en la sala.
-        if (string.Equals(lower, "puerta", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(lower, "la puerta", StringComparison.OrdinalIgnoreCase))
-        {
-            var door = _state.Doors.FirstOrDefault(d =>
-                string.Equals(d.RoomIdA, room.Id, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(d.RoomIdB, room.Id, StringComparison.OrdinalIgnoreCase));
-
-            if (door != null)
-                return DescribeDoor(door);
-
-            return "Aquí no hay ninguna puerta así.";
-        }
-
-        // Si el argumento parece ser una dirección, lo tratamos como "puerta <dirección>".
-        var normDir = NormalizeDirection(arg);
-        if (!string.IsNullOrEmpty(normDir) && !string.Equals(normDir, arg.ToLowerInvariant(), StringComparison.Ordinal))
-        {
-            return DescribeDoorInDirection(room, arg);
-        }
-
-        // De momento, para otros casos mantenemos el comportamiento clásico: re‑mostrar la sala.
-        return DescribeCurrentRoom();
-    }
-
-    private string DescribeDoorInDirection(Room room, string dirText)
-    {
-        if (room.Exits == null || room.Exits.Count == 0)
-            return "Aquí no hay ninguna puerta en esa dirección.";
-
-        var norm = NormalizeDirection(dirText);
-        var exit = room.Exits.FirstOrDefault(e =>
-            string.Equals(NormalizeDirection(e.Direction), norm, StringComparison.OrdinalIgnoreCase));
-
-        if (exit == null || string.IsNullOrEmpty(exit.DoorId))
-            return "Aquí no hay ninguna puerta en esa dirección.";
-
-        var door = _state.Doors.FirstOrDefault(d => d.Id.Equals(exit.DoorId, StringComparison.OrdinalIgnoreCase));
-        if (door == null)
-            return "Aquí no hay ninguna puerta en esa dirección.";
-
-        return DescribeDoor(door);
-    }
-
-    private string DescribeDoor(Door door)
-    {
-        var sb = new StringBuilder();
-
-        if (!string.IsNullOrWhiteSpace(door.Name))
-            sb.AppendLine(door.Name);
-
-        if (!string.IsNullOrWhiteSpace(door.Description))
-            sb.AppendLine(door.Description);
-
-        sb.AppendLine(door.IsOpen ? "La puerta está abierta." : "La puerta está cerrada.");
-
-        return sb.ToString().TrimEnd();
-    }
-
     private string HandleGo(ParsedCommand parsed)
     {
         var room = CurrentRoom;
@@ -370,7 +278,7 @@ public class GameEngine
         {
             var door = _state.Doors.FirstOrDefault(d => d.Id.Equals(exit.DoorId, StringComparison.OrdinalIgnoreCase));
             if (door != null && !door.IsOpen)
-                return "No puedes ir en esa dirección.";
+                return "La puerta está cerrada.";
         }
         else if (exit.IsLocked)
         {

@@ -68,27 +68,36 @@ public partial class MainWindow : Window
         OutputTextBox.ScrollToEnd();
     }
 
+    
     private void InputTextBox_KeyDown(object sender, KeyEventArgs e)
     {
+        // Historial de comandos con flechas arriba/abajo
         if (e.Key == Key.Enter)
         {
             var cmd = InputTextBox.Text.Trim();
             if (string.IsNullOrEmpty(cmd))
+            {
+                e.Handled = true;
                 return;
+            }
 
-            // Comando limpiar a nivel de UI
+            // Comando de limpiar la salida a nivel de UI
             var lower = cmd.ToLowerInvariant();
             if (lower is "limpiar" or "cls" or "clear")
             {
                 OutputTextBox.Document.Blocks.Clear();
                 InputTextBox.Clear();
+                e.Handled = true;
                 return;
             }
 
             AppendText($"> {cmd}");
+
+            // Guardar en historial
             _commandHistory.Add(cmd);
             _commandHistoryIndex = _commandHistory.Count;
 
+            // Enviar al motor
             var result = _engine.ProcessCommand(cmd);
             if (!string.IsNullOrWhiteSpace(result))
                 AppendText(result);
@@ -96,17 +105,13 @@ public partial class MainWindow : Window
             UpdateStatusPanel();
             UpdateRoomVisuals();
 
-            // Autosave salvo para guardar/cargar explícitos (ya gestionados vía menú)
-            if (!_IsSaveOrLoadCommand(lower))
+            try
             {
-                try
-                {
-                    SaveManager.AutoSave(_engine.State, AppPaths.SavesFolder);
-                }
-                catch
-                {
-                    // ignorar errores de autosave
-                }
+                SaveManager.AutoSave(_engine.State, AppPaths.SavesFolder);
+            }
+            catch
+            {
+                // Ignoramos errores de autosave
             }
 
             InputTextBox.Clear();
@@ -115,7 +120,10 @@ public partial class MainWindow : Window
         else if (e.Key == Key.Up)
         {
             if (_commandHistory.Count == 0)
+            {
+                e.Handled = true;
                 return;
+            }
 
             _commandHistoryIndex--;
             if (_commandHistoryIndex < 0)
@@ -128,7 +136,10 @@ public partial class MainWindow : Window
         else if (e.Key == Key.Down)
         {
             if (_commandHistory.Count == 0)
+            {
+                e.Handled = true;
                 return;
+            }
 
             _commandHistoryIndex++;
             if (_commandHistoryIndex >= _commandHistory.Count)
@@ -146,18 +157,17 @@ public partial class MainWindow : Window
         }
         else if (e.Key == Key.PageUp || e.Key == Key.PageDown)
         {
-            // Dejar que el RichTextBox maneje el scroll
+            // Reenviamos PageUp/PageDown al RichTextBox para permitir scroll desde el input
             OutputTextBox.Focus();
             var routed = new KeyEventArgs(e.KeyboardDevice, e.InputSource, e.Timestamp, e.Key)
             {
                 RoutedEvent = Keyboard.KeyDownEvent
             };
-            InputTextBox.MoveFocus(new TraversalRequest(FocusNavigationDirection.Previous));
-            OutputTextBox.RaiseEvent(routed);
-            InputTextBox.Focus();
+            InputManager.Current.ProcessInput(routed);
             e.Handled = true;
         }
     }
+
 
     private static bool _IsSaveOrLoadCommand(string cmd)
         => cmd.StartsWith("guardar") || cmd.StartsWith("cargar");
