@@ -352,6 +352,24 @@ private void DrawConnections(DrawingContext dc)
             .ToDictionary(d => d.Id, d => d, StringComparer.OrdinalIgnoreCase);
     }
 
+    // Conjunto de LockIds que tienen al menos una llave asociada.
+    HashSet<string> locksWithKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    if (_world.Keys != null)
+    {
+        foreach (var key in _world.Keys)
+        {
+            if (key.LockIds == null)
+                continue;
+
+            foreach (var lockId in key.LockIds)
+            {
+                if (!string.IsNullOrWhiteSpace(lockId))
+                {
+                    locksWithKeys.Add(lockId);
+                }
+            }
+        }
+    }
 
     Pen normalPen = new(new SolidColorBrush(Color.FromRgb(160, 160, 160)), 1.2);
     Pen selectedPen = new(new SolidColorBrush(Color.FromRgb(255, 220, 80)), 2.0);
@@ -500,115 +518,89 @@ private void DrawConnections(DrawingContext dc)
                 hitRect = Rect.Union(hitRect, textRect);
 
                 dc.DrawText(formatted, textPos);
+            }
 
-                // Icono de puerta al otro lado de la línea, si la salida tiene una puerta asociada.
-                Door? door = null;
-                if (doorsById != null && !string.IsNullOrEmpty(exit.DoorId))
+            // Iconos de puerta y llave: siempre visibles aunque sólo se muestren
+            // etiquetas de texto para algunas conexiones.
+            Door? door = null;
+            if (doorsById != null && !string.IsNullOrEmpty(exit.DoorId))
+            {
+                doorsById.TryGetValue(exit.DoorId, out door);
+            }
+
+            if (door == null && _world.Doors != null && _world.Doors.Count > 0)
+            {
+                door = _world.Doors.FirstOrDefault(d =>
+                    !string.IsNullOrEmpty(d.RoomIdA) &&
+                    !string.IsNullOrEmpty(d.RoomIdB) &&
+                    ((string.Equals(d.RoomIdA, room.Id, StringComparison.OrdinalIgnoreCase) &&
+                      string.Equals(d.RoomIdB, target.Id, StringComparison.OrdinalIgnoreCase)) ||
+                     (string.Equals(d.RoomIdB, room.Id, StringComparison.OrdinalIgnoreCase) &&
+                      string.Equals(d.RoomIdA, target.Id, StringComparison.OrdinalIgnoreCase))));
+            }
+
+            if (door != null)
+            {
+                const double doorIconWidth = 14.0;
+                const double doorIconHeight = 14.0;
+                const double doorIconMargin = 4.0;
+
+                Point doorTopLeft = new(
+                    mid.X - doorIconWidth / 2.0,
+                    mid.Y + doorIconMargin);
+
+                Rect doorRect = new(
+                    doorTopLeft.X,
+                    doorTopLeft.Y,
+                    doorIconWidth,
+                    doorIconHeight);
+
+                // Guardamos el rectángulo del icono de puerta para hit-test.
+                _doorIconRects[door.Id] = doorRect;
+
+                SolidColorBrush doorFill = door.IsOpen
+                    ? new SolidColorBrush(Color.FromRgb(60, 170, 60))
+                    : new SolidColorBrush(Color.FromRgb(200, 60, 60));
+
+                Pen doorPen = new Pen(new SolidColorBrush(Color.FromRgb(240, 240, 240)), 0.8);
+
+                dc.DrawRoundedRectangle(doorFill, doorPen, doorRect, 3, 3);
+
+                // Pomo de la puerta
+                Point knobCenter = new(
+                    doorRect.Right - 4,
+                    doorRect.Y + doorRect.Height / 2.0);
+                dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(240, 240, 240)), null, knobCenter, 1.5, 1.5);
+
+                // Icono de llave, si la puerta tiene cerradura y al menos una llave asociada.
+                if (door.HasLock && !string.IsNullOrWhiteSpace(door.LockId) &&
+                    locksWithKeys.Contains(door.LockId))
                 {
-                    doorsById.TryGetValue(exit.DoorId, out door);
+                    const double keyIconSize = 12.0;
+                    const double keyIconMargin = 2.0;
+
+                    Rect keyRect = new(
+                        doorRect.Right + keyIconMargin,
+                        doorRect.Y + (doorRect.Height - keyIconSize) / 2.0,
+                        keyIconSize,
+                        keyIconSize);
+
+                    SolidColorBrush keyFill = doorFill; // mismo color que la puerta
+                    Pen keyPen = new Pen(new SolidColorBrush(Color.FromRgb(240, 240, 240)), 0.8);
+
+                    dc.DrawRoundedRectangle(keyFill, keyPen, keyRect, 3, 3);
+
+                    // Un pequeño "diente" de llave dentro
+                    Point toothStart = new(keyRect.X + 3, keyRect.Y + keyRect.Height / 2.0);
+                    Point toothEnd = new(keyRect.Right - 3, keyRect.Y + keyRect.Height / 2.0);
+                    dc.DrawLine(new Pen(new SolidColorBrush(Color.FromRgb(240, 240, 240)), 1.2), toothStart, toothEnd);
+
+                    // Ampliamos el hit-test para cubrir también el icono de llave.
+                    hitRect = Rect.Union(hitRect, keyRect);
                 }
 
-                if (door == null && _world.Doors != null && _world.Doors.Count > 0)
-                {
-                    door = _world.Doors.FirstOrDefault(d =>
-                        !string.IsNullOrEmpty(d.RoomIdA) &&
-                        !string.IsNullOrEmpty(d.RoomIdB) &&
-                        ((string.Equals(d.RoomIdA, room.Id, StringComparison.OrdinalIgnoreCase) &&
-                          string.Equals(d.RoomIdB, target.Id, StringComparison.OrdinalIgnoreCase)) ||
-                         (string.Equals(d.RoomIdB, room.Id, StringComparison.OrdinalIgnoreCase) &&
-                          string.Equals(d.RoomIdA, target.Id, StringComparison.OrdinalIgnoreCase))));
-                }
-
-                if (door != null)
-                {
-                    const double doorIconWidth = 14.0;
-                    const double doorIconHeight = 14.0;
-                    const double doorIconMargin = 4.0;
-
-                    Point doorTopLeft = new(
-                        mid.X - doorIconWidth / 2.0,
-                        mid.Y + doorIconMargin);
-
-                    Rect doorRect = new(
-                        doorTopLeft.X,
-                        doorTopLeft.Y,
-                        doorIconWidth,
-                        doorIconHeight);
-
-                    // Guardamos el rectángulo del icono de puerta para hit-test.
-                    _doorIconRects[door.Id] = doorRect;
-
-                    SolidColorBrush doorFill = door.IsOpen
-                        ? new SolidColorBrush(Color.FromRgb(60, 170, 60))
-                        : new SolidColorBrush(Color.FromRgb(200, 60, 60));
-
-                    Pen doorPen = new Pen(new SolidColorBrush(Color.FromRgb(240, 240, 240)), 0.8);
-
-                    dc.DrawRoundedRectangle(doorFill, doorPen, doorRect, 3, 3);
-
-                    // Pomo de la puerta
-                    Point knobCenter = new(
-                        doorRect.Right - 4,
-                        doorRect.Y + doorRect.Height / 2.0);
-                    dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(240, 240, 240)), null, knobCenter, 1.5, 1.5);
-
-                    // Icono de llave, si existe alguna llave asociada a la cerradura de la puerta.
-                    if (door.HasLock && !string.IsNullOrWhiteSpace(door.LockId) && _world.Keys != null && _world.Keys.Count > 0)
-                    {
-                        bool hasKeyForDoor = _world.Keys.Any(k =>
-                            k.LockIds != null &&
-                            k.LockIds.Contains(door.LockId, StringComparer.OrdinalIgnoreCase));
-
-                        if (hasKeyForDoor)
-                        {
-                            const double keyIconSize = 10.0;
-                            const double keyIconMargin = 2.0;
-
-                            Rect keyRect = new(
-                                doorRect.Right + keyIconMargin,
-                                doorRect.Y + (doorRect.Height - keyIconSize) / 2.0,
-                                keyIconSize,
-                                keyIconSize);
-
-                            SolidColorBrush keyFill = door.IsOpen
-                                ? new SolidColorBrush(Color.FromRgb(60, 170, 60))
-                                : new SolidColorBrush(Color.FromRgb(200, 60, 60));
-
-                            Pen keyPen = new Pen(new SolidColorBrush(Color.FromRgb(240, 240, 240)), 0.8);
-
-                            // Cuerpo principal de la llave (un pequeño círculo)
-                            Point keyCenter = new(
-                                keyRect.X + keyIconSize * 0.35,
-                                keyRect.Y + keyIconSize * 0.5);
-                            double radius = keyIconSize * 0.35;
-                            dc.DrawEllipse(keyFill, keyPen, keyCenter, radius, radius);
-
-                            // Vástago de la llave
-                            Point shaftStart = new(
-                                keyCenter.X + radius,
-                                keyCenter.Y);
-                            Point shaftEnd = new(
-                                keyRect.Right - 1,
-                                keyCenter.Y);
-                            dc.DrawLine(new Pen(new SolidColorBrush(Color.FromRgb(240, 240, 240)), 1.2), shaftStart, shaftEnd);
-
-                            // Dientes de la llave
-                            Point tooth1Start = new(shaftEnd.X - 3, shaftEnd.Y);
-                            Point tooth1End = new(shaftEnd.X - 3, shaftEnd.Y + 3);
-                            dc.DrawLine(new Pen(new SolidColorBrush(Color.FromRgb(240, 240, 240)), 1.0), tooth1Start, tooth1End);
-
-                            Point tooth2Start = new(shaftEnd.X - 6, shaftEnd.Y);
-                            Point tooth2End = new(shaftEnd.X - 6, shaftEnd.Y + 2);
-                            dc.DrawLine(new Pen(new SolidColorBrush(Color.FromRgb(240, 240, 240)), 1.0), tooth2Start, tooth2End);
-
-                            // Incluir el icono de la llave en el área de hit test de la salida.
-                            hitRect = Rect.Union(hitRect, keyRect);
-                        }
-                    }
-
-                    // Incluir el icono de la puerta en el área de hit test de la salida.
-                    hitRect = Rect.Union(hitRect, doorRect);
-                }
+                // Ampliamos el hit-test para cubrir también el icono de puerta.
+                hitRect = Rect.Union(hitRect, doorRect);
             }
 
             _exitHitRects[exitKey] = hitRect;

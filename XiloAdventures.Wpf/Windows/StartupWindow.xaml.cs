@@ -20,6 +20,14 @@ public partial class StartupWindow : Window
     private void StartupWindow_Loaded(object sender, RoutedEventArgs e)
     {
         ReloadWorlds();
+
+        // Seleccionar automáticamente el primer mundo disponible al iniciar,
+        // si hay alguno y nada está seleccionado todavía.
+        if (WorldsList.Items.Count > 0 && WorldsList.SelectedIndex < 0)
+        {
+            WorldsList.SelectedIndex = 0;
+        }
+
         SoundCheckBox.IsChecked = UiSettingsManager.GlobalSettings.SoundEnabled;
         SoundCheckBox.Checked += SoundCheckBox_Changed;
         SoundCheckBox.Unchecked += SoundCheckBox_Changed;
