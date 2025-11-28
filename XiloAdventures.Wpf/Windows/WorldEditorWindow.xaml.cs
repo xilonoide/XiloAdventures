@@ -31,6 +31,8 @@ public partial class WorldEditorWindow : Window
         PropertyEditor.PropertyEdited += PropertyEditor_PropertyEdited;
         PropertyEditor.GetRooms = () => _world.Rooms;
         MapPanel.RoomClicked += MapPanel_RoomClicked;
+        MapPanel.DoorClicked += MapPanel_DoorClicked;
+        MapPanel.ExitDoubleClicked += MapPanel_ExitDoubleClicked;
         MapPanel.MapEdited += MapPanel_MapEdited;
         BuildTree();
         MapPanel.SetWorld(_world);
@@ -94,6 +96,7 @@ public partial class WorldEditorWindow : Window
         }
 
         PushUndoSnapshot();
+        MapPanel.InvalidateVisual();
     }
 
     private void UpdateTreeHeaderRecursive(TreeViewItem item, object target)
@@ -133,11 +136,89 @@ public partial class WorldEditorWindow : Window
         }
     }
 
-    private void MapPanel_RoomClicked(Room room)
+        private void MapPanel_RoomClicked(Room room)
     {
         // seleccionar en el árbol la sala correspondiente
         SelectRoomInTree(room);
         MapPanel.SetSelectedRoom(room);
+    }
+
+    private void MapPanel_DoorClicked(Door door)
+    {
+        if (door is null) return;
+
+        SelectDoorInTree(door);
+        PropertyEditor.SetObject(door);
+    }
+
+    private void MapPanel_ExitDoubleClicked(Room room, int exitIndex)
+    {
+        if (room == null || room.Exits == null)
+            return;
+
+        if (exitIndex < 0 || exitIndex >= room.Exits.Count)
+            return;
+
+        var exit = room.Exits[exitIndex];
+        if (exit == null || string.IsNullOrEmpty(exit.TargetRoomId))
+            return;
+
+        var target = _world.Rooms.FirstOrDefault(r => r.Id == exit.TargetRoomId);
+        if (target == null)
+            return;
+
+        _world.Doors ??= new List<Door>();
+
+        // Buscar si ya existe una puerta que conecte estas salas.
+        var existingDoor = _world.Doors.FirstOrDefault(d =>
+            !string.IsNullOrEmpty(d.RoomIdA) &&
+            !string.IsNullOrEmpty(d.RoomIdB) &&
+            ((string.Equals(d.RoomIdA, room.Id, StringComparison.OrdinalIgnoreCase) &&
+              string.Equals(d.RoomIdB, target.Id, StringComparison.OrdinalIgnoreCase)) ||
+             (string.Equals(d.RoomIdB, room.Id, StringComparison.OrdinalIgnoreCase) &&
+              string.Equals(d.RoomIdA, target.Id, StringComparison.OrdinalIgnoreCase))));
+
+        Door door;
+        if (existingDoor != null)
+        {
+            door = existingDoor;
+        }
+        else
+        {
+            int index = _world.Doors.Count + 1;
+            door = new Door
+            {
+                Id = $"door_{index}",
+                Name = $"Puerta {index}",
+                Description = "Puerta creada desde una salida.",
+                IsOpen = true,
+                HasLock = false,
+                LockId = string.Empty,
+                OpenFromSide = DoorOpenSide.Both,
+                RoomIdA = room.Id,
+                RoomIdB = target.Id
+            };
+            _world.Doors.Add(door);
+            BuildTree();
+        }
+
+        // Asociar la salida (y su posible salida opuesta) con la puerta.
+        exit.DoorId ??= door.Id;
+        if (target.Exits != null)
+        {
+            var opposite = target.Exits.FirstOrDefault(ex =>
+                !string.IsNullOrEmpty(ex.TargetRoomId) &&
+                string.Equals(ex.TargetRoomId, room.Id, StringComparison.OrdinalIgnoreCase));
+            if (opposite != null && string.IsNullOrEmpty(opposite.DoorId))
+            {
+                opposite.DoorId = door.Id;
+            }
+        }
+
+        SelectDoorInTree(door);
+        PropertyEditor.SetObject(door);
+        MapPanel.InvalidateVisual();
+        PushUndoSnapshot();
     }
 
     private void MapPanel_MapEdited()
@@ -961,6 +1042,28 @@ public partial class WorldEditorWindow : Window
                     {
                         // Seleccionamos la sala en el árbol exactamente igual
                         // que si el usuario hubiese hecho clic en el TreeView.
+                        WorldTree.Focus();
+                        child.IsSelected = true;
+                        child.BringIntoView();
+                        child.Focus();
+                        return;
+                    }
+                }
+            }
+        }    }
+
+    private void SelectDoorInTree(Door door)
+    {
+        if (door is null) return;
+
+        foreach (TreeViewItem root in WorldTree.Items)
+        {
+            if (root.Header?.ToString() == "Puertas")
+            {
+                foreach (TreeViewItem child in root.Items.OfType<TreeViewItem>())
+                {
+                    if (child.Tag == door)
+                    {
                         WorldTree.Focus();
                         child.IsSelected = true;
                         child.BringIntoView();

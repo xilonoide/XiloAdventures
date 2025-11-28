@@ -61,8 +61,35 @@ public partial class PropertyEditor : UserControl
                     IsChecked = (bool?)prop.GetValue(obj),
                     Margin = new Thickness(0, 2, 0, 0)
                 };
-                chk.Checked += (_, _) => prop.SetValue(obj, true);
-                chk.Unchecked += (_, _) => prop.SetValue(obj, false);
+
+                chk.Checked += (_, _) =>
+                {
+                    try
+                    {
+                        if (_currentObject is not { } target) return;
+                        prop.SetValue(target, true);
+                        PropertyEdited?.Invoke(target, prop.Name);
+                    }
+                    catch
+                    {
+                        // Ignorar errores
+                    }
+                };
+
+                chk.Unchecked += (_, _) =>
+                {
+                    try
+                    {
+                        if (_currentObject is not { } target) return;
+                        prop.SetValue(target, false);
+                        PropertyEdited?.Invoke(target, prop.Name);
+                    }
+                    catch
+                    {
+                        // Ignorar errores
+                    }
+                };
+
                 editor = chk;
             }
 
@@ -83,7 +110,12 @@ public partial class PropertyEditor : UserControl
                         ItemsSource = rooms
                     };
 
-                    var currentId = Convert.ToString(prop.GetValue(obj)) ?? string.Empty;
+                                        if (obj is Door && (prop.Name == "RoomIdA" || prop.Name == "RoomIdB"))
+                    {
+                        combo.IsEnabled = false;
+                    }
+
+var currentId = Convert.ToString(prop.GetValue(obj)) ?? string.Empty;
                     combo.SelectedValue = currentId;
 
                     combo.SelectionChanged += (_, _) =>

@@ -81,6 +81,7 @@ public partial class MapPanel : Control
         _roomObjectIconRects.Clear();
         _roomNpcIconRects.Clear();
         _roomStartIconRects.Clear();
+        _doorIconRects.Clear();
 
         if (_world == null)
             return;
@@ -342,6 +343,16 @@ private void DrawConnections(DrawingContext dc)
     // entre las mismas dos salas, sólo dibujamos una etiqueta por par de salas.
     var labeledConnections = new HashSet<(string a, string b)>();
 
+    // Mapa rápido de puertas por Id para consultar su estado (abierta/cerrada).
+    Dictionary<string, Door>? doorsById = null;
+    if (_world.Doors != null && _world.Doors.Count > 0)
+    {
+        doorsById = _world.Doors
+            .Where(d => !string.IsNullOrWhiteSpace(d.Id))
+            .ToDictionary(d => d.Id, d => d, StringComparer.OrdinalIgnoreCase);
+    }
+
+
     Pen normalPen = new(new SolidColorBrush(Color.FromRgb(160, 160, 160)), 1.2);
     Pen selectedPen = new(new SolidColorBrush(Color.FromRgb(255, 220, 80)), 2.0);
 
@@ -489,6 +500,61 @@ private void DrawConnections(DrawingContext dc)
                 hitRect = Rect.Union(hitRect, textRect);
 
                 dc.DrawText(formatted, textPos);
+
+                // Icono de puerta al otro lado de la línea, si la salida tiene una puerta asociada.
+                Door? door = null;
+                if (doorsById != null && !string.IsNullOrEmpty(exit.DoorId))
+                {
+                    doorsById.TryGetValue(exit.DoorId, out door);
+                }
+
+                if (door == null && _world.Doors != null && _world.Doors.Count > 0)
+                {
+                    door = _world.Doors.FirstOrDefault(d =>
+                        !string.IsNullOrEmpty(d.RoomIdA) &&
+                        !string.IsNullOrEmpty(d.RoomIdB) &&
+                        ((string.Equals(d.RoomIdA, room.Id, StringComparison.OrdinalIgnoreCase) &&
+                          string.Equals(d.RoomIdB, target.Id, StringComparison.OrdinalIgnoreCase)) ||
+                         (string.Equals(d.RoomIdB, room.Id, StringComparison.OrdinalIgnoreCase) &&
+                          string.Equals(d.RoomIdA, target.Id, StringComparison.OrdinalIgnoreCase))));
+                }
+
+                if (door != null)
+                {
+                    const double doorIconWidth = 14.0;
+                    const double doorIconHeight = 14.0;
+                    const double doorIconMargin = 4.0;
+
+                    Point doorTopLeft = new(
+                        mid.X - doorIconWidth / 2.0,
+                        mid.Y + doorIconMargin);
+
+                    Rect doorRect = new(
+                        doorTopLeft.X,
+                        doorTopLeft.Y,
+                        doorIconWidth,
+                        doorIconHeight);
+
+                    // Guardamos el rectángulo del icono para hit-test de puertas.
+                    _doorIconRects[door.Id] = doorRect;
+
+                    SolidColorBrush doorFill = door.IsOpen
+                        ? new SolidColorBrush(Color.FromRgb(60, 170, 60))
+                        : new SolidColorBrush(Color.FromRgb(200, 60, 60));
+
+                    Pen doorPen = new Pen(new SolidColorBrush(Color.FromRgb(240, 240, 240)), 0.8);
+
+                    dc.DrawRoundedRectangle(doorFill, doorPen, doorRect, 3, 3);
+
+                    // Pomo de la puerta
+                    Point knobCenter = new(
+                        doorRect.Right - 4,
+                        doorRect.Y + doorRect.Height / 2.0);
+                    dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(240, 240, 240)), null, knobCenter, 1.5, 1.5);
+
+                    // Incluir el icono en el área de hit test de la salida.
+                    hitRect = Rect.Union(hitRect, doorRect);
+                }
             }
 
             _exitHitRects[exitKey] = hitRect;

@@ -187,7 +187,6 @@
         <ToolBar DockPanel.Dock="Top" Background="#303030">
             <Button Content="Sala" Click="AddRoom_Click" Margin="2" Foreground="White"/>
             <Button Content="Salida" Click="AddExit_Click" Margin="2" Foreground="White"/>
-            <Button Content="Puerta" Click="AddDoor_Click" Margin="2" Foreground="White"/>
             <Button Content="Llave" Click="AddKey_Click" Margin="2" Foreground="White"/>
             <Button Content="Objeto" Click="AddObject_Click" Margin="2" Foreground="White"/>
             <Button Content="NPC" Click="AddNpc_Click" Margin="2" Foreground="White"/>

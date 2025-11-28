@@ -33,13 +33,22 @@ public partial class MapPanel : Control
                 return;
             }
 
-            // Doble click en una zona libre del mapa: crear una nueva sala.
             var portHit = HitTestPort(pos);
             var exitHit = HitTestExit(pos);
 
             bool hasPort = portHit.HasValue;
             bool hasExit = exitHit.HasValue;
 
+            // Doble click sobre una salida: crear o asociar una puerta entre las salas conectadas.
+            if (hasExit && exitHit.HasValue)
+            {
+                var (exitRoom, exitIndex) = exitHit.Value;
+                ExitDoubleClicked?.Invoke(exitRoom, exitIndex);
+                e.Handled = true;
+                return;
+            }
+
+            // Doble click en una zona libre del mapa: crear una nueva sala.
             if (!hasPort && !hasExit)
             {
                 Point logicalPos = ScreenToLogical(pos);
@@ -61,6 +70,15 @@ public partial class MapPanel : Control
         {
             _mouseDownScreen = pos;
             _mouseDownRoom = HitTestRoom(pos);
+
+            // Click sobre icono de puerta: seleccionar la puerta correspondiente.
+            var doorHit = HitTestDoorIcon(pos);
+            if (doorHit != null)
+            {
+                DoorClicked?.Invoke(doorHit);
+                e.Handled = true;
+                return;
+            }
 
             // Click sobre un punto de salida (puerto) sin modificadores: usamos conexión basada en dirección fija.
             var portHit = HitTestPort(pos);
@@ -293,13 +311,22 @@ public partial class MapPanel : Control
                 return;
             }
 
-            // Doble click en una zona libre del mapa: crear una nueva sala.
             var portHit = HitTestPort(pos);
             var exitHit = HitTestExit(pos);
 
             bool hasPort = portHit.HasValue;
             bool hasExit = exitHit.HasValue;
 
+            // Doble click sobre una salida: crear o asociar una puerta entre las salas conectadas.
+            if (hasExit && exitHit.HasValue)
+            {
+                var (exitRoom, exitIndex) = exitHit.Value;
+                ExitDoubleClicked?.Invoke(exitRoom, exitIndex);
+                e.Handled = true;
+                return;
+            }
+
+            // Doble click en una zona libre del mapa: crear una nueva sala.
             if (!hasPort && !hasExit)
             {
                 Point logicalPos = ScreenToLogical(pos);
@@ -741,6 +768,31 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
                     Room room = _world.Rooms.FirstOrDefault(r => r.Id == roomId);
                     if (room != null)
                         return (room, direction);
+                }
+            }
+        }
+
+        return null;
+    }
+
+
+    private Door? HitTestDoorIcon(Point screenPoint)
+    {
+        if (_world == null)
+            return null;
+
+        // Recorremos en orden inverso para que "gane" el último icono dibujado.
+        foreach (var kvp in _doorIconRects.Reverse())
+        {
+            Rect rect = kvp.Value;
+            if (rect.Contains(screenPoint))
+            {
+                string doorId = kvp.Key;
+                Door? door = _world.Doors?.FirstOrDefault(d =>
+                    string.Equals(d.Id, doorId, StringComparison.OrdinalIgnoreCase));
+                if (door != null)
+                {
+                    return door;
                 }
             }
         }

@@ -34,6 +34,8 @@ public partial class MapPanel : Control
     private readonly Dictionary<string, Rect> _roomObjectIconRects = new();
     private readonly Dictionary<string, Rect> _roomNpcIconRects = new();
     private readonly Dictionary<string, Rect> _roomStartIconRects = new();
+    private readonly Dictionary<string, Rect> _doorIconRects = new();
+
 
     // Tooltip para iconos de objetos/NPCs
     private ToolTip? _iconToolTip;
@@ -69,7 +71,9 @@ public partial class MapPanel : Control
     private Room? _mouseDownRoom;
 
     public event Action<Room>? RoomClicked;
+    public event Action<Door>? DoorClicked;
     public event Action<Room>? RoomDoubleClicked;
+    public event Action<Room, int>? ExitDoubleClicked;
     public event Action<Point>? EmptyMapDoubleClicked;
     public event Action? MapEdited;
 
