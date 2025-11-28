@@ -72,6 +72,7 @@ public partial class MapPanel : Control
 
     public event Action<Room>? RoomClicked;
     public event Action<Door>? DoorClicked;
+    public event Action<Door>? DoorKeyRequested;
     public event Action<Room>? RoomDoubleClicked;
     public event Action<Room, int>? ExitDoubleClicked;
     public event Action<Point>? EmptyMapDoubleClicked;

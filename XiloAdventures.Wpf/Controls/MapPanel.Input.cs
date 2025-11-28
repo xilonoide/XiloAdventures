@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using XiloAdventures.Engine.Models;
@@ -33,6 +34,7 @@ public partial class MapPanel : Control
                 return;
             }
 
+            // Doble click en una zona libre del mapa: crear una nueva sala.
             var portHit = HitTestPort(pos);
             var exitHit = HitTestExit(pos);
 
@@ -48,7 +50,6 @@ public partial class MapPanel : Control
                 return;
             }
 
-            // Doble click en una zona libre del mapa: crear una nueva sala.
             if (!hasPort && !hasExit)
             {
                 Point logicalPos = ScreenToLogical(pos);
@@ -64,6 +65,17 @@ public partial class MapPanel : Control
             _lastMiddleDown = pos;
             CaptureMouse();
             return;
+        }
+
+        if (e.ChangedButton == MouseButton.Right)
+        {
+            var doorHit = HitTestDoorIcon(pos);
+            if (doorHit != null)
+            {
+                ShowDoorContextMenu(doorHit, pos);
+                e.Handled = true;
+                return;
+            }
         }
 
         if (e.ChangedButton == MouseButton.Left)
@@ -311,6 +323,7 @@ public partial class MapPanel : Control
                 return;
             }
 
+            // Doble click en una zona libre del mapa: crear una nueva sala.
             var portHit = HitTestPort(pos);
             var exitHit = HitTestExit(pos);
 
@@ -326,7 +339,6 @@ public partial class MapPanel : Control
                 return;
             }
 
-            // Doble click en una zona libre del mapa: crear una nueva sala.
             if (!hasPort && !hasExit)
             {
                 Point logicalPos = ScreenToLogical(pos);
@@ -775,31 +787,6 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
         return null;
     }
 
-
-    private Door? HitTestDoorIcon(Point screenPoint)
-    {
-        if (_world == null)
-            return null;
-
-        // Recorremos en orden inverso para que "gane" el último icono dibujado.
-        foreach (var kvp in _doorIconRects.Reverse())
-        {
-            Rect rect = kvp.Value;
-            if (rect.Contains(screenPoint))
-            {
-                string doorId = kvp.Key;
-                Door? door = _world.Doors?.FirstOrDefault(d =>
-                    string.Equals(d.Id, doorId, StringComparison.OrdinalIgnoreCase));
-                if (door != null)
-                {
-                    return door;
-                }
-            }
-        }
-
-        return null;
-    }
-
     private (Room room, int exitIndex)? HitTestExit(Point screenPoint)
     {
         if (_world == null)
@@ -825,6 +812,45 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
         }
 
         return null;
+    }
+
+    private Door? HitTestDoorIcon(Point screenPoint)
+    {
+        if (_world == null || _world.Doors == null || _world.Doors.Count == 0)
+            return null;
+
+        // Recorremos en orden inverso para que "gane" el último icono de puerta dibujado.
+        foreach (var kvp in _doorIconRects.Reverse())
+        {
+            Rect rect = kvp.Value;
+            if (rect.Contains(screenPoint))
+            {
+                string doorId = kvp.Key;
+                Door? door = _world.Doors.FirstOrDefault(d =>
+                    string.Equals(d.Id, doorId, StringComparison.OrdinalIgnoreCase));
+                if (door != null)
+                    return door;
+            }
+        }
+
+        return null;
+    }
+
+    private void ShowDoorContextMenu(Door door, Point screenPoint)
+    {
+        var menu = new ContextMenu();
+
+        var createKeyItem = new MenuItem
+        {
+            Header = "Crear llave para esta puerta..."
+        };
+        createKeyItem.Click += (_, _) => DoorKeyRequested?.Invoke(door);
+
+        menu.Items.Add(createKeyItem);
+
+        menu.PlacementTarget = this;
+        menu.Placement = PlacementMode.MousePoint;
+        menu.IsOpen = true;
     }
 
     private void CreateExitFromPendingPort(Room targetRoom)

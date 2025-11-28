@@ -1,0 +1,46 @@
+<Window x:Class="XiloAdventures.Wpf.Windows.DoorKeyWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Crear llave para puerta"
+        WindowStartupLocation="CenterOwner"
+        SizeToContent="WidthAndHeight"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Background="#222222"
+        Foreground="White">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,8">
+            <TextBlock Text="Puerta:" FontWeight="Bold" />
+            <TextBlock x:Name="DoorNameText" Margin="0,2,0,0" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Margin="0,0,0,8">
+            <TextBlock Text="Objeto que será la llave:" FontWeight="Bold" />
+            <ComboBox x:Name="ObjectCombo"
+                      Margin="0,2,0,0"
+                      MinWidth="240"
+                      DisplayMemberPath="Name"
+                      SelectedValuePath="Id" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="2"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right">
+            <Button Content="Aceptar"
+                    Width="80"
+                    Margin="0,8,8,0"
+                    IsDefault="True"
+                    Click="Ok_Click" />
+            <Button Content="Cancelar"
+                    Width="80"
+                    Margin="0,8,0,0"
+                    IsCancel="True" />
+        </StackPanel>
+    </Grid>
+</Window>

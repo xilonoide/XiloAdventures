@@ -32,6 +32,7 @@ public partial class WorldEditorWindow : Window
         PropertyEditor.GetRooms = () => _world.Rooms;
         MapPanel.RoomClicked += MapPanel_RoomClicked;
         MapPanel.DoorClicked += MapPanel_DoorClicked;
+        MapPanel.DoorKeyRequested += MapPanel_DoorKeyRequested;
         MapPanel.ExitDoubleClicked += MapPanel_ExitDoubleClicked;
         MapPanel.MapEdited += MapPanel_MapEdited;
         BuildTree();
@@ -149,6 +150,15 @@ public partial class WorldEditorWindow : Window
 
         SelectDoorInTree(door);
         PropertyEditor.SetObject(door);
+    }
+
+
+    private void MapPanel_DoorKeyRequested(Door door)
+    {
+        if (door is null)
+            return;
+
+        CreateKeyForDoor(door);
     }
 
     private void MapPanel_ExitDoubleClicked(Room room, int exitIndex)
@@ -1466,7 +1476,81 @@ public partial class WorldEditorWindow : Window
         base.OnClosing(e);
     }
 
-    public class SelectRoomWindow : Window
+    
+
+    private void CreateKeyForDoor(Door door)
+    {
+        if (door == null)
+            return;
+
+        if (_world.Objects == null || _world.Objects.Count == 0)
+        {
+            var alert = new AlertWindow("No hay objetos definidos en el mundo para usar como llave.", "Crear llave");
+            alert.Owner = this;
+            alert.ShowDialog();
+            return;
+        }
+
+        var dialog = new DoorKeyWindow(door, _world.Objects)
+        {
+            Owner = this
+        };
+
+        bool? result = dialog.ShowDialog();
+        if (result != true || string.IsNullOrWhiteSpace(dialog.SelectedObjectId))
+            return;
+
+        string selectedObjectId = dialog.SelectedObjectId!;
+
+        _world.Keys ??= new List<KeyDefinition>();
+
+        string lockId;
+        if (door.HasLock && !string.IsNullOrWhiteSpace(door.LockId))
+        {
+            lockId = door.LockId!;
+        }
+        else
+        {
+            lockId = $"lock_{_world.Keys.Count + 1}";
+            door.HasLock = true;
+            door.LockId = lockId;
+        }
+
+        var key = new KeyDefinition
+        {
+            ObjectId = selectedObjectId
+        };
+        key.LockIds.Add(lockId);
+        _world.Keys.Add(key);
+
+        // Marcar las salidas asociadas a esta puerta como bloqueadas con este LockId.
+        foreach (var room in _world.Rooms)
+        {
+            if (room.Exits == null)
+                continue;
+
+            foreach (var exit in room.Exits)
+            {
+                if (exit == null)
+                    continue;
+
+                if (!string.IsNullOrEmpty(exit.DoorId) &&
+                    string.Equals(exit.DoorId, door.Id, StringComparison.OrdinalIgnoreCase))
+                {
+                    exit.IsLocked = true;
+                    exit.LockId = lockId;
+                }
+            }
+        }
+
+        BuildTree();
+        SelectDoorInTree(door);
+        PropertyEditor.SetObject(door);
+        MapPanel.InvalidateVisual();
+        PushUndoSnapshot();
+    }
+
+public class SelectRoomWindow : Window
     {
         private readonly ComboBox _combo;
         public Room? SelectedRoom { get; private set; }
