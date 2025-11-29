@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Threading.Tasks;
 using NAudio.Wave;
 
 namespace XiloAdventures.Engine;
@@ -15,6 +16,9 @@ public class SoundManager : IDisposable
     private IWavePlayer? _roomMusicPlayer;
     private AudioFileReader? _roomMusicReader;
     private string? _roomMusicPath;
+
+    private const float FadeDurationSeconds = 0.5f;
+
 
     public bool SoundEnabled { get; set; } = true;
 
@@ -70,12 +74,15 @@ public class SoundManager : IDisposable
         {
             _worldMusicReader = new AudioFileReader(path)
             {
-                Volume = 1.0f
+                Volume = 0.0f
             };
             _worldMusicPlayer = new WaveOutEvent();
             _worldMusicPlayer.Init(_worldMusicReader);
             _worldMusicPath = path;
             _worldMusicPlayer.Play();
+
+            // Fade-in suave de la música global del mundo.
+            FadeWorldMusicTo(1.0f);
         }
         catch
         {
@@ -101,21 +108,29 @@ public class SoundManager : IDisposable
 
         if (!hasRoomMusic)
         {
-            // No hay música especial: paramos la de sala y restauramos el volumen de la música global si existe.
-            StopRoomMusic();
-
-            if (_worldMusicPlayer != null)
+            // No hay música especial: hacemos fade-out de la música de sala (si la hay)
+            // y restauramos progresivamente el volumen de la música global si existe.
+            if (_roomMusicPlayer != null && _roomMusicReader != null)
             {
-                SetWorldMusicVolume(1.0f);
+                FadeOutAndStopRoomMusic();
+            }
+            else
+            {
+                StopRoomMusic();
+            }
+
+            if (_worldMusicPlayer != null && _worldMusicReader != null)
+            {
+                FadeWorldMusicTo(1.0f);
             }
 
             return;
         }
 
-        // Hay música de sala: si la música global existe, la silenciamos.
-        if (_worldMusicPlayer != null)
+        // Hay música de sala: si la música global existe, la llevamos a volumen 0 con un pequeño fade.
+        if (_worldMusicPlayer != null && _worldMusicReader != null)
         {
-            SetWorldMusicVolume(0.0f);
+            FadeWorldMusicTo(0.0f);
         }
 
         var path = EnsureAudioFile(musicId, musicBase64);
@@ -134,18 +149,35 @@ public class SoundManager : IDisposable
         {
             if (_roomMusicPlayer.PlaybackState != PlaybackState.Playing)
                 _roomMusicPlayer.Play();
+
+            // Si la pista de sala ya es la misma, nos aseguramos de que esté a volumen completo.
+            FadeRoomMusicTo(1.0f);
             return;
         }
 
-        StopRoomMusic();
+        // Si hay música de sala distinta sonando, la atenuamos y detenemos antes de iniciar la nueva.
+        if (_roomMusicPlayer != null && _roomMusicReader != null)
+        {
+            FadeOutAndStopRoomMusic();
+        }
+        else
+        {
+            StopRoomMusic();
+        }
 
         try
         {
-            _roomMusicReader = new AudioFileReader(path);
+            _roomMusicReader = new AudioFileReader(path)
+            {
+                Volume = 0.0f
+            };
             _roomMusicPlayer = new WaveOutEvent();
             _roomMusicPlayer.Init(_roomMusicReader);
             _roomMusicPath = path;
             _roomMusicPlayer.Play();
+
+            // Fade-in suave de la nueva música de sala.
+            FadeRoomMusicTo(1.0f);
         }
         catch
         {
@@ -244,7 +276,180 @@ public class SoundManager : IDisposable
         StopWorldMusic();
     }
 
-    private void SetWorldMusicVolume(float volume)
+    
+    private void FadeWorldMusicTo(float targetVolume)
+    {
+        if (_worldMusicReader == null)
+            return;
+
+        float start;
+        try
+        {
+            start = _worldMusicReader.Volume;
+        }
+        catch
+        {
+            return;
+        }
+
+        FadeVolume(_worldMusicReader, start, targetVolume, FadeDurationSeconds);
+    }
+
+    private void FadeRoomMusicTo(float targetVolume)
+    {
+        if (_roomMusicReader == null)
+            return;
+
+        float start;
+        try
+        {
+            start = _roomMusicReader.Volume;
+        }
+        catch
+        {
+            return;
+        }
+
+        FadeVolume(_roomMusicReader, start, targetVolume, FadeDurationSeconds);
+    }
+
+    private void FadeOutAndStopRoomMusic()
+    {
+        if (_roomMusicPlayer == null || _roomMusicReader == null)
+        {
+            StopRoomMusic();
+            return;
+        }
+
+        var player = _roomMusicPlayer;
+        var reader = _roomMusicReader;
+        var pathSnapshot = _roomMusicPath;
+
+        float start;
+        try
+        {
+            start = reader.Volume;
+        }
+        catch
+        {
+            StopRoomMusic();
+            return;
+        }
+
+        FadeVolume(reader, start, 0.0f, FadeDurationSeconds, () =>
+        {
+            try
+            {
+                if (player != null && player.PlaybackState == PlaybackState.Playing)
+                    player.Stop();
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                player?.Dispose();
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                reader.Dispose();
+            }
+            catch
+            {
+            }
+
+            // Limpiar referencias solo si siguen apuntando a estos objetos.
+            if (ReferenceEquals(_roomMusicPlayer, player))
+                _roomMusicPlayer = null;
+            if (ReferenceEquals(_roomMusicReader, reader))
+                _roomMusicReader = null;
+            if (Equals(_roomMusicPath, pathSnapshot))
+                _roomMusicPath = null;
+        });
+    }
+
+    private void FadeVolume(AudioFileReader reader, float from, float to, float seconds, Action? onCompleted = null)
+    {
+        if (reader == null)
+        {
+            onCompleted?.Invoke();
+            return;
+        }
+
+        if (seconds <= 0f)
+        {
+            try
+            {
+                reader.Volume = to;
+            }
+            catch
+            {
+                // Ignorar problemas de volumen
+            }
+
+            onCompleted?.Invoke();
+            return;
+        }
+
+        var steps = 20;
+        var stepTimeMs = (int)(seconds * 1000f / steps);
+        var delta = (to - from) / steps;
+
+        Task.Run(async () =>
+        {
+            var current = from;
+
+            for (int i = 0; i < steps; i++)
+            {
+                current += delta;
+                if (current < 0f) current = 0f;
+                if (current > 1f) current = 1f;
+
+                try
+                {
+                    reader.Volume = current;
+                }
+                catch
+                {
+                    break;
+                }
+
+                try
+                {
+                    await Task.Delay(stepTimeMs).ConfigureAwait(false);
+                }
+                catch
+                {
+                    break;
+                }
+            }
+
+            try
+            {
+                reader.Volume = to;
+            }
+            catch
+            {
+                // Ignorar
+            }
+
+            try
+            {
+                onCompleted?.Invoke();
+            }
+            catch
+            {
+                // Ignorar
+            }
+        });
+    }
+
+private void SetWorldMusicVolume(float volume)
     {
         if (_worldMusicReader != null)
         {
