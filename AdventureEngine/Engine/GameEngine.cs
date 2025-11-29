@@ -181,8 +181,6 @@ public class GameEngine
             return "Te encuentras en un lugar desconocido.";
 
         var sb = new StringBuilder();
-        sb.AppendLine(room.Name);
-        sb.AppendLine();
 
         if (!IsRoomLit(room))
         {
@@ -268,8 +266,6 @@ public class GameEngine
         sb.AppendLine($"Vida: {p.CurrentHealth}/{p.MaxHealth}");
         sb.AppendLine($"Oro: {p.Gold}");
         sb.AppendLine($"Turno: {_state.TurnCounter}");
-        sb.AppendLine($"Hora del día: {_state.TimeOfDay}");
-        sb.AppendLine($"Clima: {_state.Weather}");
         return sb.ToString().TrimEnd();
     }
 
