@@ -26,6 +26,21 @@ public class SoundManager : IDisposable
 
     public bool SoundEnabled { get; set; } = true;
 
+    /// <summary>
+    /// Volumen de la música normalizado (0.0 - 1.0).
+    /// </summary>
+    public float MusicVolume { get; set; } = 1.0f;
+
+    /// <summary>
+    /// Volumen de los efectos normalizado (0.0 - 1.0).
+    /// </summary>
+    public float EffectsVolume { get; set; } = 1.0f;
+
+    /// <summary>
+    /// Volumen maestro normalizado (0.0 - 1.0).
+    /// </summary>
+    public float MasterVolume { get; set; } = 1.0f;
+
     public SoundManager(string soundFolder)
     {
         _soundFolder = soundFolder;
@@ -214,10 +229,14 @@ public class SoundManager : IDisposable
             if (!File.Exists(path))
                 return;
 
-            var reader = new AudioFileReader(path);
+            var reader = new AudioFileReader(path)
+            {
+                Volume = Math.Clamp(MasterVolume, 0f, 1f) * Math.Clamp(EffectsVolume, 0f, 1f)
+            };
             var player = new WaveOutEvent();
             player.Init(reader);
             player.Play();
+
 
             player.PlaybackStopped += (_, _) =>
             {
@@ -312,13 +331,14 @@ public class SoundManager : IDisposable
         }
     }
 
+
     public void StopMusic()
     {
         StopRoomMusic();
         StopWorldMusic();
     }
 
-    
+
 
     private void WorldMusicPlayerOnPlaybackStopped(object? sender, StoppedEventArgs e)
     {
@@ -330,13 +350,11 @@ public class SoundManager : IDisposable
 
         try
         {
-            // Volvemos al inicio de la pista y la reproducimos de nuevo.
             _worldMusicReader.Position = 0;
             _worldMusicPlayer.Play();
         }
         catch
         {
-            // Si algo va mal, desactivamos el bucle para evitar bucles infinitos de errores.
             _worldMusicLoopEnabled = false;
         }
     }
@@ -375,8 +393,13 @@ public class SoundManager : IDisposable
             return;
         }
 
-        FadeVolume(_worldMusicReader, start, targetVolume, FadeDurationSeconds);
+        var master = Math.Clamp(MasterVolume, 0f, 1f);
+        var music = Math.Clamp(MusicVolume, 0f, 1f);
+        var effectiveTarget = targetVolume * master * music;
+
+        FadeVolume(_worldMusicReader, start, effectiveTarget, FadeDurationSeconds);
     }
+
 
     private void FadeRoomMusicTo(float targetVolume)
     {
@@ -393,9 +416,69 @@ public class SoundManager : IDisposable
             return;
         }
 
-        FadeVolume(_roomMusicReader, start, targetVolume, FadeDurationSeconds);
+        var master = Math.Clamp(MasterVolume, 0f, 1f);
+        var music = Math.Clamp(MusicVolume, 0f, 1f);
+        var effectiveTarget = targetVolume * master * music;
+
+        FadeVolume(_roomMusicReader, start, effectiveTarget, FadeDurationSeconds);
     }
 
+
+    private void SetWorldMusicVolume(float volume)
+    {
+        if (_worldMusicReader != null)
+        {
+            try
+            {
+                var master = Math.Clamp(MasterVolume, 0f, 1f);
+                var music = Math.Clamp(MusicVolume, 0f, 1f);
+                _worldMusicReader.Volume = volume * master * music;
+            }
+            catch
+            {
+                // Ignorar problemas de volumen
+            }
+        }
+    }
+
+
+    public void RefreshVolumes()
+    {
+        if (!SoundEnabled)
+        {
+            // Si el sonido está desactivado, silenciamos la música sin detenerla.
+            if (_worldMusicReader != null)
+            {
+                try { _worldMusicReader.Volume = 0f; } catch { }
+            }
+            if (_roomMusicReader != null)
+            {
+                try { _roomMusicReader.Volume = 0f; } catch { }
+            }
+            return;
+        }
+
+        // Música de mundo al volumen lógico 1.0 aplicando master y música.
+        SetWorldMusicVolume(1.0f);
+
+        if (_roomMusicReader != null)
+        {
+            try
+            {
+                var master = Math.Clamp(MasterVolume, 0f, 1f);
+                var music = Math.Clamp(MusicVolume, 0f, 1f);
+                _roomMusicReader.Volume = 1.0f * master * music;
+            }
+            catch
+            {
+                // Ignorar problemas de volumen
+            }
+        }
+    }
+
+    /// <summary>
+    /// Termina la música de sala con un pequeño fade-out y la detiene.
+    /// </summary>
     private void FadeOutAndStopRoomMusic()
     {
         if (_roomMusicPlayer == null || _roomMusicReader == null)
@@ -404,94 +487,51 @@ public class SoundManager : IDisposable
             return;
         }
 
-        var player = _roomMusicPlayer;
-        var reader = _roomMusicReader;
-        var pathSnapshot = _roomMusicPath;
-
-        float start;
-        try
-        {
-            start = reader.Volume;
-        }
-        catch
-        {
-            StopRoomMusic();
-            return;
-        }
-
-        FadeVolume(reader, start, 0.0f, FadeDurationSeconds, () =>
-        {
-            try
-            {
-                if (player != null && player.PlaybackState == PlaybackState.Playing)
-                    player.Stop();
-            }
-            catch
-            {
-            }
-
-            try
-            {
-                player?.Dispose();
-            }
-            catch
-            {
-            }
-
-            try
-            {
-                reader.Dispose();
-            }
-            catch
-            {
-            }
-
-            // Limpiar referencias solo si siguen apuntando a estos objetos.
-            if (ReferenceEquals(_roomMusicPlayer, player))
-                _roomMusicPlayer = null;
-            if (ReferenceEquals(_roomMusicReader, reader))
-                _roomMusicReader = null;
-            if (Equals(_roomMusicPath, pathSnapshot))
-                _roomMusicPath = null;
-        });
-    }
-
-    private void FadeVolume(AudioFileReader reader, float from, float to, float seconds, Action? onCompleted = null)
-    {
-        if (reader == null)
-        {
-            onCompleted?.Invoke();
-            return;
-        }
-
-        if (seconds <= 0f)
-        {
-            try
-            {
-                reader.Volume = to;
-            }
-            catch
-            {
-                // Ignorar problemas de volumen
-            }
-
-            onCompleted?.Invoke();
-            return;
-        }
-
-        var steps = 20;
-        var stepTimeMs = (int)(seconds * 1000f / steps);
-        var delta = (to - from) / steps;
+        var start = _roomMusicReader.Volume;
+        var master = Math.Clamp(MasterVolume, 0f, 1f);
+        var music = Math.Clamp(MusicVolume, 0f, 1f);
+        var effectiveTarget = 0f;
 
         Task.Run(async () =>
         {
-            var current = from;
+            const int steps = 20;
+            var stepDuration = FadeDurationSeconds / steps;
 
-            for (int i = 0; i < steps; i++)
+            for (int i = 1; i <= steps; i++)
             {
-                current += delta;
-                if (current < 0f) current = 0f;
-                if (current > 1f) current = 1f;
+                var t = i / (float)steps;
+                var current = start + (effectiveTarget - start) * t;
+                try
+                {
+                    _roomMusicReader.Volume = current * master * music;
+                }
+                catch
+                {
+                    // Ignorar errores de volumen en el fade
+                    break;
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(stepDuration));
+            }
+
+            StopRoomMusic();
+        });
+    }
+
+    /// <summary>
+    /// Realiza un fade genérico sobre un AudioFileReader.
+    /// </summary>
+    private void FadeVolume(AudioFileReader reader, float startVolume, float targetVolume, float durationSeconds)
+    {
+        Task.Run(async () =>
+        {
+            const int steps = 20;
+            var stepDuration = durationSeconds / steps;
+
+            for (int i = 1; i <= steps; i++)
+            {
+                var t = i / (float)steps;
+                var current = startVolume + (targetVolume - startVolume) * t;
 
                 try
                 {
@@ -499,52 +539,13 @@ public class SoundManager : IDisposable
                 }
                 catch
                 {
+                    // Ignorar errores de volumen durante el fade
                     break;
                 }
 
-                try
-                {
-                    await Task.Delay(stepTimeMs).ConfigureAwait(false);
-                }
-                catch
-                {
-                    break;
-                }
-            }
-
-            try
-            {
-                reader.Volume = to;
-            }
-            catch
-            {
-                // Ignorar
-            }
-
-            try
-            {
-                onCompleted?.Invoke();
-            }
-            catch
-            {
-                // Ignorar
+                await Task.Delay(TimeSpan.FromSeconds(stepDuration));
             }
         });
-    }
-
-private void SetWorldMusicVolume(float volume)
-    {
-        if (_worldMusicReader != null)
-        {
-            try
-            {
-                _worldMusicReader.Volume = volume;
-            }
-            catch
-            {
-                // Ignorar problemas de volumen
-            }
-        }
     }
 
     /// <summary>

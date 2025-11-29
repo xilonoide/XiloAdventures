@@ -84,11 +84,6 @@ public partial class MainWindow : Window
         if (e.Key == Key.Enter)
         {
             var cmd = InputTextBox.Text.Trim();
-
-            // Limpiar siempre el textbox justo después de pulsar ENTER,
-            // tanto si el comando es válido como si no.
-            InputTextBox.Clear();
-
             if (string.IsNullOrEmpty(cmd))
             {
                 e.Handled = true;
@@ -113,56 +108,22 @@ public partial class MainWindow : Window
 
             // Enviar al motor
             var result = _engine.ProcessCommand(cmd);
+            string? llmAnswer = null;
 
             if (_uiSettings.UseLlmForUnknownCommands)
             {
                 var trimmed = (result ?? string.Empty).Trim();
-                if (IsEngineCommandFailure(trimmed))
+                if (string.Equals(trimmed, "No entiendo ese comando.", StringComparison.OrdinalIgnoreCase))
                 {
-                    string? suggestion = null;
-                    SetLlmBusy(true);
-                    try
-                    {
-                        suggestion = await TryAskLlmForUnknownCommandAsync(cmd);
-                    }
-                    finally
-                    {
-                        SetLlmBusy(false);
-                    }
-
-                    if (!string.IsNullOrWhiteSpace(suggestion))
-                    {
-                        var trimmedSuggestion = suggestion.Trim();
-                        const string cmdPrefix = "CMD:";
-                        const string helpPrefix = "AYUDA:";
-
-                        if (trimmedSuggestion.StartsWith(cmdPrefix, StringComparison.OrdinalIgnoreCase))
-                        {
-                            var suggestedCommand = trimmedSuggestion.Substring(cmdPrefix.Length).Trim();
-                            if (!string.IsNullOrWhiteSpace(suggestedCommand) &&
-                                !string.Equals(suggestedCommand, cmd, StringComparison.OrdinalIgnoreCase))
-                            {
-                                // Mostramos el comando reinterpretado por la IA
-                                AppendText($"> {suggestedCommand}");
-                                result = _engine.ProcessCommand(suggestedCommand);
-                            }
-                        }
-                        else if (trimmedSuggestion.StartsWith(helpPrefix, StringComparison.OrdinalIgnoreCase))
-                        {
-                            var helpText = trimmedSuggestion.Substring(helpPrefix.Length).Trim();
-                            if (!string.IsNullOrWhiteSpace(helpText))
-                            {
-                                // Mostramos solo la ayuda de la IA y omitimos el mensaje genérico de error.
-                                AppendText(helpText);
-                                result = null;
-                            }
-                        }
-                    }
+                    llmAnswer = await TryAskLlmForUnknownCommandAsync(cmd);
                 }
             }
 
-            if (!string.IsNullOrWhiteSpace(result))
+            if (!string.IsNullOrWhiteSpace(result) && llmAnswer == null)
                 AppendText(result);
+
+            if (!string.IsNullOrWhiteSpace(llmAnswer))
+                AppendText(llmAnswer);
 
             UpdateStatusPanel();
             UpdateRoomVisuals();
@@ -232,42 +193,6 @@ public partial class MainWindow : Window
 
 
 
-
-
-    private void SetLlmBusy(bool isBusy)
-    {
-        if (LlmSpinner is null)
-            return;
-
-        LlmSpinner.Visibility = isBusy
-            ? System.Windows.Visibility.Visible
-            : System.Windows.Visibility.Collapsed;
-    }
-
-    private static bool IsEngineCommandFailure(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-            return false;
-
-        text = text.Trim();
-
-        // Respuestas del motor que indican que el comando no ha sido entendido
-        // o que falta información y que podrían beneficiarse de un reintento con IA.
-        return string.Equals(text, "No entiendo ese comando.", StringComparison.OrdinalIgnoreCase)
-               || string.Equals(text, "No estás en ninguna parte.", StringComparison.OrdinalIgnoreCase)
-               || string.Equals(text, "¿Qué quieres coger?", StringComparison.OrdinalIgnoreCase)
-               || string.Equals(text, "¿Qué quieres abrir?", StringComparison.OrdinalIgnoreCase)
-               || string.Equals(text, "¿Qué quieres usar?", StringComparison.OrdinalIgnoreCase)
-               || string.Equals(text, "¿Qué quieres cerrar?", StringComparison.OrdinalIgnoreCase)
-               || string.Equals(text, "¿Qué quieres dar?", StringComparison.OrdinalIgnoreCase)
-               || string.Equals(text, "¿Con quién quieres hablar?", StringComparison.OrdinalIgnoreCase)
-               || string.Equals(text, "No ves eso aquí.", StringComparison.OrdinalIgnoreCase)
-               || string.Equals(text, "No ves a esa persona aquí.", StringComparison.OrdinalIgnoreCase)
-               || string.Equals(text, "No puedes coger eso.", StringComparison.OrdinalIgnoreCase)
-               || string.Equals(text, "No puedes abrir la puerta desde este lado.", StringComparison.OrdinalIgnoreCase)
-               || string.Equals(text, "No puedes cerrar la puerta desde este lado.", StringComparison.OrdinalIgnoreCase);
-    }
-
     private async System.Threading.Tasks.Task<string?> TryAskLlmForUnknownCommandAsync(string originalCommand)
     {
         try
@@ -295,16 +220,12 @@ public partial class MainWindow : Window
                 var answer = responseProp.GetString();
                 if (!string.IsNullOrWhiteSpace(answer))
                 {
-                    // Tomamos solo la primera línea no vacía como comando sugerido.
-                    var firstLine = answer
-                        .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-                        .FirstOrDefault();
-                    return firstLine?.Trim();
+                    // Devolvemos la respuesta del modelo como un párrafo aparte.
+                    return answer.Trim();
                 }
             }
 
-            // Si no hay respuesta útil, no sugerimos nada.
-            return null;
+            return "Ni la IA te entiende...";
         }
         catch (HttpRequestException)
         {
@@ -323,30 +244,22 @@ public partial class MainWindow : Window
 
     private string BuildLlmPrompt(string originalCommand)
     {
-        // Le damos contexto al modelo y le pedimos que devuelva un comando o un mensaje de ayuda.
+        // Le damos algo de contexto al modelo, pero mantenemos todo muy ligero.
         var roomDescription = _engine.DescribeCurrentRoom();
 
         var promptBuilder = new StringBuilder();
-        promptBuilder.AppendLine("Eres un asistente que traduce el texto libre del jugador en comandos válidos de un juego de aventuras de texto en español.");
+        promptBuilder.AppendLine("Eres un asistente de ayuda para un juego de aventuras de texto en español.");
         promptBuilder.AppendLine("El parser interno del juego no ha entendido el comando del jugador.");
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("Contexto del lugar donde está el jugador:");
         promptBuilder.AppendLine(roomDescription);
         promptBuilder.AppendLine();
-        promptBuilder.AppendLine($"Comando original del jugador: \"{originalCommand}\"");
+        promptBuilder.AppendLine($"Comando que ha escrito el jugador: \"{originalCommand}\"");
         promptBuilder.AppendLine();
-        promptBuilder.AppendLine("Si puedes convertir razonablemente el texto del jugador en un comando del juego, responde en UNA SOLA línea con el formato:");
-        promptBuilder.AppendLine("CMD: <comando>");
-        promptBuilder.AppendLine();
-        promptBuilder.AppendLine("Si no puedes convertirlo razonablemente (porque es ruido, no tiene sentido o no está claro a qué se refiere), responde en UNA SOLA línea con el formato:");
-        promptBuilder.AppendLine("AYUDA: <pregunta o consejo muy corto sobre qué podría escribir el jugador>");
-        promptBuilder.AppendLine();
-        promptBuilder.AppendLine("Cuando el jugador use pronombres como \"lo\", \"la\", \"los\", \"las\", \"él\", \"ella\" o similares, intenta deducir a qué objeto o personaje se refiere usando el contexto. Es preferible elegir el objeto o personaje más relevante o mencionado en la descripción actual.");
-        promptBuilder.AppendLine("Si el comando del jugador es ambiguo y podría referirse a varios objetos (por ejemplo, dos llaves distintas), usa AYUDA: para hacer una pregunta de clarificación, como por ejemplo: AYUDA: ¿Te refieres a la llave de hierro o a la llave dorada?");
-        promptBuilder.AppendLine();
-        promptBuilder.AppendLine("Usa solo comandos típicos de aventuras de texto, por ejemplo: mirar, mirar alrededor, examinar <objeto>, ir norte/sur/este/oeste, abrir <algo>, usar <objeto> con <otro>, coger <objeto>, hablar con <personaje>, inventario.");
-        promptBuilder.AppendLine("No inventes mecánicas nuevas ni comandos que no sean verbos habituales de aventuras de texto.");
-        promptBuilder.AppendLine("No añadas explicaciones fuera de los formatos CMD: o AYUDA:; no devuelvas varias líneas ni listas de comandos.");
+        promptBuilder.AppendLine("Responde en UNA o DOS frases muy cortas, hablando de tú y directamente al jugador,");
+        promptBuilder.AppendLine("sugiriendo qué podría escribir el jugador (por ejemplo: mirar, examinar algo, ir norte, usar objeto...).");
+        promptBuilder.AppendLine("No inventes mecánicas nuevas ni resuelvas puzles enteros; solo da una pista o sugerencia de comandos válidos.");
+        promptBuilder.AppendLine("No hables del jugador como una tercera persona, tú estas hablandole directamente a él");
         return promptBuilder.ToString();
     }
 
@@ -552,8 +465,17 @@ public partial class MainWindow : Window
         _uiSettings.SoundEnabled = settings.SoundEnabled;
         _uiSettings.FontSize = settings.FontSize;
         _uiSettings.UseLlmForUnknownCommands = settings.UseLlmForUnknownCommands;
+        _uiSettings.MusicVolume = settings.MusicVolume;
+        _uiSettings.EffectsVolume = settings.EffectsVolume;
+        _uiSettings.MasterVolume = settings.MasterVolume;
 
         _sound.SoundEnabled = settings.SoundEnabled;
+        _sound.MusicVolume = (float)(settings.MusicVolume / 10.0);
+        _sound.EffectsVolume = (float)(settings.EffectsVolume / 10.0);
+        _sound.MasterVolume = (float)(settings.MasterVolume / 10.0);
+
+        _sound.RefreshVolumes();
+
         ApplyUiSettings();
 
         UiSettingsManager.SaveForWorld(_engine.State.WorldId, _uiSettings);

@@ -18,7 +18,10 @@ public partial class OptionsWindow : Window
         {
             SoundEnabled = settings.SoundEnabled,
             FontSize = settings.FontSize,
-            UseLlmForUnknownCommands = settings.UseLlmForUnknownCommands
+            UseLlmForUnknownCommands = settings.UseLlmForUnknownCommands,
+            MusicVolume = settings.MusicVolume,
+            EffectsVolume = settings.EffectsVolume,
+            MasterVolume = settings.MasterVolume
         };
         _onChanged = onChanged;
         _worldId = worldId;
@@ -35,6 +38,19 @@ public partial class OptionsWindow : Window
         FontSizeSlider.Value = _settings.FontSize;
         FontSizeLabel.Text = _settings.FontSize.ToString("0");
 
+        MusicVolumeSlider.Value = _settings.MusicVolume;
+        EffectsVolumeSlider.Value = _settings.EffectsVolume;
+        MasterVolumeSlider.Value = _settings.MasterVolume;
+
+        MusicVolumeLabel.Text = _settings.MusicVolume.ToString("0");
+        EffectsVolumeLabel.Text = _settings.EffectsVolume.ToString("0");
+        MasterVolumeLabel.Text = _settings.MasterVolume.ToString("0");
+
+        var soundEnabled = _settings.SoundEnabled;
+        MusicVolumeSlider.IsEnabled = soundEnabled;
+        EffectsVolumeSlider.IsEnabled = soundEnabled;
+        MasterVolumeSlider.IsEnabled = soundEnabled;
+
         SoundCheckBox.Checked += SoundCheckBox_Changed;
         SoundCheckBox.Unchecked += SoundCheckBox_Changed;
 
@@ -44,7 +60,13 @@ public partial class OptionsWindow : Window
 
     private void SoundCheckBox_Changed(object sender, RoutedEventArgs e)
     {
-        _settings.SoundEnabled = SoundCheckBox.IsChecked == true;
+        var enabled = SoundCheckBox.IsChecked == true;
+        _settings.SoundEnabled = enabled;
+
+        MusicVolumeSlider.IsEnabled = enabled;
+        EffectsVolumeSlider.IsEnabled = enabled;
+        MasterVolumeSlider.IsEnabled = enabled;
+
         ApplyChanges();
     }
 
@@ -55,7 +77,37 @@ public partial class OptionsWindow : Window
         ApplyChanges();
     }
 
-    private void FontSizeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    private void MusicVolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (MusicVolumeLabel != null)
+        {
+            _settings.MusicVolume = e.NewValue;
+            MusicVolumeLabel.Text = _settings.MusicVolume.ToString("0");
+            ApplyChanges();
+        }
+    }
+
+    private void EffectsVolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (EffectsVolumeLabel != null)
+        {
+            _settings.EffectsVolume = e.NewValue;
+            EffectsVolumeLabel.Text = _settings.EffectsVolume.ToString("0");
+            ApplyChanges();
+        }
+    }
+
+    private void MasterVolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (MasterVolumeLabel != null)
+        {
+            _settings.MasterVolume = e.NewValue;
+            MasterVolumeLabel.Text = _settings.MasterVolume.ToString("0");
+            ApplyChanges();
+        }
+    }
+
+        private void FontSizeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         if (FontSizeLabel != null)
         {
@@ -65,27 +117,24 @@ public partial class OptionsWindow : Window
         }
     }
 
+    private void LlmInfoIcon_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        var message = "Si activas la IA, el juego intentará entender mejor comandos complejos o mal escritos.\n\n" +
+                      "Para usarla debes tener Docker Desktop instalado y funcionando. La primera vez que se use " +
+                      "se descargará el modelo y puede tardar unos minutos, dando errores hasta que termine. Después " +
+                      "funcionará con normalidad.";
+
+        var dlg = new AlertWindow(message, "Ayuda sobre la IA")
+        {
+            Owner = this
+        };
+        dlg.ShowDialog();
+    }
+
     private void ApplyChanges()
     {
         _onChanged(_settings);
         UiSettingsManager.SaveForWorld(_worldId, _settings);
-    }
-
-
-
-    private void LlmInfoIcon_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-    {
-        const string message =
-            "Para usar la IA en las partidas:" + "\n\n" +
-            "1. Instala Docker Desktop en tu equipo (Windows)." + "\n" +
-            "2. Abre la ventana de Opciones de la partida y marca la casilla \"Usar IA\"." + "\n" +
-            "3. Cierra XiloAdventures y vuelve a abrir la aplicación." + "\n" +
-            "4. Entra en un mundo (nuevo o cargado) y juega normalmente." + "\n\n" +
-            "La primera vez que un comando necesite la IA, XiloAdventures descargará el modelo y arrancará" + "\n" +
-            "automáticamente el contenedor Docker. Mientras se descarga, los primeros intentos de usar la IA" + "\n" +
-            "pueden dar un mensaje de error. Cuando termine la descarga, la IA funcionará con normalidad.";
-
-        XiloAdventures.Wpf.Windows.AlertWindow.Show("Ayuda sobre IA", message, this);
     }
 
     private void OkButton_Click(object sender, RoutedEventArgs e)

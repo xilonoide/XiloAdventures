@@ -12,6 +12,18 @@ public class UiSettings
     /// Si está activo, al no entender un comando se consultará un LLM local.
     /// </summary>
     public bool UseLlmForUnknownCommands { get; set; } = false;
+    /// <summary>
+    /// Volumen de la música (0-10).
+    /// </summary>
+    public double MusicVolume { get; set; } = 10.0;
+    /// <summary>
+    /// Volumen de los efectos de sonido (0-10).
+    /// </summary>
+    public double EffectsVolume { get; set; } = 10.0;
+    /// <summary>
+    /// Volumen maestro (1-10).
+    /// </summary>
+    public double MasterVolume { get; set; } = 10.0;
 }
 
 public static class UiSettingsManager
@@ -68,7 +80,10 @@ public static class UiSettingsManager
         {
             SoundEnabled = GlobalSettings.SoundEnabled,
             FontSize = GlobalSettings.FontSize,
-            UseLlmForUnknownCommands = GlobalSettings.UseLlmForUnknownCommands
+            UseLlmForUnknownCommands = GlobalSettings.UseLlmForUnknownCommands,
+            MusicVolume = GlobalSettings.MusicVolume,
+            EffectsVolume = GlobalSettings.EffectsVolume,
+            MasterVolume = GlobalSettings.MasterVolume
         };
     }
 

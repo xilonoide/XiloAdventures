@@ -90,7 +90,10 @@ public partial class StartupWindow : Window
 
         var soundManager = new SoundManager(AppPaths.SoundFolder)
         {
-            SoundEnabled = uiSettings.SoundEnabled
+            SoundEnabled = uiSettings.SoundEnabled,
+            MusicVolume = (float)(uiSettings.MusicVolume / 10.0),
+            EffectsVolume = (float)(uiSettings.EffectsVolume / 10.0),
+            MasterVolume = (float)(uiSettings.MasterVolume / 10.0)
         };
 
         var main = new MainWindow(world, state, soundManager, uiSettings);
