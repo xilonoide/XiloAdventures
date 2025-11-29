@@ -42,6 +42,10 @@ public partial class MapPanel : Control
     private string? _iconTooltipRoomId;
     private bool _iconTooltipIsObjectIcon;
 
+    // Tooltip para imagen de salas
+    private ToolTip? _roomImageToolTip;
+    private string? _roomImageTooltipRoomId;
+
     private string? _pendingPortDirection;
 
     // Transformación de vista

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
+using System.Windows.Media.Imaging;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -250,6 +252,10 @@ public partial class MapPanel : Control
 
         if (_isPanning && e.MiddleButton == MouseButtonState.Pressed)
         {
+            // Si estamos arrastrando el mapa, ocultamos cualquier tooltip de imagen de sala/iconos.
+            HideRoomImageTooltip();
+            HideIconTooltip();
+
             Vector delta = pos - _lastMiddleDown;
             _offset = new Point(
                 _offset.X + delta.X / _zoom,
@@ -268,6 +274,10 @@ public partial class MapPanel : Control
 
         if (_isDraggingRooms && e.LeftButton == MouseButtonState.Pressed)
         {
+            // Al arrastrar salas, ocultamos el tooltip de imagen de sala/iconos.
+            HideRoomImageTooltip();
+            HideIconTooltip();
+
             Vector deltaScreen = pos - _dragStartMouseScreen;
             Vector deltaLogical = new(deltaScreen.X / _zoom, deltaScreen.Y / _zoom);
 
@@ -302,7 +312,26 @@ public partial class MapPanel : Control
 
         // Actualizamos el tooltip de iconos (objetos / NPCs) según la posición del ratón
         UpdateIconTooltip(pos);
+
+        // Tooltip de imagen de sala (solo si no estamos sobre un icono)
+        if (!IsMouseOverAnyIcon(pos))
+        {
+            var roomUnderMouse = HitTestRoom(pos);
+            if (roomUnderMouse != null && !string.IsNullOrWhiteSpace(roomUnderMouse.ImageBase64))
+            {
+                ShowRoomImageTooltip(roomUnderMouse);
+            }
+            else
+            {
+                HideRoomImageTooltip();
+            }
+        }
+        else
+        {
+            HideRoomImageTooltip();
+        }
     }
+
 
     protected override void OnMouseUp(MouseButtonEventArgs e)
     {
@@ -629,6 +658,118 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
             _iconToolTip.IsOpen = false;
         }
         _iconTooltipRoomId = null;
+    }
+
+    private void HideRoomImageTooltip()
+    {
+        if (_roomImageToolTip != null)
+        {
+            _roomImageToolTip.IsOpen = false;
+            _roomImageToolTip.Content = null;
+        }
+        _roomImageTooltipRoomId = null;
+    }
+
+    private void ShowRoomImageTooltip(Room room)
+    {
+        if (_world == null)
+        {
+            HideRoomImageTooltip();
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(room.ImageBase64))
+        {
+            HideRoomImageTooltip();
+            return;
+        }
+
+        if (!_roomRects.TryGetValue(room.Id, out var rect))
+        {
+            HideRoomImageTooltip();
+            return;
+        }
+
+        // Si ya estamos mostrando el tooltip para esta sala, no hacemos nada.
+        if (_roomImageToolTip != null &&
+            _roomImageToolTip.IsOpen &&
+            string.Equals(_roomImageTooltipRoomId, room.Id, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        byte[] bytes;
+        try
+        {
+            bytes = Convert.FromBase64String(room.ImageBase64);
+        }
+        catch
+        {
+            HideRoomImageTooltip();
+            return;
+        }
+
+        BitmapImage bmp;
+        try
+        {
+            bmp = new BitmapImage();
+            using (var ms = new MemoryStream(bytes))
+            {
+                bmp.BeginInit();
+                bmp.CacheOption = BitmapCacheOption.OnLoad;
+                bmp.StreamSource = ms;
+                bmp.EndInit();
+            }
+            bmp.Freeze();
+        }
+        catch
+        {
+            HideRoomImageTooltip();
+            return;
+        }
+
+        var image = new Image
+        {
+            Source = bmp,
+            Stretch = Stretch.Uniform,
+            Width = rect.Width * 2.0,
+            Height = rect.Height * 2.0
+        };
+
+        if (_roomImageToolTip == null)
+        {
+            _roomImageToolTip = new ToolTip();
+        }
+
+        _roomImageToolTip.Content = image;
+        _roomImageToolTip.PlacementTarget = this;
+        _roomImageToolTip.Placement = PlacementMode.Mouse;
+        _roomImageToolTip.IsOpen = true;
+
+        _roomImageTooltipRoomId = room.Id;
+    }
+
+    private bool IsMouseOverAnyIcon(Point screenPoint)
+    {
+        foreach (var kvp in _roomObjectIconRects)
+        {
+            if (kvp.Value.Contains(screenPoint))
+                return true;
+        }
+
+        foreach (var kvp in _roomNpcIconRects)
+        {
+            if (kvp.Value.Contains(screenPoint))
+                return true;
+        }
+
+        foreach (var kvp in _roomStartIconRects)
+        {
+            if (kvp.Value.Contains(screenPoint))
+                return true;
+        }
+
+        return false;
     }
 
 
