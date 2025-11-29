@@ -918,7 +918,7 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
 
                 if (_world != null)
                 {
-                    Room room = _world.Rooms.FirstOrDefault(r => r.Id == roomId);
+                    Room? room = _world.Rooms.FirstOrDefault(r => r.Id == roomId);
                     if (room != null)
                         return (room, direction);
                 }

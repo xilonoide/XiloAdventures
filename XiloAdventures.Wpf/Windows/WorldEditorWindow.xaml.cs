@@ -602,7 +602,7 @@ private void SaveMenu_Click(object sender, RoutedEventArgs e)
             }
 
             Directory.CreateDirectory(AppPaths.WorldsFolder);
-            WorldLoader.SaveWorldModel(_world, _currentPath);
+            WorldLoader.SaveWorldModel(_world!, _currentPath);
         }
         catch (Exception ex)
         {

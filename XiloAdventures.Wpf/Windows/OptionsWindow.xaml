@@ -18,10 +18,23 @@
                       Margin="0,0,0,10"
                       Foreground="White"/>
 
-            <CheckBox x:Name="UseLlmCheckBox"
-                      Content="Usar IA"
-                      Margin="0,0,0,10"
-                      Foreground="White"/>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center">
+                <CheckBox x:Name="UseLlmCheckBox"
+                          Content="Usar IA"
+                          Foreground="White"
+                          VerticalAlignment="Center"/>
+                <TextBlock Text="?"
+                           Margin="6,0,0,0"
+                           VerticalAlignment="Center"
+                           Foreground="Yellow"
+                           FontWeight="Bold">
+                    <TextBlock.ToolTip>
+                        <TextBlock Text="La primera vez que se intente usar la IA se descargará el modelo. Esto puede tardar unos minutos y dará error. Pasados esos minutos ya funcionará la IA correctamente."
+                                   TextWrapping="Wrap"
+                                   Width="260"/>
+                    </TextBlock.ToolTip>
+                </TextBlock>
+            </StackPanel>
 
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock Text="Tamaño de fuente:" VerticalAlignment="Center" Margin="0,0,8,0"/>
