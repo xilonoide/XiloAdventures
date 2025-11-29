@@ -113,30 +113,56 @@ public partial class MainWindow : Window
 
             // Enviar al motor
             var result = _engine.ProcessCommand(cmd);
-            string? llmAnswer = null;
 
             if (_uiSettings.UseLlmForUnknownCommands)
             {
                 var trimmed = (result ?? string.Empty).Trim();
                 if (string.Equals(trimmed, "No entiendo ese comando.", StringComparison.OrdinalIgnoreCase))
                 {
+                    string? suggestion = null;
                     SetLlmBusy(true);
                     try
                     {
-                        llmAnswer = await TryAskLlmForUnknownCommandAsync(cmd);
+                        suggestion = await TryAskLlmForUnknownCommandAsync(cmd);
                     }
                     finally
                     {
                         SetLlmBusy(false);
                     }
+
+                    if (!string.IsNullOrWhiteSpace(suggestion))
+                    {
+                        var trimmedSuggestion = suggestion.Trim();
+                        const string cmdPrefix = "CMD:";
+                        const string helpPrefix = "AYUDA:";
+
+                        if (trimmedSuggestion.StartsWith(cmdPrefix, StringComparison.OrdinalIgnoreCase))
+                        {
+                            var suggestedCommand = trimmedSuggestion.Substring(cmdPrefix.Length).Trim();
+                            if (!string.IsNullOrWhiteSpace(suggestedCommand) &&
+                                !string.Equals(suggestedCommand, cmd, StringComparison.OrdinalIgnoreCase))
+                            {
+                                // Mostramos el comando reinterpretado por la IA
+                                AppendText($"> {suggestedCommand}");
+                                result = _engine.ProcessCommand(suggestedCommand);
+                            }
+                        }
+                        else if (trimmedSuggestion.StartsWith(helpPrefix, StringComparison.OrdinalIgnoreCase))
+                        {
+                            var helpText = trimmedSuggestion.Substring(helpPrefix.Length).Trim();
+                            if (!string.IsNullOrWhiteSpace(helpText))
+                            {
+                                // Mostramos solo la ayuda de la IA y omitimos el mensaje genérico de error.
+                                AppendText(helpText);
+                                result = null;
+                            }
+                        }
+                    }
                 }
             }
 
-            if (!string.IsNullOrWhiteSpace(result) && llmAnswer == null)
+            if (!string.IsNullOrWhiteSpace(result))
                 AppendText(result);
-
-            if (!string.IsNullOrWhiteSpace(llmAnswer))
-                AppendText(llmAnswer);
 
             UpdateStatusPanel();
             UpdateRoomVisuals();
@@ -204,19 +230,18 @@ public partial class MainWindow : Window
         }
     }
 
+
+
+
+
     private void SetLlmBusy(bool isBusy)
     {
-        if (LlmSpinner is null || InputTextBox is null)
+        if (LlmSpinner is null)
             return;
 
-        if (isBusy)
-        {
-            LlmSpinner.Visibility = System.Windows.Visibility.Visible;
-        }
-        else
-        {
-            LlmSpinner.Visibility = System.Windows.Visibility.Collapsed;
-        }
+        LlmSpinner.Visibility = isBusy
+            ? System.Windows.Visibility.Visible
+            : System.Windows.Visibility.Collapsed;
     }
 
     private async System.Threading.Tasks.Task<string?> TryAskLlmForUnknownCommandAsync(string originalCommand)
@@ -246,12 +271,16 @@ public partial class MainWindow : Window
                 var answer = responseProp.GetString();
                 if (!string.IsNullOrWhiteSpace(answer))
                 {
-                    // Devolvemos la respuesta del modelo como un párrafo aparte.
-                    return answer.Trim();
+                    // Tomamos solo la primera línea no vacía como comando sugerido.
+                    var firstLine = answer
+                        .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                        .FirstOrDefault();
+                    return firstLine?.Trim();
                 }
             }
 
-            return "Ni la IA te entiende...";
+            // Si no hay respuesta útil, no sugerimos nada.
+            return null;
         }
         catch (HttpRequestException)
         {
@@ -270,22 +299,27 @@ public partial class MainWindow : Window
 
     private string BuildLlmPrompt(string originalCommand)
     {
-        // Le damos algo de contexto al modelo, pero mantenemos todo muy ligero.
+        // Le damos contexto al modelo y le pedimos que devuelva un comando o un mensaje de ayuda.
         var roomDescription = _engine.DescribeCurrentRoom();
 
         var promptBuilder = new StringBuilder();
-        promptBuilder.AppendLine("Eres un asistente de ayuda para un juego de aventuras de texto en español.");
+        promptBuilder.AppendLine("Eres un asistente que traduce el texto libre del jugador en comandos válidos de un juego de aventuras de texto en español.");
         promptBuilder.AppendLine("El parser interno del juego no ha entendido el comando del jugador.");
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("Contexto del lugar donde está el jugador:");
         promptBuilder.AppendLine(roomDescription);
         promptBuilder.AppendLine();
-        promptBuilder.AppendLine($"Comando que ha escrito el jugador: \"{originalCommand}\"");
+        promptBuilder.AppendLine($"Comando original del jugador: \"{originalCommand}\"");
         promptBuilder.AppendLine();
-        promptBuilder.AppendLine("Responde en UNA o DOS frases muy cortas, hablando de tú y directamente al jugador,");
-        promptBuilder.AppendLine("sugiriendo qué podría escribir el jugador (por ejemplo: mirar, examinar algo, ir norte, usar objeto...).");
-        promptBuilder.AppendLine("No inventes mecánicas nuevas ni resuelvas puzles enteros; solo da una pista o sugerencia de comandos válidos.");
-        promptBuilder.AppendLine("No hables del jugador como una tercera persona, tú estas hablandole directamente a él");
+        promptBuilder.AppendLine("Si puedes convertir razonablemente el texto del jugador en un comando del juego, responde en UNA SOLA línea con el formato:");
+        promptBuilder.AppendLine("CMD: <comando>");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("Si no puedes convertirlo razonablemente (por ejemplo porque es ruido o algo sin sentido), responde en UNA SOLA línea con el formato:");
+        promptBuilder.AppendLine("AYUDA: <explicación o consejo muy corto sobre qué podría escribir el jugador>");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("Usa solo comandos típicos de aventuras de texto, por ejemplo: mirar, mirar alrededor, examinar <objeto>, ir norte/sur/este/oeste, abrir <algo>, usar <objeto> con <otro>, coger <objeto>, hablar con <personaje>, inventario.");
+        promptBuilder.AppendLine("No inventes mecánicas nuevas ni comandos que no sean verbos habituales de aventuras de texto.");
+        promptBuilder.AppendLine("No añadas explicaciones fuera de esos formatos; no devuelvas varias líneas ni listas de comandos.");
         return promptBuilder.ToString();
     }
 
