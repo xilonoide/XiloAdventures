@@ -146,7 +146,10 @@
                            Margin="0,0,0,4"/>
                 <Border Height="260" Background="#101010">
                     <Image x:Name="RoomImage"
-                           Stretch="UniformToFill"/>
+                           Stretch="Uniform"
+                           StretchDirection="DownOnly"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"/>
                 </Border>
             </StackPanel>
 
@@ -191,28 +194,9 @@
             <!-- Entrada de comandos -->
             <DockPanel Grid.Row="2" Margin="0,8,0,0">
                 <TextBlock Text="&gt;" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-
-                    <!-- Cuadro de entrada del jugador -->
-                    <TextBox x:Name="InputTextBox"
-                             Grid.Column="0"
-                             KeyDown="InputTextBox_KeyDown"
-                             VerticalContentAlignment="Center"/>
-
-                    <!-- Spinner que indica que el LLM está procesando -->
-                    <ProgressBar x:Name="LlmSpinner"
-                                 Grid.Column="1"
-                                 Width="40"
-                                 Height="10"
-                                 IsIndeterminate="True"
-                                 Visibility="Collapsed"
-                                 VerticalAlignment="Center"
-                                 Margin="8,0,0,0"/>
-                </Grid>
+                <TextBox x:Name="InputTextBox"
+                         KeyDown="InputTextBox_KeyDown"
+                         VerticalContentAlignment="Center"/>
             </DockPanel>
         </Grid>
     </DockPanel>

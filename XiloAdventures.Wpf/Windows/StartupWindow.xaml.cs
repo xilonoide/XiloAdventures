@@ -60,7 +60,7 @@ public partial class StartupWindow : Window
             return Path.Combine(AppPaths.WorldsFolder, name + ".xaw");
         }
 
-        new AlertWindow("Selecciona un mundo primero.", "Xilo Adventures") { Owner = this }.ShowDialog();
+        new AlertWindow("Selecciona un mundo primero.") { Owner = this }.ShowDialog();
         return null;
     }
 
@@ -90,10 +90,7 @@ public partial class StartupWindow : Window
 
         var soundManager = new SoundManager(AppPaths.SoundFolder)
         {
-            SoundEnabled = uiSettings.SoundEnabled,
-            MusicVolume = (float)(uiSettings.MusicVolume / 10.0),
-            EffectsVolume = (float)(uiSettings.EffectsVolume / 10.0),
-            MasterVolume = (float)(uiSettings.MasterVolume / 10.0)
+            SoundEnabled = uiSettings.SoundEnabled
         };
 
         var main = new MainWindow(world, state, soundManager, uiSettings);
