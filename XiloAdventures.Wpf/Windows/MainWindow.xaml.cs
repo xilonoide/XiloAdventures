@@ -2,6 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Text;
+using System.Text.Json;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -20,6 +24,11 @@ public partial class MainWindow : Window
     private readonly GameEngine _engine;
     private readonly SoundManager _sound;
     private readonly UiSettings _uiSettings;
+
+    private static readonly HttpClient _httpClient = new()
+    {
+        BaseAddress = new Uri("http://localhost:11434/")
+    };
 
     private readonly List<string> _commandHistory = new();
     private int _commandHistoryIndex = -1;
@@ -69,12 +78,17 @@ public partial class MainWindow : Window
     }
 
 
-    private void InputTextBox_KeyDown(object sender, KeyEventArgs e)
+    private async void InputTextBox_KeyDown(object sender, KeyEventArgs e)
     {
         // Historial de comandos con flechas arriba/abajo
         if (e.Key == Key.Enter)
         {
             var cmd = InputTextBox.Text.Trim();
+
+            // Limpiar siempre el textbox justo después de pulsar ENTER,
+            // tanto si el comando es válido como si no.
+            InputTextBox.Clear();
+
             if (string.IsNullOrEmpty(cmd))
             {
                 e.Handled = true;
@@ -99,8 +113,30 @@ public partial class MainWindow : Window
 
             // Enviar al motor
             var result = _engine.ProcessCommand(cmd);
-            if (!string.IsNullOrWhiteSpace(result))
+            string? llmAnswer = null;
+
+            if (_uiSettings.UseLlmForUnknownCommands)
+            {
+                var trimmed = (result ?? string.Empty).Trim();
+                if (string.Equals(trimmed, "No entiendo ese comando.", StringComparison.OrdinalIgnoreCase))
+                {
+                    SetLlmBusy(true);
+                    try
+                    {
+                        llmAnswer = await TryAskLlmForUnknownCommandAsync(cmd);
+                    }
+                    finally
+                    {
+                        SetLlmBusy(false);
+                    }
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(result) && llmAnswer == null)
                 AppendText(result);
+
+            if (!string.IsNullOrWhiteSpace(llmAnswer))
+                AppendText(llmAnswer);
 
             UpdateStatusPanel();
             UpdateRoomVisuals();
@@ -168,6 +204,166 @@ public partial class MainWindow : Window
         }
     }
 
+    private void SetLlmBusy(bool isBusy)
+    {
+        if (LlmSpinner is null || InputTextBox is null)
+            return;
+
+        if (isBusy)
+        {
+            LlmSpinner.Visibility = System.Windows.Visibility.Visible;
+        }
+        else
+        {
+            LlmSpinner.Visibility = System.Windows.Visibility.Collapsed;
+        }
+    }
+
+    private async System.Threading.Tasks.Task<string?> TryAskLlmForUnknownCommandAsync(string originalCommand)
+    {
+        try
+        {
+            var prompt = BuildLlmPrompt(originalCommand);
+
+            var payload = new
+            {
+                model = "llama3",
+                prompt,
+                stream = false
+            };
+
+            var json = JsonSerializer.Serialize(payload);
+            using var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            using var response = await _httpClient.PostAsync("api/generate", content);
+            response.EnsureSuccessStatusCode();
+
+            await using var stream = await response.Content.ReadAsStreamAsync();
+            using var doc = await JsonDocument.ParseAsync(stream);
+
+            if (doc.RootElement.TryGetProperty("response", out var responseProp))
+            {
+                var answer = responseProp.GetString();
+                if (!string.IsNullOrWhiteSpace(answer))
+                {
+                    // Devolvemos la respuesta del modelo como un párrafo aparte.
+                    return answer.Trim();
+                }
+            }
+
+            return "Ni la IA te entiende...";
+        }
+        catch (HttpRequestException)
+        {
+            HandleLlmConnectionError();
+            return null;
+        }
+        catch (Exception ex)
+        {
+            new AlertWindow($"Se produjo un error al consultar el modelo IA:\n{ex.Message}", "Error IA")
+            {
+                Owner = this
+            }.ShowDialog();
+            return null;
+        }
+    }
+
+    private string BuildLlmPrompt(string originalCommand)
+    {
+        // Le damos algo de contexto al modelo, pero mantenemos todo muy ligero.
+        var roomDescription = _engine.DescribeCurrentRoom();
+
+        var promptBuilder = new StringBuilder();
+        promptBuilder.AppendLine("Eres un asistente de ayuda para un juego de aventuras de texto en español.");
+        promptBuilder.AppendLine("El parser interno del juego no ha entendido el comando del jugador.");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("Contexto del lugar donde está el jugador:");
+        promptBuilder.AppendLine(roomDescription);
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine($"Comando que ha escrito el jugador: \"{originalCommand}\"");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("Responde en UNA o DOS frases muy cortas, hablando de tú y directamente al jugador,");
+        promptBuilder.AppendLine("sugiriendo qué podría escribir el jugador (por ejemplo: mirar, examinar algo, ir norte, usar objeto...).");
+        promptBuilder.AppendLine("No inventes mecánicas nuevas ni resuelvas puzles enteros; solo da una pista o sugerencia de comandos válidos.");
+        promptBuilder.AppendLine("No hables del jugador como una tercera persona, tú estas hablandole directamente a él");
+        return promptBuilder.ToString();
+    }
+
+    private void HandleLlmConnectionError()
+    {
+        var composePath = System.IO.Path.Combine(AppContext.BaseDirectory, "docker-compose.yml");
+        bool composeStarted = false;
+
+        if (System.IO.File.Exists(composePath))
+        {
+            composeStarted = TryStartDockerCompose(composePath);
+        }
+
+        string message;
+        if (composeStarted)
+        {
+            message =
+                "No se ha podido contactar con el modelo IA en http://localhost:11434.\n\n" +
+                "He intentado arrancar el servicio usando 'docker compose up' con el fichero docker-compose.yml.\n" +
+                "Asegúrate de que Docker Desktop está instalado y ejecutándose y vuelve a probar el comando.";
+        }
+        else
+        {
+            message =
+                "No se ha podido contactar con el modelo IA en http://localhost:11434.\n\n" +
+                "Debes tener Docker Desktop instalado y en ejecución, y el comando 'docker compose' disponible, " +
+                "para poder usar esta opción.";
+        }
+
+        new AlertWindow(message, "IA no disponible")
+        {
+            Owner = this
+        }.ShowDialog();
+    }
+
+    private bool TryStartDockerCompose(string composeFilePath)
+    {
+        try
+        {
+            var candidates = new (string FileName, string Arguments)[]
+            {
+                ("docker", $"compose -f \"{composeFilePath}\" up -d"),
+                ("docker-compose", $"-f \"{composeFilePath}\" up -d")
+            };
+
+            foreach (var candidate in candidates)
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = candidate.FileName,
+                    Arguments = candidate.Arguments,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+
+                using var process = Process.Start(psi);
+                if (process == null)
+                    continue;
+
+                if (!process.WaitForExit(10000))
+                {
+                    try { process.Kill(); } catch { }
+                    continue;
+                }
+
+                if (process.ExitCode == 0)
+                    return true;
+            }
+        }
+        catch
+        {
+            // Ignoramos errores aquí; el método devolverá false.
+        }
+
+        return false;
+    }
 
     private static bool _IsSaveOrLoadCommand(string cmd)
         => cmd.StartsWith("guardar") || cmd.StartsWith("cargar");
@@ -294,6 +490,7 @@ public partial class MainWindow : Window
         // Aplicar cambios en vivo
         _uiSettings.SoundEnabled = settings.SoundEnabled;
         _uiSettings.FontSize = settings.FontSize;
+        _uiSettings.UseLlmForUnknownCommands = settings.UseLlmForUnknownCommands;
 
         _sound.SoundEnabled = settings.SoundEnabled;
         ApplyUiSettings();

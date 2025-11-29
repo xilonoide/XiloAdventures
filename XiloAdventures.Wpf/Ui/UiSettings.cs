@@ -8,6 +8,10 @@ public class UiSettings
 {
     public bool SoundEnabled { get; set; } = true;
     public double FontSize { get; set; } = 14.0;
+    /// <summary>
+    /// Si está activo, al no entender un comando se consultará un LLM local.
+    /// </summary>
+    public bool UseLlmForUnknownCommands { get; set; } = false;
 }
 
 public static class UiSettingsManager
@@ -63,7 +67,8 @@ public static class UiSettingsManager
         return new UiSettings
         {
             SoundEnabled = GlobalSettings.SoundEnabled,
-            FontSize = GlobalSettings.FontSize
+            FontSize = GlobalSettings.FontSize,
+            UseLlmForUnknownCommands = GlobalSettings.UseLlmForUnknownCommands
         };
     }
 

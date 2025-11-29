@@ -16,7 +16,8 @@ public partial class OptionsWindow : Window
         _settings = new UiSettings
         {
             SoundEnabled = settings.SoundEnabled,
-            FontSize = settings.FontSize
+            FontSize = settings.FontSize,
+            UseLlmForUnknownCommands = settings.UseLlmForUnknownCommands
         };
         _onChanged = onChanged;
         _worldId = worldId;
@@ -29,16 +30,27 @@ public partial class OptionsWindow : Window
     private void OptionsWindow_Loaded(object sender, RoutedEventArgs e)
     {
         SoundCheckBox.IsChecked = _settings.SoundEnabled;
+        UseLlmCheckBox.IsChecked = _settings.UseLlmForUnknownCommands;
         FontSizeSlider.Value = _settings.FontSize;
         FontSizeLabel.Text = _settings.FontSize.ToString("0");
 
         SoundCheckBox.Checked += SoundCheckBox_Changed;
         SoundCheckBox.Unchecked += SoundCheckBox_Changed;
+
+        UseLlmCheckBox.Checked += UseLlmCheckBox_Changed;
+        UseLlmCheckBox.Unchecked += UseLlmCheckBox_Changed;
     }
 
     private void SoundCheckBox_Changed(object sender, RoutedEventArgs e)
     {
         _settings.SoundEnabled = SoundCheckBox.IsChecked == true;
+        ApplyChanges();
+    }
+
+
+    private void UseLlmCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        _settings.UseLlmForUnknownCommands = UseLlmCheckBox.IsChecked == true;
         ApplyChanges();
     }
 

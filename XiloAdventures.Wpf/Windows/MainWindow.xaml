@@ -191,10 +191,28 @@
             <!-- Entrada de comandos -->
             <DockPanel Grid.Row="2" Margin="0,8,0,0">
                 <TextBlock Text="&gt;" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                <TextBox x:Name="InputTextBox"
-                         PreviewKeyDown="InputTextBox_KeyDown"
-                         KeyDown="InputTextBox_KeyDown"
-                         VerticalContentAlignment="Center"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Cuadro de entrada del jugador -->
+                    <TextBox x:Name="InputTextBox"
+                             Grid.Column="0"
+                             KeyDown="InputTextBox_KeyDown"
+                             VerticalContentAlignment="Center"/>
+
+                    <!-- Spinner que indica que el LLM está procesando -->
+                    <ProgressBar x:Name="LlmSpinner"
+                                 Grid.Column="1"
+                                 Width="40"
+                                 Height="10"
+                                 IsIndeterminate="True"
+                                 Visibility="Collapsed"
+                                 VerticalAlignment="Center"
+                                 Margin="8,0,0,0"/>
+                </Grid>
             </DockPanel>
         </Grid>
     </DockPanel>

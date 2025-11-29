@@ -18,6 +18,11 @@
                       Margin="0,0,0,10"
                       Foreground="White"/>
 
+            <CheckBox x:Name="UseLlmCheckBox"
+                      Content="Usar IA"
+                      Margin="0,0,0,10"
+                      Foreground="White"/>
+
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock Text="Tamaño de fuente:" VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <Slider x:Name="FontSizeSlider"
