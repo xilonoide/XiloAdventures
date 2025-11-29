@@ -27,7 +27,9 @@
                            Margin="6,0,0,0"
                            VerticalAlignment="Center"
                            Foreground="Yellow"
-                           FontWeight="Bold">
+                           FontWeight="Bold"
+                           Cursor="Hand"
+                           MouseLeftButtonUp="LlmInfoIcon_MouseLeftButtonUp">
                     <TextBlock.ToolTip>
                         <TextBlock Text="La primera vez que se intente usar la IA se descargará el modelo. Esto puede tardar unos minutos y dará error. Pasados esos minutos ya funcionará la IA correctamente."
                                    TextWrapping="Wrap"

@@ -314,12 +314,15 @@ public partial class MainWindow : Window
         promptBuilder.AppendLine("Si puedes convertir razonablemente el texto del jugador en un comando del juego, responde en UNA SOLA línea con el formato:");
         promptBuilder.AppendLine("CMD: <comando>");
         promptBuilder.AppendLine();
-        promptBuilder.AppendLine("Si no puedes convertirlo razonablemente (por ejemplo porque es ruido o algo sin sentido), responde en UNA SOLA línea con el formato:");
-        promptBuilder.AppendLine("AYUDA: <explicación o consejo muy corto sobre qué podría escribir el jugador>");
+        promptBuilder.AppendLine("Si no puedes convertirlo razonablemente (porque es ruido, no tiene sentido o no está claro a qué se refiere), responde en UNA SOLA línea y con el formato:");
+        promptBuilder.AppendLine("AYUDA: <una respuesta ocurrente si ves que no tiene nada que ver con el contexto, o una pregunta o consejo muy corto sobre qué podría escribir el jugador>");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("Cuando el jugador use pronombres como \"lo\", \"la\", \"los\", \"las\", \"él\", \"ella\" o similares, intenta deducir a qué objeto o personaje se refiere usando el contexto. Es preferible elegir el objeto o personaje más relevante o mencionado en la descripción actual.");
+        promptBuilder.AppendLine("Si el comando del jugador es ambiguo y podría referirse a varios objetos (por ejemplo, dos llaves distintas), usa AYUDA: para hacer una pregunta de clarificación, como por ejemplo: AYUDA: ¿Te refieres a la llave de hierro o a la llave dorada?");
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("Usa solo comandos típicos de aventuras de texto, por ejemplo: mirar, mirar alrededor, examinar <objeto>, ir norte/sur/este/oeste, abrir <algo>, usar <objeto> con <otro>, coger <objeto>, hablar con <personaje>, inventario.");
         promptBuilder.AppendLine("No inventes mecánicas nuevas ni comandos que no sean verbos habituales de aventuras de texto.");
-        promptBuilder.AppendLine("No añadas explicaciones fuera de esos formatos; no devuelvas varias líneas ni listas de comandos.");
+        promptBuilder.AppendLine("No añadas explicaciones fuera de los formatos CMD: o AYUDA:; no devuelvas varias líneas ni listas de comandos.");
         return promptBuilder.ToString();
     }
 
