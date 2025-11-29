@@ -28,13 +28,27 @@ public class GameEngine
         // Inicializar hora de juego al comenzar la partida si no viene informada.
         if (_state.GameTime == default)
         {
-            _state.GameTime = DateTime.Now;
+            // Usamos la hora inicial configurada en el juego, en lugar de la hora real.
+            var startHour = _world.Game?.StartHour ?? 9;
+            if (startHour < 0) startHour = 0;
+            if (startHour > 23) startHour = 23;
+
+            var today = DateTime.Today;
+            _state.GameTime = new DateTime(today.Year, today.Month, today.Day, startHour, 0, 0);
         }
         _lastRealTime = DateTime.Now;
 
         // Asegurar índices consistentes
         WorldLoader.RebuildRoomIndexes(_state);
         EnsurePlayerRoom();
+
+        // Arrancar la música global del mundo (si la hay) al inicio de la partida.
+        if (_world.Game != null)
+        {
+            _sound.PlayWorldMusic(_state.WorldMusicId, _world.Game.WorldMusicBase64);
+        }
+
+        // Ajustar música de sala (si la sala actual tiene música especial).
         OnRoomChanged();
     }
 
@@ -49,8 +63,12 @@ public class GameEngine
         if (realDelta < TimeSpan.Zero)
             realDelta = TimeSpan.Zero;
 
-        // 10 minutos reales -> 3 horas en el juego (factor 18x)
-        double factor = 18.0;
+        // Escalado configurable: MinutesPerGameHour minutos reales equivalen a 60 minutos de juego.
+        var minutesPerGameHour = _world.Game?.MinutesPerGameHour ?? 6;
+        if (minutesPerGameHour <= 0) minutesPerGameHour = 6;
+        if (minutesPerGameHour > 10) minutesPerGameHour = 10;
+
+        double factor = 60.0 / minutesPerGameHour;
         var scaledTicks = (long)(realDelta.Ticks * factor);
         if (scaledTicks != 0)
         {
@@ -612,12 +630,15 @@ private string HandleTake(ParsedCommand parsed)
         var room = CurrentRoom;
         if (room != null)
         {
-            _sound.PlayRoomMusic(room.MusicId, _state.WorldMusicId);
+            // La música global del mundo ya se ha arrancado en el constructor.
+            // Aquí solo gestionamos la música especial de sala (si la hay).
+            _sound.PlayRoomMusic(room.MusicId, room.MusicBase64);
             RoomChanged?.Invoke(room);
         }
         else
         {
-            _sound.PlayWorldMusic(_state.WorldMusicId);
+            // Si por algún motivo no hay sala actual, dejamos sonar solo la música global.
+            _sound.PlayWorldMusic(_state.WorldMusicId, _world.Game?.WorldMusicBase64);
         }
     }
 

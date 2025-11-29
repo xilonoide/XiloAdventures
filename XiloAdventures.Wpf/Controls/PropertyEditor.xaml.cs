@@ -1,11 +1,13 @@
 using System.Collections.Generic;
 using System;
+using System.IO;
 using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using XiloAdventures.Engine.Models;
+using XiloAdventures.Wpf.Windows;
 using Microsoft.Win32;
 
 namespace XiloAdventures.Wpf.Controls;
@@ -32,16 +34,16 @@ public partial class PropertyEditor : UserControl
         if (obj == null)
             return;
 
-                var props = obj.GetType()
-            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .Where(p => p.CanRead && p.CanWrite && p.GetIndexParameters().Length == 0)
-            .Where(p =>
-            {
-                var browsable = p.GetCustomAttribute<BrowsableAttribute>();
-                return browsable == null || browsable.Browsable;
-            })
-            .Where(p => p.Name != "Exits")
-            .OrderBy(p => p.Name);
+        var props = obj.GetType()
+    .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+    .Where(p => p.CanRead && p.CanWrite && p.GetIndexParameters().Length == 0)
+    .Where(p =>
+    {
+        var browsable = p.GetCustomAttribute<BrowsableAttribute>();
+        return browsable == null || browsable.Browsable;
+    })
+    .Where(p => p.Name != "Exits")
+    .OrderBy(p => p.Name);
 
         foreach (var prop in props)
         {
@@ -110,12 +112,12 @@ public partial class PropertyEditor : UserControl
                         ItemsSource = rooms
                     };
 
-                                        if (obj is Door && (prop.Name == "RoomIdA" || prop.Name == "RoomIdB"))
+                    if (obj is Door && (prop.Name == "RoomIdA" || prop.Name == "RoomIdB"))
                     {
                         combo.IsEnabled = false;
                     }
 
-var currentId = Convert.ToString(prop.GetValue(obj)) ?? string.Empty;
+                    var currentId = Convert.ToString(prop.GetValue(obj)) ?? string.Empty;
                     combo.SelectedValue = currentId;
 
                     combo.SelectionChanged += (_, _) =>
@@ -137,6 +139,99 @@ var currentId = Convert.ToString(prop.GetValue(obj)) ?? string.Empty;
 
                     editor = combo;
                 }
+                else if (prop.PropertyType.IsEnum)
+                {
+                    var comboEnum = new ComboBox
+                    {
+                        Margin = new Thickness(0, 2, 0, 0),
+                        ItemsSource = Enum.GetValues(prop.PropertyType)
+                    };
+
+                    comboEnum.SelectedItem = prop.GetValue(obj);
+
+                    comboEnum.SelectionChanged += (_, _) =>
+                    {
+                        try
+                        {
+                            if (_currentObject is not { } target) return;
+                            if (comboEnum.SelectedItem != null)
+                            {
+                                prop.SetValue(target, comboEnum.SelectedItem);
+                                PropertyEdited?.Invoke(target, prop.Name);
+                            }
+                        }
+                        catch
+                        {
+                            // Ignorar errores
+                        }
+                    };
+
+                    editor = comboEnum;
+                }
+                else if (obj is GameInfo && prop.Name == "MinutesPerGameHour" && prop.PropertyType == typeof(int))
+                {
+                    var comboMinutes = new ComboBox
+                    {
+                        Margin = new Thickness(0, 2, 0, 0),
+                        IsEditable = false
+                    };
+
+                    for (int i = 1; i <= 10; i++)
+                        comboMinutes.Items.Add(i);
+
+                    var current = prop.GetValue(obj) is int v ? v : 6;
+                    if (current < 1 || current > 10) current = 6;
+                    comboMinutes.SelectedItem = current;
+
+                    comboMinutes.SelectionChanged += (_, _) =>
+                    {
+                        try
+                        {
+                            if (_currentObject is not { } target) return;
+                            if (comboMinutes.SelectedItem is int value)
+                            {
+                                prop.SetValue(target, value);
+                                PropertyEdited?.Invoke(target, prop.Name);
+                            }
+                        }
+                        catch
+                        {
+                            // Ignorar errores
+                        }
+                    };
+
+                    editor = comboMinutes;
+                }
+                else if (obj is GameInfo && prop.Name == "ParserDictionaryJson" && prop.PropertyType == typeof(string))
+                {
+                    var tbJson = new TextBox
+                    {
+                        Margin = new Thickness(0, 2, 0, 0),
+                        AcceptsReturn = true,
+                        TextWrapping = TextWrapping.Wrap,
+                        VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                        MinHeight = 80,
+                        Text = Convert.ToString(prop.GetValue(obj)) ?? string.Empty
+                    };
+
+                    tbJson.LostKeyboardFocus += (_, _) =>
+                    {
+                        try
+                        {
+                            if (_currentObject is not { } target) return;
+                            prop.SetValue(target, tbJson.Text);
+                            PropertyEdited?.Invoke(target, prop.Name);
+                        }
+                        catch
+                        {
+                            // Ignorar errores
+                        }
+                    };
+
+                    editor = tbJson;
+                }
+                
+                
                 else if (prop.Name == "WorldMusicId" && prop.PropertyType == typeof(string))
                 {
                     var valueObj = prop.GetValue(obj);
@@ -182,22 +277,42 @@ var currentId = Convert.ToString(prop.GetValue(obj)) ?? string.Empty;
                     {
                         try
                         {
-                            if (_currentObject is not { } target) return;
+                            if (_currentObject is not GameInfo game) return;
 
                             var dlg = new OpenFileDialog
                             {
                                 Filter = "Audio (*.mp3;*.wav)|*.mp3;*.wav|Todos los archivos (*.*)|*.*",
-                                InitialDirectory = System.IO.Directory.Exists(AppPaths.SoundFolder)
-                                    ? AppPaths.SoundFolder
-                                    : AppPaths.BaseDirectory
+                                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyMusic)
                             };
 
                             if (dlg.ShowDialog() == true)
                             {
-                                var fileName = System.IO.Path.GetFileName(dlg.FileName);
+                                var fileInfo = new FileInfo(dlg.FileName);
+                                const long MaxAudioBytes = 20L * 1024 * 1024; // 20 MB
+
+                                if (fileInfo.Length > MaxAudioBytes)
+                                {
+                                    {
+                                    var msg = $"El archivo de música es demasiado grande ({fileInfo.Length / (1024 * 1024)} MB).\n" +
+                                              "El tamaño máximo permitido es de 20MB.";
+                                    new AlertWindow(msg, "Archivo demasiado grande")
+                                    {
+                                        Owner = Window.GetWindow(this)
+                                    }.ShowDialog();
+                                };
+                                    return;
+                                }
+
+                                var fileName = Path.GetFileName(dlg.FileName);
+                                var bytes = File.ReadAllBytes(dlg.FileName);
+                                var base64 = Convert.ToBase64String(bytes);
+
                                 tb.Text = fileName;
-                                prop.SetValue(target, fileName);
-                                PropertyEdited?.Invoke(target, prop.Name);
+                                game.WorldMusicId = fileName;
+                                game.WorldMusicBase64 = base64;
+
+                                PropertyEdited?.Invoke(game, nameof(GameInfo.WorldMusicId));
+                                PropertyEdited?.Invoke(game, nameof(GameInfo.WorldMusicBase64));
                             }
                         }
                         catch
@@ -210,7 +325,9 @@ var currentId = Convert.ToString(prop.GetValue(obj)) ?? string.Empty;
                     panel.Children.Add(btn);
                     editor = panel;
                 }
-                // ImageId de Room: textbox + botón ... para imagen de sala
+
+
+// ImageId de Room: textbox + botón ... para imagen de sala
                 else if (prop.Name == "ImageId" && prop.PropertyType == typeof(string))
                 {
                     var valueObj = prop.GetValue(obj);
@@ -238,6 +355,7 @@ var currentId = Convert.ToString(prop.GetValue(obj)) ?? string.Empty;
                     };
                     Grid.SetColumn(btn, 1);
 
+                    // Si el usuario edita manualmente el texto, solo cambiamos el nombre de archivo
                     tb.LostFocus += (_, _) =>
                     {
                         try
@@ -256,20 +374,27 @@ var currentId = Convert.ToString(prop.GetValue(obj)) ?? string.Empty;
                     {
                         try
                         {
-                            if (_currentObject is not { } target) return;
+                            if (_currentObject is not Room room) return;
 
                             var dlg = new OpenFileDialog
                             {
                                 Filter = "Imágenes (*.png;*.jpg;*.jpeg)|*.png;*.jpg;*.jpeg|Todos los archivos (*.*)|*.*",
-                                InitialDirectory = System.IO.Path.Combine(AppPaths.BaseDirectory, "Images")
+                                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)
                             };
 
                             if (dlg.ShowDialog() == true)
                             {
-                                var fileName = System.IO.Path.GetFileNameWithoutExtension(dlg.FileName);
+                                // Guardamos el nombre de archivo (con extensión) y la imagen en Base64 dentro del mundo
+                                var fileName = Path.GetFileName(dlg.FileName);
+                                var bytes = File.ReadAllBytes(dlg.FileName);
+                                var base64 = Convert.ToBase64String(bytes);
+
                                 tb.Text = fileName;
-                                prop.SetValue(target, fileName);
-                                PropertyEdited?.Invoke(target, prop.Name);
+                                room.ImageId = fileName;
+                                room.ImageBase64 = base64;
+
+                                PropertyEdited?.Invoke(room, nameof(Room.ImageId));
+                                PropertyEdited?.Invoke(room, nameof(Room.ImageBase64));
                             }
                         }
                         catch
@@ -282,6 +407,8 @@ var currentId = Convert.ToString(prop.GetValue(obj)) ?? string.Empty;
                     panel.Children.Add(btn);
                     editor = panel;
                 }
+
+                
                 // MusicId de Room: textbox + botón ... para música de sala
                 else if (prop.Name == "MusicId" && prop.PropertyType == typeof(string))
                 {
@@ -328,20 +455,42 @@ var currentId = Convert.ToString(prop.GetValue(obj)) ?? string.Empty;
                     {
                         try
                         {
-                            if (_currentObject is not { } target) return;
+                            if (_currentObject is not Room room) return;
 
                             var dlg = new OpenFileDialog
                             {
                                 Filter = "Audio (*.mp3;*.wav)|*.mp3;*.wav|Todos los archivos (*.*)|*.*",
-                                InitialDirectory = AppPaths.SoundFolder
+                                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyMusic)
                             };
 
                             if (dlg.ShowDialog() == true)
                             {
-                                var fileName = System.IO.Path.GetFileName(dlg.FileName);
+                                var fileInfo = new FileInfo(dlg.FileName);
+                                const long MaxAudioBytes = 20L * 1024 * 1024; // 20 MB
+
+                                if (fileInfo.Length > MaxAudioBytes)
+                                {
+                                    {
+                                    var msg = $"El archivo de música es demasiado grande ({fileInfo.Length / (1024 * 1024)} MB).\n" +
+                                              "El tamaño máximo permitido es de 20MB.";
+                                    new AlertWindow(msg, "Archivo demasiado grande")
+                                    {
+                                        Owner = Window.GetWindow(this)
+                                    }.ShowDialog();
+                                };
+                                    return;
+                                }
+
+                                var fileName = Path.GetFileName(dlg.FileName);
+                                var bytes = File.ReadAllBytes(dlg.FileName);
+                                var base64 = Convert.ToBase64String(bytes);
+
                                 tb.Text = fileName;
-                                prop.SetValue(target, fileName);
-                                PropertyEdited?.Invoke(target, prop.Name);
+                                room.MusicId = fileName;
+                                room.MusicBase64 = base64;
+
+                                PropertyEdited?.Invoke(room, nameof(Room.MusicId));
+                                PropertyEdited?.Invoke(room, nameof(Room.MusicBase64));
                             }
                         }
                         catch
@@ -354,6 +503,8 @@ var currentId = Convert.ToString(prop.GetValue(obj)) ?? string.Empty;
                     panel.Children.Add(btn);
                     editor = panel;
                 }
+
+
                 else
                 {
                     // Texto normal / listas

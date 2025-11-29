@@ -52,6 +52,16 @@ public static class WorldLoader
             Keys = CloneList(world.Keys)
         };
 
+
+        // Inicializar hora y clima de la partida según la configuración del juego.
+        var startHour = world.Game.StartHour;
+        if (startHour < 0) startHour = 0;
+        if (startHour > 23) startHour = 23;
+        var today = DateTime.Today;
+        state.GameTime = new DateTime(today.Year, today.Month, today.Day, startHour, 0, 0);
+        state.Weather = world.Game.StartWeather;
+
+
         state.Quests = new Dictionary<string, QuestState>();
         foreach (var q in world.Quests)
         {

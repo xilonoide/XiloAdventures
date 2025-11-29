@@ -24,12 +24,39 @@ public class WorldModel
     public Dictionary<string, MapPosition> RoomPositions { get; set; } = new();
 }
 
+public enum WeatherType
+{
+    Despejado,
+    Lluvioso,
+    Nublado,
+    Tormenta
+}
+
 public class GameInfo
 {
     public string Id { get; set; } = string.Empty;
     public string Title { get; set; } = "Aventura sin título";
     public string StartRoomId { get; set; } = string.Empty;
     public string? WorldMusicId { get; set; }
+
+    /// <summary>
+    /// Música por defecto del mundo en Base64 (se guarda dentro del JSON del mundo).
+    /// Si es null o vacío, no sonará música global.
+    /// </summary>
+    [Browsable(false)]
+    public string? WorldMusicBase64 { get; set; }
+
+    /// <summary>Hora inicial de la partida (0-23).</summary>
+    public int StartHour { get; set; } = 9;
+
+    /// <summary>Clima inicial del mundo.</summary>
+    public WeatherType StartWeather { get; set; } = WeatherType.Despejado;
+
+    /// <summary>Minutos reales que equivalen a 1 hora de juego (1-10).</summary>
+    public int MinutesPerGameHour { get; set; } = 6;
+
+    /// <summary>Diccionario de sinónimos por mundo para el parser (JSON).</summary>
+    public string? ParserDictionaryJson { get; set; }
 }
 
 public class Room
@@ -39,7 +66,22 @@ public class Room
     public string Description { get; set; } = string.Empty;
 
     public string? ImageId { get; set; }
+
+    /// <summary>
+    /// Contenido de la imagen de la sala en Base64 (se guarda dentro del JSON del mundo).
+    /// Si es null o vacío, no se mostrará imagen.
+    /// </summary>
+    [Browsable(false)]
+    public string? ImageBase64 { get; set; }
+
     public string? MusicId { get; set; }
+
+    /// <summary>
+    /// Música específica de la sala en Base64 (se guarda dentro del JSON del mundo).
+    /// Si es null o vacío, se usará la música global del mundo (si la hay).
+    /// </summary>
+    [Browsable(false)]
+    public string? MusicBase64 { get; set; }
     public bool IsInterior { get; set; } = false;
     public bool IsIlluminated { get; set; } = true;
 
@@ -237,10 +279,10 @@ public class GameState
     public Dictionary<string, bool> Flags { get; set; } = new();
     public List<string> InventoryObjectIds { get; set; } = new();
 
-    public DateTime GameTime { get; set; } = DateTime.Now;
+    public DateTime GameTime { get; set; } = default;
     public int TurnCounter { get; set; }
     public string TimeOfDay { get; set; } = "día";
-    public string Weather { get; set; } = "despejado";
+    public WeatherType Weather { get; set; } = WeatherType.Despejado;
 }
 
 public class MapPosition

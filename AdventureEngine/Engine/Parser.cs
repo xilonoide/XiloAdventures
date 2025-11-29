@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using XiloAdventures.Engine.Models;
 
@@ -15,116 +18,365 @@ public enum PrepositionKind
     In
 }
 
-public record ParsedCommand(string Verb, string? DirectObject, string? IndirectObject, PrepositionKind Preposition);
+public readonly struct ParsedCommand
+{
+    public string Verb { get; }
+    public string? DirectObject { get; }
+    public string? IndirectObject { get; }
+    public PrepositionKind Preposition { get; }
+
+    public ParsedCommand(string verb, string? directObject, string? indirectObject, PrepositionKind preposition)
+    {
+        Verb = verb;
+        DirectObject = directObject;
+        IndirectObject = indirectObject;
+        Preposition = preposition;
+    }
+}
+
+internal sealed class ParserDictionaryDto
+{
+    public Dictionary<string, string[]?>? verbs { get; set; }
+    public Dictionary<string, string[]?>? nouns { get; set; }
+}
 
 public static class Parser
 {
-private static readonly Dictionary<string, string> VerbAliases = new(StringComparer.OrdinalIgnoreCase)
-    {
-        // Mirar / examinar
-        ["mirar"] = "look",
-        ["examinar"] = "look",
-        ["x"] = "look",
+    // Diccionarios globales (base + recursos embebidos)
+    private static readonly Dictionary<string, string> GlobalVerbAliases = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, string> GlobalNounAliases = new(StringComparer.OrdinalIgnoreCase);
 
-        // Movimiento (solo verbo, las direcciones se tratan como comando directo)
-        ["ir"] = "go",
-        ["ve"] = "go",
-
-        // Inventario
-        ["inventario"] = "inventory",
-        ["i"] = "inventory",
-
-        // Coger / soltar
-        ["coger"] = "take",
-        ["toma"] = "take",
-        ["coge"] = "take",
-        ["soltar"] = "drop",
-        ["dejar"] = "drop",
-
-        // Hablar
-        ["hablar"] = "talk",
-        ["decir"] = "say",
-        ["opcion"] = "option",
-        ["opción"] = "option",
-
-        // Usar / dar
-        ["usar"] = "use",
-        ["dar"] = "give",
-
-        // Misiones
-        ["misiones"] = "quests",
-
-        // Guardar / cargar
-        ["guardar"] = "save",
-        ["cargar"] = "load",
-
-        // Ayuda
-        ["ayuda"] = "help"
-    };
+    // Diccionarios específicos del mundo actual (se rellenan con GameInfo.ParserDictionaryJson)
+    private static readonly Dictionary<string, string> WorldVerbAliases = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, string> WorldNounAliases = new(StringComparer.OrdinalIgnoreCase);
 
     private static readonly Dictionary<string, PrepositionKind> Prepositions = new(StringComparer.OrdinalIgnoreCase)
     {
         ["a"] = PrepositionKind.To,
         ["al"] = PrepositionKind.To,
+        ["hacia"] = PrepositionKind.To,
         ["con"] = PrepositionKind.With,
         ["de"] = PrepositionKind.From,
-        ["en"] = PrepositionKind.In
+        ["desde"] = PrepositionKind.From,
+        ["en"] = PrepositionKind.In,
+        ["sobre"] = PrepositionKind.In
     };
+
+    private static readonly HashSet<string> IgnoredNounPrefixes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "el","la","los","las",
+        "un","una","unos","unas",
+        "al","del",
+        "mi","mis","tu","tus","su","sus",
+        "este","esta","estos","estas",
+        "ese","esa","esos","esas",
+        "aquel","aquella","aquellos","aquellas"
+    };
+
+    static Parser()
+    {
+        InitializeDictionaries();
+    }
+
+    private static void InitializeDictionaries()
+    {
+        // Verbos base en castellano -> verbos canónicos
+        AddVerbAlias("look", "mirar", "mira", "examinar", "ver", "observa", "x");
+        AddVerbAlias("go", "ir", "ve", "andar", "caminar");
+        AddVerbAlias("inventory", "inventario", "inv", "i");
+        AddVerbAlias("take", "coger", "toma", "coge", "tomar", "agarrar", "recoger");
+        AddVerbAlias("drop", "soltar", "dejar", "tirar");
+        AddVerbAlias("open", "abrir", "abre");
+        AddVerbAlias("close", "cerrar", "cierra");
+        AddVerbAlias("talk", "hablar", "habla", "charlar", "conversar");
+        AddVerbAlias("say", "decir", "di");
+        AddVerbAlias("option", "opcion", "opción");
+        AddVerbAlias("use", "usar", "utilizar", "emplear");
+        AddVerbAlias("give", "dar", "entregar");
+        AddVerbAlias("quests", "misiones", "mision", "misión", "quest");
+        AddVerbAlias("save", "guardar", "salvar");
+        AddVerbAlias("load", "cargar");
+        AddVerbAlias("help", "ayuda");
+
+        // Algunos sinónimos globales de nombres
+        AddNounAlias("espada", "hoja", "sable", "mandoble");
+        AddNounAlias("enano", "enano borracho", "minero", "barbudo");
+        AddNounAlias("posada", "taberna", "mesón", "meson");
+        AddNounAlias("oro", "moneda", "monedas", "dinero");
+
+        // Intentar cargar ParserDictionary.json embebido (si existe)
+        try
+        {
+            var asm = typeof(Parser).Assembly;
+            var resourceName = asm
+                .GetManifestResourceNames()
+                .FirstOrDefault(n => n.EndsWith("ParserDictionary.json", StringComparison.OrdinalIgnoreCase));
+
+            if (resourceName != null)
+            {
+                using var stream = asm.GetManifestResourceStream(resourceName);
+
+                if (stream != null)
+                {
+                    using var reader = new StreamReader(stream);
+                    var json = reader.ReadToEnd();
+                    var dto = JsonSerializer.Deserialize<ParserDictionaryDto>(json);
+                    ApplyDtoToAliases(dto, GlobalVerbAliases, GlobalNounAliases);
+                }
+            }
+        }
+        catch
+        {
+            // Si falla el recurso embebido, seguimos con los diccionarios base.
+        }
+    }
+
+    private static void AddVerbAlias(string canonical, params string[] synonyms)
+    {
+        if (string.IsNullOrWhiteSpace(canonical))
+            return;
+
+        GlobalVerbAliases[canonical] = canonical;
+        foreach (var syn in synonyms)
+        {
+            var s = syn?.Trim();
+            if (string.IsNullOrEmpty(s)) continue;
+            GlobalVerbAliases[s] = canonical;
+        }
+    }
+
+    private static void AddNounAlias(string canonical, params string[] synonyms)
+    {
+        if (string.IsNullOrWhiteSpace(canonical))
+            return;
+
+        canonical = canonical.Trim().ToLowerInvariant();
+        GlobalNounAliases[canonical] = canonical;
+
+        foreach (var syn in synonyms)
+        {
+            var s = syn?.Trim().ToLowerInvariant();
+            if (string.IsNullOrEmpty(s)) continue;
+            GlobalNounAliases[s] = canonical;
+        }
+    }
+
+    private static void ApplyDtoToAliases(
+        ParserDictionaryDto? dto,
+        Dictionary<string, string> verbAliases,
+        Dictionary<string, string> nounAliases)
+    {
+        if (dto == null) return;
+
+        if (dto.verbs != null)
+        {
+            foreach (var kvp in dto.verbs)
+            {
+                var canonical = (kvp.Key ?? string.Empty).Trim();
+                if (string.IsNullOrEmpty(canonical))
+                    continue;
+
+                verbAliases[canonical] = canonical;
+
+                if (kvp.Value == null) continue;
+                foreach (var rawSyn in kvp.Value)
+                {
+                    var syn = (rawSyn ?? string.Empty).Trim();
+                    if (string.IsNullOrEmpty(syn)) continue;
+                    verbAliases[syn] = canonical;
+                }
+            }
+        }
+
+        if (dto.nouns != null)
+        {
+            foreach (var kvp in dto.nouns)
+            {
+                var canonical = (kvp.Key ?? string.Empty).Trim().ToLowerInvariant();
+                if (string.IsNullOrEmpty(canonical))
+                    continue;
+
+                nounAliases[canonical] = canonical;
+
+                if (kvp.Value == null) continue;
+                foreach (var rawSyn in kvp.Value)
+                {
+                    var syn = (rawSyn ?? string.Empty).Trim().ToLowerInvariant();
+                    if (string.IsNullOrEmpty(syn)) continue;
+                    nounAliases[syn] = canonical;
+                }
+            }
+        }
+    }
+
+    public static void SetWorldDictionary(string? json)
+    {
+        WorldVerbAliases.Clear();
+        WorldNounAliases.Clear();
+
+        if (string.IsNullOrWhiteSpace(json))
+            return;
+
+        try
+        {
+            var dto = JsonSerializer.Deserialize<ParserDictionaryDto>(json);
+            ApplyDtoToAliases(dto, WorldVerbAliases, WorldNounAliases);
+        }
+        catch
+        {
+            // Si el JSON está mal, ignoramos el diccionario del mundo.
+        }
+    }
 
     public static ParsedCommand Parse(string input)
     {
-        input = input.Trim();
-
         if (string.IsNullOrWhiteSpace(input))
             return new ParsedCommand(string.Empty, null, null, PrepositionKind.None);
 
+        input = input.Trim();
+
+        // Normalizar espacios
         input = Regex.Replace(input, @"\s+", " ");
+
         var parts = input.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
         var verbToken = parts[0];
         var rest = parts.Length > 1 ? parts[1] : string.Empty;
 
         // Dirección sola: "n", "norte", "arriba", etc.
-        if (!VerbAliases.ContainsKey(verbToken) && IsDirection(verbToken))
+        if (!HasVerbAlias(verbToken) && IsDirection(verbToken))
         {
-            return new ParsedCommand("go", verbToken, null, PrepositionKind.None);
+            var dirToken = NormalizeDirectionToken(verbToken);
+            return new ParsedCommand("go", dirToken, null, PrepositionKind.None);
         }
 
-        var canonicalVerb = VerbAliases.TryGetValue(verbToken, out var mapped) ? mapped : verbToken.ToLowerInvariant();
+        var canonicalVerb = NormalizeVerb(verbToken);
 
         if (string.IsNullOrEmpty(rest))
             return new ParsedCommand(canonicalVerb, null, null, PrepositionKind.None);
 
-        // Buscar preposición principal
+        // Partir objeto directo / indirecto según preposición
         string? direct = null;
         string? indirect = null;
         var prepKind = PrepositionKind.None;
 
-        var tokens = rest.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
-        int prepIndex = -1;
-        for (int i = 0; i < tokens.Count; i++)
+        var tokens = rest.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var prepIndex = -1;
+        PrepositionKind foundPrepKind = PrepositionKind.None;
+
+        for (int i = 0; i < tokens.Length; i++)
         {
-            if (Prepositions.TryGetValue(tokens[i], out var pk))
+            var t = tokens[i];
+            if (Prepositions.TryGetValue(t, out var pk))
             {
                 prepIndex = i;
-                prepKind = pk;
+                foundPrepKind = pk;
                 break;
             }
         }
 
-        if (prepIndex == -1)
-        {
-            direct = rest;
-        }
-        else
+        if (prepIndex >= 0)
         {
             direct = string.Join(' ', tokens.Take(prepIndex));
             indirect = string.Join(' ', tokens.Skip(prepIndex + 1));
+            prepKind = foundPrepKind;
+        }
+        else
+        {
+            direct = rest;
         }
 
-        return new ParsedCommand(canonicalVerb,
+        direct = NormalizeNoun(direct);
+        indirect = NormalizeNoun(indirect);
+
+        // Heurísticas específicas por verbo
+
+        // "ir al norte", "ve a la puerta"
+        if (canonicalVerb == "go" && string.IsNullOrEmpty(direct) && !string.IsNullOrEmpty(indirect))
+        {
+            direct = indirect;
+            indirect = null;
+        }
+
+        // "hablar con el enano", "decir al guardia"
+        if ((canonicalVerb == "talk" || canonicalVerb == "say" || canonicalVerb == "option")
+            && string.IsNullOrEmpty(direct) && !string.IsNullOrEmpty(indirect))
+        {
+            direct = indirect;
+            indirect = null;
+        }
+
+        return new ParsedCommand(
+            canonicalVerb,
             string.IsNullOrWhiteSpace(direct) ? null : direct,
             string.IsNullOrWhiteSpace(indirect) ? null : indirect,
             prepKind);
+    }
+
+    private static bool HasVerbAlias(string token)
+    {
+        return WorldVerbAliases.ContainsKey(token) || GlobalVerbAliases.ContainsKey(token);
+    }
+
+    private static string NormalizeVerb(string verb)
+    {
+        var token = NormalizeToken(verb);
+        if (string.IsNullOrEmpty(token))
+            return string.Empty;
+
+        if (WorldVerbAliases.TryGetValue(token, out var vWorld))
+            return vWorld;
+
+        if (GlobalVerbAliases.TryGetValue(token, out var vGlobal))
+            return vGlobal;
+
+        return token.ToLowerInvariant();
+    }
+
+    private static string? NormalizeNoun(string? noun)
+    {
+        if (string.IsNullOrWhiteSpace(noun))
+            return null;
+
+        // minúsculas
+        var s = noun.ToLowerInvariant();
+
+        // quitar puntuación sencilla
+        s = Regex.Replace(s, "[.,;:!?¡¿\"'()]", "");
+
+        // normalizar espacios
+        s = Regex.Replace(s, "\\s+", " ").Trim();
+        if (string.IsNullOrEmpty(s))
+            return null;
+
+        // eliminar artículos / determinantes iniciales
+        var parts = s.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
+        while (parts.Count > 0 && IgnoredNounPrefixes.Contains(parts[0]))
+        {
+            parts.RemoveAt(0);
+        }
+        s = string.Join(' ', parts);
+        if (string.IsNullOrWhiteSpace(s))
+            return null;
+
+        // Intentar mapear por diccionario de mundo
+        if (WorldNounAliases.TryGetValue(s, out var nWorld))
+            return nWorld;
+
+        // Intentar mapear por diccionario global
+        if (GlobalNounAliases.TryGetValue(s, out var nGlobal))
+            return nGlobal;
+
+        return s;
+    }
+
+    private static string NormalizeToken(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+            return string.Empty;
+
+        token = token.Trim();
+        token = Regex.Replace(token, "[.,;:!?¡¿\"'()]", "");
+        return token.ToLowerInvariant();
     }
 
     private static bool IsDirection(string token)
@@ -132,6 +384,26 @@ private static readonly Dictionary<string, string> VerbAliases = new(StringCompa
         token = token.ToLowerInvariant();
         return token is "n" or "s" or "e" or "o" or "ne" or "no" or "se" or "so"
             or "norte" or "sur" or "este" or "oeste"
+            or "noreste" or "noroeste" or "sureste" or "suroeste"
             or "arriba" or "abajo" or "subir" or "bajar";
+    }
+
+    private static string NormalizeDirectionToken(string dir)
+    {
+        dir = dir.ToLowerInvariant();
+        return dir switch
+        {
+            "norte" or "n" => "n",
+            "sur" or "s" => "s",
+            "este" or "e" => "e",
+            "oeste" or "o" => "o",
+            "noreste" or "ne" => "ne",
+            "noroeste" or "no" => "no",
+            "sureste" or "se" => "se",
+            "suroeste" or "so" => "so",
+            "arriba" or "subir" => "up",
+            "abajo" or "bajar" => "down",
+            _ => dir
+        };
     }
 }

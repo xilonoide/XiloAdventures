@@ -535,6 +535,7 @@ public partial class WorldEditorWindow : Window
             try
             {
                 world = WorldLoader.LoadWorldModel(_currentPath);
+                Parser.SetWorldDictionary(world.Game.ParserDictionaryJson);
                 state = WorldLoader.CreateInitialState(world);
             }
             catch (Exception ex)

@@ -32,10 +32,12 @@ public class SaveData
 
     public int TurnCounter { get; set; }
     public string TimeOfDay { get; set; } = "día";
-    public string Weather { get; set; } = "despejado";
+    public WeatherType Weather { get; set; } = WeatherType.Despejado;
+    public DateTime GameTime { get; set; }
 
     public string? WorldMusicId { get; set; }
 }
+
 
 public static class SaveManager
 {
@@ -67,6 +69,7 @@ public static class SaveManager
             TurnCounter = state.TurnCounter,
             TimeOfDay = state.TimeOfDay,
             Weather = state.Weather,
+            GameTime = state.GameTime,
 
             Flags = new Dictionary<string, bool>(state.Flags),
             WorldMusicId = state.WorldMusicId
@@ -112,8 +115,9 @@ public static class SaveManager
 
             InventoryObjectIds = data.InventoryObjectIds ?? new List<string>(),
             TurnCounter = data.TurnCounter,
-            TimeOfDay = string.IsNullOrEmpty(data.TimeOfDay) ? "día" : data.TimeOfDay,
-            Weather = string.IsNullOrEmpty(data.Weather) ? "despejado" : data.Weather,
+            TimeOfDay = data.TimeOfDay,
+            Weather = data.Weather,
+            GameTime = data.GameTime,
             Flags = data.Flags ?? new Dictionary<string, bool>()
         };
 

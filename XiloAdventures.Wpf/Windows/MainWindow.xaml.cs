@@ -68,7 +68,7 @@ public partial class MainWindow : Window
         OutputTextBox.ScrollToEnd();
     }
 
-    
+
     private void InputTextBox_KeyDown(object sender, KeyEventArgs e)
     {
         // Historial de comandos con flechas arriba/abajo
@@ -172,7 +172,7 @@ public partial class MainWindow : Window
     private static bool _IsSaveOrLoadCommand(string cmd)
         => cmd.StartsWith("guardar") || cmd.StartsWith("cargar");
 
-        private void UpdateStatusPanel()
+    private void UpdateStatusPanel()
     {
         StatsLabel.Text = _engine.DescribePlayerStats();
         InventoryLabel.Text = _engine.DescribeInventory();
@@ -182,7 +182,8 @@ public partial class MainWindow : Window
             var gameTime = _engine.State.GameTime;
             var tod = gameTime.TimeOfDay;
             string periodo = (tod.Hours >= 21 || tod.Hours < 7) ? "Noche" : "Día";
-            TimeLabel.Text = $"{gameTime:HH:mm} ({periodo})";
+            var weather = _engine.State.Weather.ToString().ToLowerInvariant();
+            TimeLabel.Text = $"{gameTime:HH:mm} ({periodo}, {weather})";
         }
         catch
         {
@@ -195,6 +196,7 @@ public partial class MainWindow : Window
         UpdateRoomVisuals();
     }
 
+
     private void UpdateRoomVisuals()
     {
         var room = _engine.CurrentRoom;
@@ -203,30 +205,22 @@ public partial class MainWindow : Window
 
         RoomTitleText.Text = room.Name;
 
-        if (!string.IsNullOrWhiteSpace(room.ImageId))
+        // Imagen de la sala desde el propio mundo (Base64)
+        if (!string.IsNullOrWhiteSpace(room.ImageBase64))
         {
             try
             {
-                var imagePathPng = System.IO.Path.Combine(AppPaths.BaseDirectory, "images", room.ImageId + ".png");
-                var imagePathJpg = System.IO.Path.Combine(AppPaths.BaseDirectory, "images", room.ImageId + ".jpg");
+                var bytes = Convert.FromBase64String(room.ImageBase64);
+                using var ms = new MemoryStream(bytes);
 
-                string? chosen = null;
-                if (File.Exists(imagePathPng)) chosen = imagePathPng;
-                else if (File.Exists(imagePathJpg)) chosen = imagePathJpg;
+                var bmp = new System.Windows.Media.Imaging.BitmapImage();
+                bmp.BeginInit();
+                bmp.StreamSource = ms;
+                bmp.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                bmp.EndInit();
+                bmp.Freeze();
 
-                if (chosen != null)
-                {
-                    var bmp = new System.Windows.Media.Imaging.BitmapImage();
-                    bmp.BeginInit();
-                    bmp.UriSource = new Uri(chosen);
-                    bmp.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
-                    bmp.EndInit();
-                    RoomImage.Source = bmp;
-                }
-                else
-                {
-                    RoomImage.Source = null;
-                }
+                RoomImage.Source = bmp;
             }
             catch
             {
@@ -322,7 +316,7 @@ public partial class MainWindow : Window
         about.ShowDialog();
     }
 
-    
+
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
         var dlg = new ConfirmWindow(
@@ -340,7 +334,17 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Al cerrar la ventana de partida detenemos toda la música.
+        try
+        {
+            _sound.StopMusic();
+            _sound.Dispose();
+        }
+        catch
+        {
+            // Ignorar errores al cerrar el sonido.
+        }
+
         base.OnClosing(e);
     }
-
 }

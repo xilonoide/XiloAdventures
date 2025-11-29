@@ -75,6 +75,7 @@ public partial class StartupWindow : Window
         try
         {
             world = WorldLoader.LoadWorldModel(worldPath);
+            Parser.SetWorldDictionary(world.Game.ParserDictionaryJson);
             state = WorldLoader.CreateInitialState(world);
         }
         catch (Exception ex)
@@ -163,6 +164,7 @@ public partial class StartupWindow : Window
         GameState state;
         try
         {
+            Parser.SetWorldDictionary(world.Game.ParserDictionaryJson);
             state = SaveManager.LoadFromPath(dlg.FileName, world);
         }
         catch (Exception ex)
