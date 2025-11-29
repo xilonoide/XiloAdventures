@@ -117,7 +117,7 @@ public partial class MainWindow : Window
             if (_uiSettings.UseLlmForUnknownCommands)
             {
                 var trimmed = (result ?? string.Empty).Trim();
-                if (string.Equals(trimmed, "No entiendo ese comando.", StringComparison.OrdinalIgnoreCase))
+                if (IsEngineCommandFailure(trimmed))
                 {
                     string? suggestion = null;
                     SetLlmBusy(true);
@@ -244,6 +244,30 @@ public partial class MainWindow : Window
             : System.Windows.Visibility.Collapsed;
     }
 
+    private static bool IsEngineCommandFailure(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        text = text.Trim();
+
+        // Respuestas del motor que indican que el comando no ha sido entendido
+        // o que falta información y que podrían beneficiarse de un reintento con IA.
+        return string.Equals(text, "No entiendo ese comando.", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(text, "No estás en ninguna parte.", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(text, "¿Qué quieres coger?", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(text, "¿Qué quieres abrir?", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(text, "¿Qué quieres usar?", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(text, "¿Qué quieres cerrar?", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(text, "¿Qué quieres dar?", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(text, "¿Con quién quieres hablar?", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(text, "No ves eso aquí.", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(text, "No ves a esa persona aquí.", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(text, "No puedes coger eso.", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(text, "No puedes abrir la puerta desde este lado.", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(text, "No puedes cerrar la puerta desde este lado.", StringComparison.OrdinalIgnoreCase);
+    }
+
     private async System.Threading.Tasks.Task<string?> TryAskLlmForUnknownCommandAsync(string originalCommand)
     {
         try
@@ -314,8 +338,8 @@ public partial class MainWindow : Window
         promptBuilder.AppendLine("Si puedes convertir razonablemente el texto del jugador en un comando del juego, responde en UNA SOLA línea con el formato:");
         promptBuilder.AppendLine("CMD: <comando>");
         promptBuilder.AppendLine();
-        promptBuilder.AppendLine("Si no puedes convertirlo razonablemente (porque es ruido, no tiene sentido o no está claro a qué se refiere), responde en UNA SOLA línea y con el formato:");
-        promptBuilder.AppendLine("AYUDA: <una respuesta ocurrente si ves que no tiene nada que ver con el contexto, o una pregunta o consejo muy corto sobre qué podría escribir el jugador>");
+        promptBuilder.AppendLine("Si no puedes convertirlo razonablemente (porque es ruido, no tiene sentido o no está claro a qué se refiere), responde en UNA SOLA línea con el formato:");
+        promptBuilder.AppendLine("AYUDA: <pregunta o consejo muy corto sobre qué podría escribir el jugador>");
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("Cuando el jugador use pronombres como \"lo\", \"la\", \"los\", \"las\", \"él\", \"ella\" o similares, intenta deducir a qué objeto o personaje se refiere usando el contexto. Es preferible elegir el objeto o personaje más relevante o mencionado en la descripción actual.");
         promptBuilder.AppendLine("Si el comando del jugador es ambiguo y podría referirse a varios objetos (por ejemplo, dos llaves distintas), usa AYUDA: para hacer una pregunta de clarificación, como por ejemplo: AYUDA: ¿Te refieres a la llave de hierro o a la llave dorada?");

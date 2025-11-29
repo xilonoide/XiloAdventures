@@ -17,6 +17,10 @@ public class SoundManager : IDisposable
     private AudioFileReader? _roomMusicReader;
     private string? _roomMusicPath;
 
+    // Flags para controlar el bucle de la música y evitar reinicios cuando se detiene explícitamente.
+    private bool _worldMusicLoopEnabled;
+    private bool _roomMusicLoopEnabled;
+
     private const float FadeDurationSeconds = 0.5f;
 
 
@@ -79,6 +83,11 @@ public class SoundManager : IDisposable
             _worldMusicPlayer = new WaveOutEvent();
             _worldMusicPlayer.Init(_worldMusicReader);
             _worldMusicPath = path;
+
+            // Activar bucle para la música de mundo.
+            _worldMusicLoopEnabled = true;
+            _worldMusicPlayer.PlaybackStopped += WorldMusicPlayerOnPlaybackStopped;
+
             _worldMusicPlayer.Play();
 
             // Fade-in suave de la música global del mundo.
@@ -174,6 +183,11 @@ public class SoundManager : IDisposable
             _roomMusicPlayer = new WaveOutEvent();
             _roomMusicPlayer.Init(_roomMusicReader);
             _roomMusicPath = path;
+
+            // Activar bucle para la música de sala.
+            _roomMusicLoopEnabled = true;
+            _roomMusicPlayer.PlaybackStopped += RoomMusicPlayerOnPlaybackStopped;
+
             _roomMusicPlayer.Play();
 
             // Fade-in suave de la nueva música de sala.
@@ -232,8 +246,22 @@ public class SoundManager : IDisposable
 
     public void StopRoomMusic()
     {
+        _roomMusicLoopEnabled = false;
+
         try
         {
+            if (_roomMusicPlayer != null)
+            {
+                try
+                {
+                    _roomMusicPlayer.PlaybackStopped -= RoomMusicPlayerOnPlaybackStopped;
+                }
+                catch
+                {
+                    // Ignorar
+                }
+            }
+
             _roomMusicPlayer?.Stop();
             _roomMusicPlayer?.Dispose();
             _roomMusicReader?.Dispose();
@@ -252,8 +280,22 @@ public class SoundManager : IDisposable
 
     public void StopWorldMusic()
     {
+        _worldMusicLoopEnabled = false;
+
         try
         {
+            if (_worldMusicPlayer != null)
+            {
+                try
+                {
+                    _worldMusicPlayer.PlaybackStopped -= WorldMusicPlayerOnPlaybackStopped;
+                }
+                catch
+                {
+                    // Ignorar
+                }
+            }
+
             _worldMusicPlayer?.Stop();
             _worldMusicPlayer?.Dispose();
             _worldMusicReader?.Dispose();
@@ -277,6 +319,47 @@ public class SoundManager : IDisposable
     }
 
     
+
+    private void WorldMusicPlayerOnPlaybackStopped(object? sender, StoppedEventArgs e)
+    {
+        if (!_worldMusicLoopEnabled)
+            return;
+
+        if (_worldMusicReader == null || _worldMusicPlayer == null)
+            return;
+
+        try
+        {
+            // Volvemos al inicio de la pista y la reproducimos de nuevo.
+            _worldMusicReader.Position = 0;
+            _worldMusicPlayer.Play();
+        }
+        catch
+        {
+            // Si algo va mal, desactivamos el bucle para evitar bucles infinitos de errores.
+            _worldMusicLoopEnabled = false;
+        }
+    }
+
+    private void RoomMusicPlayerOnPlaybackStopped(object? sender, StoppedEventArgs e)
+    {
+        if (!_roomMusicLoopEnabled)
+            return;
+
+        if (_roomMusicReader == null || _roomMusicPlayer == null)
+            return;
+
+        try
+        {
+            _roomMusicReader.Position = 0;
+            _roomMusicPlayer.Play();
+        }
+        catch
+        {
+            _roomMusicLoopEnabled = false;
+        }
+    }
+
     private void FadeWorldMusicTo(float targetVolume)
     {
         if (_worldMusicReader == null)
