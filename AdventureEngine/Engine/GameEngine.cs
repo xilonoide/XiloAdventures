@@ -48,7 +48,6 @@ public class GameEngine
             _sound.PlayWorldMusic(_state.WorldMusicId, _world.Game.WorldMusicBase64);
         }
 
-        // Ajustar música de sala (si la sala actual tiene música especial).
         OnRoomChanged();
     }
 
@@ -235,6 +234,7 @@ public class GameEngine
         return sb.ToString().TrimEnd();
     }
 
+    
     public string DescribeInventory()
     {
         var sb = new StringBuilder();
@@ -281,10 +281,55 @@ public class GameEngine
         if (string.IsNullOrEmpty(dir))
             return "¿Hacia dónde quieres ir?";
 
-        var exit = room.Exits.FirstOrDefault(e =>
-            string.Equals(NormalizeDirection(e.Direction), NormalizeDirection(dir), StringComparison.OrdinalIgnoreCase));
+        var normalizedRequested = NormalizeDirection(dir);
 
-        if (exit == null)
+        // Primero intentamos encontrar una salida definida en la sala actual.
+        Exit? exit = room.Exits.FirstOrDefault(e =>
+            string.Equals(NormalizeDirection(e.Direction), normalizedRequested, StringComparison.OrdinalIgnoreCase));
+
+        Room? targetRoom = null;
+
+        if (exit != null)
+        {
+            targetRoom = _state.Rooms.FirstOrDefault(r =>
+                r.Id.Equals(exit.TargetRoomId, StringComparison.OrdinalIgnoreCase));
+        }
+        else
+        {
+            // Si no hay salida directa, intentamos una conexión inversa:
+            // buscamos alguna otra sala que tenga una salida hacia la sala actual
+            // cuya dirección opuesta coincida con la dirección que el jugador ha pedido.
+            Exit? reverseExit = null;
+            Room? sourceRoom = null;
+
+            foreach (var candidateRoom in _state.Rooms)
+            {
+                foreach (var candidateExit in candidateRoom.Exits)
+                {
+                    var normCandidate = NormalizeDirection(candidateExit.Direction);
+                    var opposite = GetOppositeDirectionCode(normCandidate);
+
+                    if (string.Equals(opposite, normalizedRequested, StringComparison.OrdinalIgnoreCase) &&
+                        candidateExit.TargetRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
+                    {
+                        reverseExit = candidateExit;
+                        sourceRoom = candidateRoom;
+                        break;
+                    }
+                }
+
+                if (reverseExit != null)
+                    break;
+            }
+
+            if (reverseExit != null && sourceRoom != null)
+            {
+                exit = reverseExit;
+                targetRoom = sourceRoom;
+            }
+        }
+
+        if (exit == null || targetRoom == null)
             return "No puedes ir en esa dirección.";
 
         // Si la salida está asociada a una puerta, usamos el estado de la puerta.
@@ -299,17 +344,13 @@ public class GameEngine
             return "La salida está bloqueada.";
         }
 
-        var target = _state.Rooms.FirstOrDefault(r => r.Id.Equals(exit.TargetRoomId, StringComparison.OrdinalIgnoreCase));
-        if (target == null)
-            return "Algo falla: esa salida no lleva a ningún sitio.";
-
-        _state.CurrentRoomId = target.Id;
+        _state.CurrentRoomId = targetRoom.Id;
         WorldLoader.RebuildRoomIndexes(_state); // por si algún script ha cambiado cosas
         OnRoomChanged();
         return DescribeCurrentRoom();
     }
 
-    
+
 
     private Door? FindDoorInCurrentRoomByName(Room room, string arg)
     {
@@ -621,24 +662,54 @@ private string HandleTake(ParsedCommand parsed)
             .FirstOrDefault(o => o.Name.Contains(namePart, StringComparison.OrdinalIgnoreCase));
     }
 
+        private bool HasDistinctRoomMusic(Room room)
+    {
+        var roomMusicId = room.MusicId;
+        var roomMusicBase64 = room.MusicBase64;
+        var worldMusicId = _state.WorldMusicId;
+        var worldMusicBase64 = _world.Game?.WorldMusicBase64;
+
+        var roomHasMusic = !string.IsNullOrWhiteSpace(roomMusicId) || !string.IsNullOrWhiteSpace(roomMusicBase64);
+        if (!roomHasMusic)
+            return false;
+
+        var idsEqual = !string.IsNullOrWhiteSpace(roomMusicId) &&
+                       !string.IsNullOrWhiteSpace(worldMusicId) &&
+                       roomMusicId.Equals(worldMusicId, StringComparison.OrdinalIgnoreCase);
+
+        var base64Equal = !string.IsNullOrWhiteSpace(roomMusicBase64) &&
+                          !string.IsNullOrWhiteSpace(worldMusicBase64) &&
+                          string.Equals(roomMusicBase64, worldMusicBase64, StringComparison.Ordinal);
+
+        if (idsEqual || base64Equal)
+            return false;
+
+        return true;
+    }
+
     private void OnRoomChanged()
     {
         var room = CurrentRoom;
         if (room != null)
         {
-            // La música global del mundo ya se ha arrancado en el constructor.
-            // Aquí solo gestionamos la música especial de sala (si la hay).
-            _sound.PlayRoomMusic(room.MusicId, room.MusicBase64);
+            string? roomMusicId = null;
+            string? roomMusicBase64 = null;
+
+            if (HasDistinctRoomMusic(room))
+            {
+                roomMusicId = room.MusicId;
+                roomMusicBase64 = room.MusicBase64;
+            }
+
+            _sound.PlayRoomMusic(
+                roomMusicId,
+                roomMusicBase64,
+                null,
+                null);
             RoomChanged?.Invoke(room);
         }
-        else
-        {
-            // Si por algún motivo no hay sala actual, dejamos sonar solo la música global.
-            _sound.PlayWorldMusic(_state.WorldMusicId, _world.Game?.WorldMusicBase64);
-        }
     }
-
-    private void EnsurePlayerRoom()
+private void EnsurePlayerRoom()
     {
         if (_state.Rooms.All(r => !r.Id.Equals(_state.CurrentRoomId, StringComparison.OrdinalIgnoreCase)))
         {
@@ -664,6 +735,25 @@ private string HandleTake(ParsedCommand parsed)
             "arriba" or "subir" => "up",
             "abajo" or "bajar" => "down",
             _ => dir
+        };
+    }
+
+
+    private static string GetOppositeDirectionCode(string normalizedDirection)
+    {
+        return normalizedDirection switch
+        {
+            "n" => "s",
+            "s" => "n",
+            "e" => "o",
+            "o" => "e",
+            "ne" => "so",
+            "so" => "ne",
+            "no" => "se",
+            "se" => "no",
+            "up" => "down",
+            "down" => "up",
+            _ => normalizedDirection
         };
     }
 }

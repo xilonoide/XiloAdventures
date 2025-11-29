@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
+using System.Text;
 using System.Linq;
 using System.Text.Json;
 using XiloAdventures.Engine.Models;
@@ -17,7 +19,15 @@ public static class WorldLoader
 
     public static WorldModel LoadWorldModel(string path)
     {
-        var json = CryptoUtil.DecryptFromFile(path);
+        var text = CryptoUtil.DecryptFromFile(path);
+
+        string json;
+        if (!TryDecodeZippedJson(text, out json))
+        {
+            // Formato antiguo: el contenido desencriptado es directamente JSON.
+            json = text;
+        }
+
         var world = JsonSerializer.Deserialize<WorldModel>(json, Options) ?? new WorldModel();
 
         // Asegurar listas inicializadas
@@ -34,6 +44,7 @@ public static class WorldLoader
 
         return world;
     }
+
 
     public static GameState CreateInitialState(WorldModel world)
     {
@@ -108,8 +119,102 @@ public static class WorldLoader
 
     public static void SaveWorldModel(WorldModel world, string path)
     {
+        if (world is null)
+            throw new ArgumentNullException(nameof(world));
+
+        // Normalizamos campos dependientes de Ids para que, si el usuario
+        // ha dejado en blanco los textbox de Id en el editor, se limpien
+        // también los contenidos en Base64 antes de serializar el mundo.
+        if (world.Game is not null)
+        {
+            if (string.IsNullOrWhiteSpace(world.Game.WorldMusicId))
+            {
+                world.Game.WorldMusicId = null;
+                world.Game.WorldMusicBase64 = null;
+            }
+        }
+
+        if (world.Rooms != null)
+        {
+            foreach (var room in world.Rooms)
+            {
+                if (room is null) continue;
+
+                // Si el usuario ha borrado el MusicId de la sala en el editor,
+                // descartamos también la música embebida en Base64.
+                if (string.IsNullOrWhiteSpace(room.MusicId))
+                {
+                    room.MusicId = null;
+                    room.MusicBase64 = null;
+                }
+
+                // Si el usuario ha borrado el ImageId de la sala en el editor,
+                // descartamos también la imagen embebida en Base64.
+                if (string.IsNullOrWhiteSpace(room.ImageId))
+                {
+                    room.ImageId = null;
+                    room.ImageBase64 = null;
+                }
+            }
+        }
+
         var json = JsonSerializer.Serialize(world, Options);
-        CryptoUtil.EncryptToFile(path, json, "xaw");
+
+        // Comprimir el JSON en un ZIP (entrada world.json) y codificarlo en Base64
+        // antes de encriptarlo. De este modo los mundos ocupan menos espacio.
+        var jsonBytes = Encoding.UTF8.GetBytes(json);
+        using var ms = new MemoryStream();
+        using (var zip = new ZipArchive(ms, ZipArchiveMode.Create, true))
+        {
+            var entry = zip.CreateEntry("world.json", CompressionLevel.SmallestSize);
+            using var entryStream = entry.Open();
+            entryStream.Write(jsonBytes, 0, jsonBytes.Length);
+        }
+
+        var compressedBytes = ms.ToArray();
+        var base64 = Convert.ToBase64String(compressedBytes);
+
+        CryptoUtil.EncryptToFile(path, base64, "xaw");
+    }
+
+
+
+    /// <summary>
+    /// Intenta interpretar el texto desencriptado como un ZIP codificado en Base64
+    /// que contiene un único JSON (world.json). Devuelve true si se ha podido
+    /// obtener el JSON correctamente.
+    /// </summary>
+    private static bool TryDecodeZippedJson(string text, out string json)
+    {
+        json = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        try
+        {
+            var compressedBytes = Convert.FromBase64String(text);
+            using var ms = new MemoryStream(compressedBytes);
+            using var zip = new ZipArchive(ms, ZipArchiveMode.Read);
+
+            // Intentamos obtener la entrada "world.json". Si no existe,
+            // usamos la primera entrada disponible.
+            var entry = zip.GetEntry("world.json") ?? zip.Entries.FirstOrDefault();
+            if (entry == null)
+                return false;
+
+            using var entryStream = entry.Open();
+            using var sr = new StreamReader(entryStream, Encoding.UTF8);
+            json = sr.ReadToEnd();
+            return !string.IsNullOrWhiteSpace(json);
+        }
+        catch
+        {
+            // Si falla cualquier cosa (no es Base64, no es ZIP, etc.), asumimos
+            // que no está comprimido y devolvemos false.
+            json = string.Empty;
+            return false;
+        }
     }
 
     private static List<T> CloneList<T>(List<T> source)
