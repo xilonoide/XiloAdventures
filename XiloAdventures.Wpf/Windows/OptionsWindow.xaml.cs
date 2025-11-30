@@ -171,7 +171,7 @@ public partial class OptionsWindow : Window
         var message = "Si activas la IA, el juego intentará entender mejor comandos complejos o mal escritos. " +
                       "Además, si subes el volumen de voz en las opciones, oiras las descripciones de las salas.\n\n" +
                       "Para usarla debes tener Docker Desktop instalado y funcionando. La primera vez que se use " +
-                      "se descargará el modelo y puede tardar unos minutos. Después " +
+                      "se descargarán algunas cosas y puede tardar unos minutos. Después " +
                       "funcionará muy rápido.";
 
         var dlg = new AlertWindow(message, "Ayuda sobre la IA")

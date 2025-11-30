@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Net.Http;
+using System.IO;
 
 namespace XiloAdventures.Wpf.Services;
 
@@ -19,7 +20,7 @@ public static class DockerService
         try
         {
             progress?.Report("Comprobando Docker Desktop...");
-            await EnsureDockerAvailableAsync().ConfigureAwait(false);
+            await EnsureDockerAvailableAsync(progress).ConfigureAwait(false);
 
             progress?.Report("Preparando contenedor de IA (Ollama)...");
             await EnsureOllamaAsync(progress).ConfigureAwait(false);
@@ -36,18 +37,105 @@ public static class DockerService
         }
     }
 
-    private static async Task EnsureDockerAvailableAsync()
+    private static async Task EnsureDockerAvailableAsync(IProgress<string>? progress)
     {
+        // Primero intentamos hablar con Docker normalmente.
         try
         {
             await RunDockerCheckedAsync("info").ConfigureAwait(false);
+            return;
         }
-        catch (Exception ex)
+        catch
         {
-            throw new InvalidOperationException(
-                "No se ha podido contactar con Docker. Asegúrate de que Docker Desktop está instalado y en ejecución.",
-                ex);
+            // Si falla, intentamos arrancar Docker Desktop nosotros mismos (si existe).
         }
+
+        if (await TryStartDockerDesktopAsync(progress, TimeSpan.FromMinutes(2)).ConfigureAwait(false))
+        {
+            // Si hemos conseguido arrancar Docker Desktop y 'docker info' responde, todo OK.
+            return;
+        }
+
+        // Si llegamos aquí, o Docker no está instalado o no hemos sido capaces de arrancarlo.
+        throw new InvalidOperationException(
+            "No se ha podido contactar con Docker. Asegúrate de que Docker Desktop está instalado y en ejecución.");
+    }
+
+
+    private static bool TryGetDockerDesktopPath(out string path)
+    {
+        // Rutas típicas de instalación de Docker Desktop en Windows.
+        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+        var programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+
+        string[] candidates =
+        {
+            Path.Combine(programFiles, "Docker", "Docker", "Docker Desktop.exe"),
+            Path.Combine(programFilesX86, "Docker", "Docker", "Docker Desktop.exe")
+        };
+
+        foreach (var candidate in candidates)
+        {
+            if (!string.IsNullOrWhiteSpace(candidate) && File.Exists(candidate))
+            {
+                path = candidate;
+                return true;
+            }
+        }
+
+        path = string.Empty;
+        return false;
+    }
+
+    private static async Task<bool> TryStartDockerDesktopAsync(IProgress<string>? progress, TimeSpan timeout)
+    {
+        if (!TryGetDockerDesktopPath(out var exePath))
+        {
+            // No hemos encontrado Docker Desktop instalado.
+            return false;
+        }
+
+        try
+        {
+            progress?.Report("Arrancando Docker Desktop...");
+            using var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = exePath,
+                    UseShellExecute = true
+                }
+            };
+            process.Start();
+        }
+        catch
+        {
+            // Si no podemos arrancarlo, devolvemos false y dejaremos que arriba se muestre el mensaje clásico.
+            return false;
+        }
+
+        // Esperamos a que el daemon de Docker responda a 'docker info'.
+        var start = DateTime.UtcNow;
+
+        while (DateTime.UtcNow - start < timeout)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(3)).ConfigureAwait(false);
+
+            try
+            {
+                await RunDockerCheckedAsync("info").ConfigureAwait(false);
+                // Si llegamos aquí sin excepción, Docker ya está operativo.
+                return true;
+            }
+            catch
+            {
+                // Todavía no ha arrancado, seguimos esperando hasta agotar el timeout.
+            }
+
+            progress?.Report("Esperando a que Docker termine de arrancar...");
+        }
+
+        return false;
     }
 
     private static async Task EnsureOllamaAsync(IProgress<string>? progress)

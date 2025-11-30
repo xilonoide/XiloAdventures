@@ -21,14 +21,35 @@
                  Foreground="White"
                  BorderBrush="#555555" />
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
             <CheckBox x:Name="SoundCheckBox"
                       Content="Sonido activado"
                       Margin="0,0,20,0"
                       VerticalAlignment="Center"
                       Foreground="White"/>
+
+            <StackPanel Orientation="Horizontal"
+                        Margin="0,0,20,0"
+                        VerticalAlignment="Center">
+                <CheckBox x:Name="LlmCheckBox"
+                          Content="Usar IA"
+                          VerticalAlignment="Center"
+                          Foreground="White"/>
+                <TextBlock Text="?"
+                           Margin="6,0,0,0"
+                           Foreground="Yellow"
+                           FontWeight="Bold"
+                           Cursor="Hand"
+                           VerticalAlignment="Center"
+                           MouseLeftButtonUp="LlmInfoIcon_MouseLeftButtonUp">
+                    <TextBlock.ToolTip>
+                        <TextBlock Text="Activa la IA para que el juego entienda mejor comandos complejos o mal escritos. La primera vez tardará unos minutos en descargar algunas cosas."/>
+                    </TextBlock.ToolTip>
+                </TextBlock>
+            </StackPanel>
+
             <Button x:Name="NewGameButton" Content="Nueva partida" Width="120" Margin="0,0,10,0" Click="NewGameButton_Click"/>
-            <Button x:Name="LoadGameButton" Content="Cargar partida..." Width="120" Margin="0,0,10,0" Click="LoadGameButton_Click"/>
+            <Button x:Name="LoadGameButton" Content="Cargar part....." Width="120" Margin="0,0,10,0" Click="LoadGameButton_Click"/>
             <Button x:Name="EditorButton" Content="Editor..." Width="120" Margin="0,0,10,0" Click="EditorButton_Click"/>
             <Button x:Name="ExitButton" Content="Salir" Width="80" Click="ExitButton_Click"/>
         </StackPanel>

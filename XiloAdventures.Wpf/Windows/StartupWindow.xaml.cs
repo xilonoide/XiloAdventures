@@ -33,12 +33,39 @@ public partial class StartupWindow : Window
         SoundCheckBox.IsChecked = UiSettingsManager.GlobalSettings.SoundEnabled;
         SoundCheckBox.Checked += SoundCheckBox_Changed;
         SoundCheckBox.Unchecked += SoundCheckBox_Changed;
+
+        LlmCheckBox.IsChecked = UiSettingsManager.GlobalSettings.UseLlmForUnknownCommands;
+        LlmCheckBox.Checked += LlmCheckBox_Changed;
+        LlmCheckBox.Unchecked += LlmCheckBox_Changed;
     }
 
     private void SoundCheckBox_Changed(object sender, RoutedEventArgs e)
     {
         UiSettingsManager.GlobalSettings.SoundEnabled = SoundCheckBox.IsChecked == true;
         UiSettingsManager.SaveGlobal();
+    }
+
+    private void LlmCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        UiSettingsManager.GlobalSettings.UseLlmForUnknownCommands = LlmCheckBox.IsChecked == true;
+        UiSettingsManager.SaveGlobal();
+    }
+
+
+
+    private void LlmInfoIcon_MouseLeftButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        var message = "Si activas la IA, el juego intentará entender mejor comandos complejos o mal escritos. " +
+                      "Además, si subes el volumen de voz en las opciones, oiras las descripciones de las salas.\n\n" +
+                      "Para usarla debes tener Docker Desktop instalado y funcionando. La primera vez que se use " +
+                      "se descargarán algunas cosas y puede tardar unos minutos. Después " +
+                      "funcionará muy rápido.";
+
+        var dlg = new AlertWindow(message, "Ayuda sobre la IA")
+        {
+            Owner = this
+        };
+        dlg.ShowDialog();
     }
 
     private void ReloadWorlds()
@@ -98,6 +125,16 @@ public partial class StartupWindow : Window
         var uiSettings = UiSettingsManager.LoadForWorld(world.Game.Id);
         // Respetar el check de sonido global
         uiSettings.SoundEnabled = SoundCheckBox.IsChecked == true;
+
+        // Respetar también el check de IA global de la pantalla inicial
+        if (LlmCheckBox.IsChecked == true)
+        {
+            uiSettings.UseLlmForUnknownCommands = true;
+        }
+        else
+        {
+            uiSettings.UseLlmForUnknownCommands = false;
+        }
 
         var soundManager = new SoundManager(AppPaths.SoundFolder)
         {
@@ -242,6 +279,16 @@ public partial class StartupWindow : Window
         
         var uiSettings = UiSettingsManager.LoadForWorld(world.Game.Id);
         uiSettings.SoundEnabled = SoundCheckBox.IsChecked == true;
+
+        // Respetar también el check de IA global de la pantalla inicial
+        if (LlmCheckBox.IsChecked == true)
+        {
+            uiSettings.UseLlmForUnknownCommands = true;
+        }
+        else
+        {
+            uiSettings.UseLlmForUnknownCommands = false;
+        }
 
         var soundManager = new SoundManager(AppPaths.SoundFolder)
         {

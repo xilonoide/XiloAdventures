@@ -674,8 +674,14 @@ public class SoundManager : IDisposable
         if (hasRoomMusic)
         {
             // Estamos en una sala con música especial:
-            // - NO tocamos la música de mundo: su volumen lo controla PlayRoomMusic/FadeWorldMusicTo.
+            // - La música de mundo debe permanecer silenciada mientras haya música de sala.
             // - Solo ajustamos el volumen de la música de sala con master + música.
+            if (hasWorldMusic)
+            {
+                // Aseguramos que la música de mundo siga a 0 aunque se haya reactivado el sonido.
+                SetWorldMusicVolume(0.0f);
+            }
+
             try
             {
                 _roomMusicReader!.Volume = 1.0f * master * music;

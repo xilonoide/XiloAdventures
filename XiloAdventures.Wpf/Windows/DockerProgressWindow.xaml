@@ -4,7 +4,8 @@
         Title="Preparando servicios de IA"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
-        SizeToContent="WidthAndHeight"
+        Width="420"
+        SizeToContent="Height"
         ShowInTaskbar="False"
         Background="#1E1E1E"
         Foreground="#F5F5F5">

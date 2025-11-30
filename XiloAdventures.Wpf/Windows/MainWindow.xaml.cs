@@ -464,6 +464,8 @@ public partial class MainWindow : Window
     private void OnOptionsChanged(UiSettings settings)
     {
         // Aplicar cambios en vivo
+        var wasSoundEnabled = _sound.SoundEnabled;
+
         _uiSettings.SoundEnabled = settings.SoundEnabled;
         _uiSettings.FontSize = settings.FontSize;
         _uiSettings.UseLlmForUnknownCommands = settings.UseLlmForUnknownCommands;
@@ -482,6 +484,38 @@ public partial class MainWindow : Window
         ApplyUiSettings();
 
         UiSettingsManager.SaveForWorld(_engine.State.WorldId, _uiSettings);
+
+        // Si el sonido se acaba de activar, arrancar la música adecuada (mundo o sala actual).
+        if (!wasSoundEnabled && _sound.SoundEnabled)
+        {
+            var room = _engine.CurrentRoom;
+            if (room != null)
+            {
+                var hasRoomMusic =
+                    !string.IsNullOrWhiteSpace(room.MusicId) ||
+                    !string.IsNullOrWhiteSpace(room.MusicBase64);
+
+                if (hasRoomMusic)
+                {
+                    // Sala con música especial: reproducimos la de la sala.
+                    _sound.PlayRoomMusic(
+                        room.MusicId,
+                        room.MusicBase64,
+                        null,
+                        null);
+                }
+                else if (_world.Game != null)
+                {
+                    // Sala sin música especial: reproducimos la música del mundo.
+                    _sound.PlayWorldMusic(_engine.WorldMusicId, _world.Game.WorldMusicBase64);
+                }
+            }
+            else if (_world.Game != null)
+            {
+                // Si por lo que sea no hay sala actual, intentamos al menos arrancar la música de mundo.
+                _sound.PlayWorldMusic(_engine.WorldMusicId, _world.Game.WorldMusicBase64);
+            }
+        }
     }
 
 

@@ -55,6 +55,9 @@ public class GameEngine
         _state.Rooms.FirstOrDefault(r => r.Id.Equals(_state.CurrentRoomId, StringComparison.OrdinalIgnoreCase));
 
 
+    public string? WorldMusicId => _state.WorldMusicId;
+
+
 
     /// <summary>
     /// Precarga las voces de la sala actual y de las salas conectadas
