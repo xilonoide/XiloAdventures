@@ -321,7 +321,7 @@ public partial class MainWindow : Window
                 if (process == null)
                     continue;
 
-                if (!process.WaitForExit(1000000))
+                if (!process.WaitForExit(10000))
                 {
                     try { process.Kill(); } catch { }
                     continue;
@@ -468,11 +468,13 @@ public partial class MainWindow : Window
         _uiSettings.MusicVolume = settings.MusicVolume;
         _uiSettings.EffectsVolume = settings.EffectsVolume;
         _uiSettings.MasterVolume = settings.MasterVolume;
+        _uiSettings.VoiceVolume = settings.VoiceVolume;
 
         _sound.SoundEnabled = settings.SoundEnabled;
-        _sound.MusicVolume = (float)(settings.MusicVolume / 10.0);
+        _sound.MusicVolume   = (float)(settings.MusicVolume   / 10.0);
         _sound.EffectsVolume = (float)(settings.EffectsVolume / 10.0);
-        _sound.MasterVolume = (float)(settings.MasterVolume / 10.0);
+        _sound.MasterVolume  = (float)(settings.MasterVolume  / 10.0);
+        _sound.VoiceVolume   = (float)(settings.VoiceVolume   / 10.0);
 
         _sound.RefreshVolumes();
 
@@ -480,6 +482,7 @@ public partial class MainWindow : Window
 
         UiSettingsManager.SaveForWorld(_engine.State.WorldId, _uiSettings);
     }
+
 
     private void ExitMenu_Click(object sender, RoutedEventArgs e)
     {
