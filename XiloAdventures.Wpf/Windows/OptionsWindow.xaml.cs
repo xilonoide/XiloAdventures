@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using XiloAdventures.Wpf.Ui;
+using XiloAdventures.Wpf.Services;
 
 namespace XiloAdventures.Wpf.Windows;
 
@@ -76,9 +77,42 @@ public partial class OptionsWindow : Window
     }
 
 
-    private void UseLlmCheckBox_Changed(object sender, RoutedEventArgs e)
+    private async void UseLlmCheckBox_Changed(object sender, RoutedEventArgs e)
     {
-        _settings.UseLlmForUnknownCommands = UseLlmCheckBox.IsChecked == true;
+        if (UseLlmCheckBox.IsChecked == true)
+        {
+            var progressWindow = new DockerProgressWindow
+            {
+                Owner = this
+            };
+
+            var success = await progressWindow.RunAsync().ConfigureAwait(true);
+
+            if (!success)
+            {
+                UseLlmCheckBox.IsChecked = false;
+                _settings.UseLlmForUnknownCommands = false;
+
+                UiSettingsManager.SaveForWorld(_worldId, _settings);
+
+                new AlertWindow(
+                    "No se han podido iniciar los servicios de IA y voz.\n\n" +
+                    "Comprueba que Docker Desktop está instalado y en ejecución.",
+                    "Error")
+                {
+                    Owner = this
+                }.ShowDialog();
+
+                return;
+            }
+
+            _settings.UseLlmForUnknownCommands = true;
+        }
+        else
+        {
+            _settings.UseLlmForUnknownCommands = false;
+        }
+
         ApplyChanges();
     }
 
@@ -134,10 +168,11 @@ public partial class OptionsWindow : Window
 
     private void LlmInfoIcon_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
-        var message = "Si activas la IA, el juego intentará entender mejor comandos complejos o mal escritos.\n\n" +
+        var message = "Si activas la IA, el juego intentará entender mejor comandos complejos o mal escritos. " +
+                      "Además, si subes el volumen de voz en las opciones, oiras las descripciones de las salas.\n\n" +
                       "Para usarla debes tener Docker Desktop instalado y funcionando. La primera vez que se use " +
-                      "se descargará el modelo y puede tardar unos minutos, dando errores hasta que termine. Después " +
-                      "funcionará con normalidad.";
+                      "se descargará el modelo y puede tardar unos minutos. Después " +
+                      "funcionará muy rápido.";
 
         var dlg = new AlertWindow(message, "Ayuda sobre la IA")
         {
@@ -155,11 +190,6 @@ public partial class OptionsWindow : Window
     private void OkButton_Click(object sender, RoutedEventArgs e)
     {
         DialogResult = true;
-        Close();
-    }
-
-    private void CancelButton_Click(object sender, RoutedEventArgs e)
-    {
         Close();
     }
 }

@@ -15,6 +15,7 @@ using Microsoft.Win32;
 using XiloAdventures.Engine;
 using XiloAdventures.Engine.Models;
 using XiloAdventures.Wpf.Ui;
+using XiloAdventures.Wpf.Services;
 
 namespace XiloAdventures.Wpf.Windows;
 
@@ -459,6 +460,7 @@ public partial class MainWindow : Window
         dlg.ShowDialog();
     }
 
+    
     private void OnOptionsChanged(UiSettings settings)
     {
         // Aplicar cambios en vivo
@@ -471,17 +473,17 @@ public partial class MainWindow : Window
         _uiSettings.VoiceVolume = settings.VoiceVolume;
 
         _sound.SoundEnabled = settings.SoundEnabled;
-        _sound.MusicVolume   = (float)(settings.MusicVolume   / 10.0);
+        _sound.MusicVolume = (float)(settings.MusicVolume / 10.0);
         _sound.EffectsVolume = (float)(settings.EffectsVolume / 10.0);
-        _sound.MasterVolume  = (float)(settings.MasterVolume  / 10.0);
-        _sound.VoiceVolume   = (float)(settings.VoiceVolume   / 10.0);
+        _sound.MasterVolume = (float)(settings.MasterVolume / 10.0);
+        _sound.VoiceVolume = (float)(settings.VoiceVolume / 10.0);
 
         _sound.RefreshVolumes();
-
         ApplyUiSettings();
 
         UiSettingsManager.SaveForWorld(_engine.State.WorldId, _uiSettings);
     }
+
 
 
     private void ExitMenu_Click(object sender, RoutedEventArgs e)

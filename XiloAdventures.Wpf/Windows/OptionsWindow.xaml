@@ -13,7 +13,7 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0">
-                        <GroupBox Header="Sonido" Margin="0,0,0,20" Padding="10">
+            <GroupBox Header="Sonido" Margin="0,0,0,20" Padding="10">
                 <StackPanel>
                     <CheckBox x:Name="SoundCheckBox"
                               Content="Sonido activado"
@@ -86,7 +86,7 @@
                            VerticalAlignment="Center"
                            MouseLeftButtonUp="LlmInfoIcon_MouseLeftButtonUp">
                     <TextBlock.ToolTip>
-                        <TextBlock Text="La primera vez que se intente usar la IA se descargará el modelo.&#x0a;Esto puede tardar unos minutos y dará error.&#x0a;Pasados esos minutos ya funcionará la IA correctamente."/>
+                        <TextBlock Text="La primera vez que se intente usar la IA y la voz, se descargarán las imágenes de Docker necesarias y se iniciarán los contenedores.&#x0a;Este proceso puede tardar varios minutos la primera vez. Pasados esos minutos ya funcionará la IA correctamente."/>
                     </TextBlock.ToolTip>
                 </TextBlock>
             </StackPanel>
@@ -107,7 +107,6 @@
 
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
             <Button Content="Cerrar" Width="80" Margin="0,0,10,0" Click="OkButton_Click"/>
-            <Button Content="Cancelar" Width="80" Click="CancelButton_Click"/>
         </StackPanel>
     </Grid>
 </Window>

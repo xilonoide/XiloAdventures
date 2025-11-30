@@ -64,7 +64,7 @@ public partial class StartupWindow : Window
         return null;
     }
 
-    private void NewGameButton_Click(object sender, RoutedEventArgs e)
+    private async void NewGameButton_Click(object sender, RoutedEventArgs e)
     {
         var worldPath = GetSelectedWorldFile();
         if (worldPath is null)
@@ -84,6 +84,7 @@ public partial class StartupWindow : Window
             return;
         }
 
+        
         var uiSettings = UiSettingsManager.LoadForWorld(world.Game.Id);
         // Respetar el check de sonido global
         uiSettings.SoundEnabled = SoundCheckBox.IsChecked == true;
@@ -91,16 +92,57 @@ public partial class StartupWindow : Window
         var soundManager = new SoundManager(AppPaths.SoundFolder)
         {
             SoundEnabled = uiSettings.SoundEnabled,
-            MusicVolume   = (float)(uiSettings.MusicVolume   / 10.0),
+            MusicVolume = (float)(uiSettings.MusicVolume / 10.0),
             EffectsVolume = (float)(uiSettings.EffectsVolume / 10.0),
-            MasterVolume  = (float)(uiSettings.MasterVolume  / 10.0),
-            VoiceVolume   = (float)(uiSettings.VoiceVolume   / 10.0)
+            MasterVolume = (float)(uiSettings.MasterVolume / 10.0),
+            VoiceVolume = (float)(uiSettings.VoiceVolume / 10.0)
         };
-
-        // Aplicar inmediatamente los volúmenes antes de que arranque la música / voz.
         soundManager.RefreshVolumes();
 
+        // Si la IA está activada para este mundo, preparar los contenedores Docker (IA + voz)
+        if (uiSettings.UseLlmForUnknownCommands)
+        {
+            var dockerWindow = new DockerProgressWindow
+            {
+                Owner = this
+            };
+
+            var success = await dockerWindow.RunAsync();
+            if (!success)
+            {
+                uiSettings.UseLlmForUnknownCommands = false;
+
+                new AlertWindow(
+                    "No se han podido iniciar los servicios de IA y voz.\n\n" +
+                    "Comprueba que Docker Desktop está instalado y en ejecución.",
+                    "Error")
+                {
+                    Owner = this
+                }.ShowDialog();
+            }
+        }
+
+        // Precargar la voz de la sala inicial antes de mostrar la partida,
+        // para que se escuche nada más entrar.
+        if (uiSettings.SoundEnabled && uiSettings.VoiceVolume > 0)
+        {
+            try
+            {
+                var startRoom = state.Rooms
+                    .FirstOrDefault(r => r.Id.Equals(state.CurrentRoomId, StringComparison.OrdinalIgnoreCase));
+                if (startRoom != null && !string.IsNullOrWhiteSpace(startRoom.Description))
+                {
+                    await soundManager.PreloadRoomVoiceAsync(startRoom.Id, startRoom.Description);
+                }
+            }
+            catch
+            {
+                // Si algo falla al precargar la voz, continuamos sin interrumpir el inicio de la partida.
+            }
+        }
+
         var main = new MainWindow(world, state, soundManager, uiSettings);
+
         main.Owner = this;
         Hide();
         main.ShowDialog();
@@ -110,7 +152,7 @@ public partial class StartupWindow : Window
         ReloadWorlds();
     }
 
-    private void LoadGameButton_Click(object sender, RoutedEventArgs e)
+    private async void LoadGameButton_Click(object sender, RoutedEventArgs e)
     {
         var dlg = new OpenFileDialog
         {
@@ -180,15 +222,63 @@ public partial class StartupWindow : Window
             return;
         }
 
+        
         var uiSettings = UiSettingsManager.LoadForWorld(world.Game.Id);
         uiSettings.SoundEnabled = SoundCheckBox.IsChecked == true;
 
         var soundManager = new SoundManager(AppPaths.SoundFolder)
         {
-            SoundEnabled = uiSettings.SoundEnabled
+            SoundEnabled = uiSettings.SoundEnabled,
+            MusicVolume = (float)(uiSettings.MusicVolume / 10.0),
+            EffectsVolume = (float)(uiSettings.EffectsVolume / 10.0),
+            MasterVolume = (float)(uiSettings.MasterVolume / 10.0),
+            VoiceVolume = (float)(uiSettings.VoiceVolume / 10.0)
         };
+        soundManager.RefreshVolumes();
+
+        if (uiSettings.UseLlmForUnknownCommands)
+        {
+            var dockerWindow = new DockerProgressWindow
+            {
+                Owner = this
+            };
+
+            var success = await dockerWindow.RunAsync();
+            if (!success)
+            {
+                uiSettings.UseLlmForUnknownCommands = false;
+
+                new AlertWindow(
+                    "No se han podido iniciar los servicios de IA y voz.\n\n" +
+                    "Comprueba que Docker Desktop está instalado y en ejecución.",
+                    "Error")
+                {
+                    Owner = this
+                }.ShowDialog();
+            }
+        }
+
+        // Precargar la voz de la sala inicial antes de mostrar la partida,
+        // para que se escuche nada más entrar.
+        if (uiSettings.SoundEnabled && uiSettings.VoiceVolume > 0)
+        {
+            try
+            {
+                var startRoom = state.Rooms
+                    .FirstOrDefault(r => r.Id.Equals(state.CurrentRoomId, StringComparison.OrdinalIgnoreCase));
+                if (startRoom != null && !string.IsNullOrWhiteSpace(startRoom.Description))
+                {
+                    await soundManager.PreloadRoomVoiceAsync(startRoom.Id, startRoom.Description);
+                }
+            }
+            catch
+            {
+                // Si algo falla al precargar la voz, continuamos sin interrumpir el inicio de la partida.
+            }
+        }
 
         var main = new MainWindow(world, state, soundManager, uiSettings);
+
         main.Owner = this;
         Hide();
         main.ShowDialog();

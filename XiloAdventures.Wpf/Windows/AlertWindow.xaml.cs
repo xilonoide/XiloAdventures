@@ -15,10 +15,10 @@ namespace XiloAdventures.Wpf.Windows
             MessageTextBlock.Text = message;
         }
 
-        public AlertWindow(string title, string message) : this()
+        public AlertWindow(string message, string title) : this()
         {
-            Title = title;
             MessageTextBlock.Text = message;
+            Title = title;
         }
 
         public static void Show(string message, Window? owner = null)
