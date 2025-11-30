@@ -21,7 +21,8 @@ public partial class OptionsWindow : Window
             UseLlmForUnknownCommands = settings.UseLlmForUnknownCommands,
             MusicVolume = settings.MusicVolume,
             EffectsVolume = settings.EffectsVolume,
-            MasterVolume = settings.MasterVolume
+            MasterVolume = settings.MasterVolume,
+            VoiceVolume = settings.VoiceVolume
         };
         _onChanged = onChanged;
         _worldId = worldId;
@@ -41,15 +42,18 @@ public partial class OptionsWindow : Window
         MusicVolumeSlider.Value = _settings.MusicVolume;
         EffectsVolumeSlider.Value = _settings.EffectsVolume;
         MasterVolumeSlider.Value = _settings.MasterVolume;
+        VoiceVolumeSlider.Value = _settings.VoiceVolume;
 
         MusicVolumeLabel.Text = _settings.MusicVolume.ToString("0");
         EffectsVolumeLabel.Text = _settings.EffectsVolume.ToString("0");
         MasterVolumeLabel.Text = _settings.MasterVolume.ToString("0");
+        VoiceVolumeLabel.Text = _settings.VoiceVolume.ToString("0");
 
         var soundEnabled = _settings.SoundEnabled;
         MusicVolumeSlider.IsEnabled = soundEnabled;
         EffectsVolumeSlider.IsEnabled = soundEnabled;
         MasterVolumeSlider.IsEnabled = soundEnabled;
+        VoiceVolumeSlider.IsEnabled = soundEnabled;
 
         SoundCheckBox.Checked += SoundCheckBox_Changed;
         SoundCheckBox.Unchecked += SoundCheckBox_Changed;
@@ -66,6 +70,7 @@ public partial class OptionsWindow : Window
         MusicVolumeSlider.IsEnabled = enabled;
         EffectsVolumeSlider.IsEnabled = enabled;
         MasterVolumeSlider.IsEnabled = enabled;
+        VoiceVolumeSlider.IsEnabled = enabled;
 
         ApplyChanges();
     }
@@ -93,6 +98,16 @@ public partial class OptionsWindow : Window
         {
             _settings.EffectsVolume = e.NewValue;
             EffectsVolumeLabel.Text = _settings.EffectsVolume.ToString("0");
+            ApplyChanges();
+        }
+    }
+
+    private void VoiceVolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (VoiceVolumeLabel != null)
+        {
+            _settings.VoiceVolume = e.NewValue;
+            VoiceVolumeLabel.Text = _settings.VoiceVolume.ToString("0");
             ApplyChanges();
         }
     }

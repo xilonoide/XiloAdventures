@@ -321,7 +321,7 @@ public partial class MainWindow : Window
                 if (process == null)
                     continue;
 
-                if (!process.WaitForExit(10000))
+                if (!process.WaitForExit(1000000))
                 {
                     try { process.Kill(); } catch { }
                     continue;

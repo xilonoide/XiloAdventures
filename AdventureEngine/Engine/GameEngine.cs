@@ -55,6 +55,75 @@ public class GameEngine
         _state.Rooms.FirstOrDefault(r => r.Id.Equals(_state.CurrentRoomId, StringComparison.OrdinalIgnoreCase));
 
 
+
+    /// <summary>
+    /// Precarga las voces de la sala actual y de las salas conectadas
+    /// hasta una cierta distancia en movimientos, y elimina de la caché
+    /// las salas que queden más lejos.
+    /// </summary>
+    public async Task PreloadVoicesAroundCurrentRoomAsync(int maxDistance = 2)
+    {
+        var origin = CurrentRoom;
+        if (origin == null)
+            return;
+
+        if (maxDistance < 0)
+            maxDistance = 0;
+
+        var roomsById = _state.Rooms
+            .GroupBy(r => r.Id, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var queue = new Queue<(string roomId, int distance)>();
+
+        visited.Add(origin.Id);
+        queue.Enqueue((origin.Id, 0));
+
+        var toPreload = new List<Room>();
+
+        while (queue.Count > 0)
+        {
+            var (roomId, distance) = queue.Dequeue();
+            if (!roomsById.TryGetValue(roomId, out var room))
+                continue;
+
+            if (distance > maxDistance)
+                continue;
+
+            toPreload.Add(room);
+
+            if (distance == maxDistance)
+                continue;
+
+            foreach (var exit in room.Exits)
+            {
+                if (string.IsNullOrWhiteSpace(exit.TargetRoomId))
+                    continue;
+
+                if (visited.Add(exit.TargetRoomId))
+                    queue.Enqueue((exit.TargetRoomId, distance + 1));
+            }
+        }
+
+        var tasks = new List<Task>();
+        foreach (var room in toPreload)
+        {
+            tasks.Add(_sound.PreloadRoomVoiceAsync(room.Id, room.Description));
+        }
+
+        await Task.WhenAll(tasks).ConfigureAwait(false);
+
+        var allowedIds = new HashSet<string>(toPreload.Select(r => r.Id), StringComparer.OrdinalIgnoreCase);
+        var cachedIds = _sound.GetCachedVoiceRoomIds();
+
+        foreach (var cachedId in cachedIds)
+        {
+            if (!allowedIds.Contains(cachedId))
+                _sound.RemoveVoiceFromCache(cachedId);
+        }
+    }
+
     private void UpdateGameTimeFromReal()
     {
         var now = DateTime.Now;
@@ -687,6 +756,7 @@ private string HandleTake(ParsedCommand parsed)
         return true;
     }
 
+    
     private void OnRoomChanged()
     {
         var room = CurrentRoom;
@@ -706,9 +776,18 @@ private string HandleTake(ParsedCommand parsed)
                 roomMusicBase64,
                 null,
                 null);
+
+            // Voz: reproducimos la descripción de la sala actual.
+            _ = _sound.PlayRoomDescriptionAsync(room.Id, room.Description);
+
+            // Precargamos en segundo plano las voces de las salas cercanas
+            // (hasta dos movimientos de distancia) y limpiamos las lejanas.
+            _ = PreloadVoicesAroundCurrentRoomAsync();
+
             RoomChanged?.Invoke(room);
         }
     }
+
 private void EnsurePlayerRoom()
     {
         if (_state.Rooms.All(r => !r.Id.Equals(_state.CurrentRoomId, StringComparison.OrdinalIgnoreCase)))

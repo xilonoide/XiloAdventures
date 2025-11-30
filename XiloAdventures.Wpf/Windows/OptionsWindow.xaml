@@ -13,7 +13,7 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0">
-            <GroupBox Header="Sonido" Margin="0,0,0,10">
+                        <GroupBox Header="Sonido" Margin="0,0,0,10">
                 <StackPanel>
                     <CheckBox x:Name="SoundCheckBox"
                               Content="Sonido activado"
@@ -42,6 +42,19 @@
                                 IsSnapToTickEnabled="True"
                                 ValueChanged="EffectsVolumeSlider_ValueChanged"/>
                         <TextBlock x:Name="EffectsVolumeLabel"
+                                   VerticalAlignment="Center"
+                                   Margin="8,0,0,0"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4" VerticalAlignment="Center">
+                        <TextBlock Text="Voz:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <Slider x:Name="VoiceVolumeSlider"
+                                Minimum="0" Maximum="10"
+                                Width="180"
+                                TickFrequency="1"
+                                IsSnapToTickEnabled="True"
+                                ValueChanged="VoiceVolumeSlider_ValueChanged"/>
+                        <TextBlock x:Name="VoiceVolumeLabel"
                                    VerticalAlignment="Center"
                                    Margin="8,0,0,0"/>
                     </StackPanel>

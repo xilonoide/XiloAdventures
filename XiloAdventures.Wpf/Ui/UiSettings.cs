@@ -24,6 +24,10 @@ public class UiSettings
     /// Volumen maestro (1-10).
     /// </summary>
     public double MasterVolume { get; set; } = 10.0;
+    /// <summary>
+    /// Volumen de la voz (0-10).
+    /// </summary>
+    public double VoiceVolume { get; set; } = 10.0;
 }
 
 public static class UiSettingsManager
@@ -83,7 +87,8 @@ public static class UiSettingsManager
             UseLlmForUnknownCommands = GlobalSettings.UseLlmForUnknownCommands,
             MusicVolume = GlobalSettings.MusicVolume,
             EffectsVolume = GlobalSettings.EffectsVolume,
-            MasterVolume = GlobalSettings.MasterVolume
+            MasterVolume = GlobalSettings.MasterVolume,
+            VoiceVolume = GlobalSettings.VoiceVolume
         };
     }
 

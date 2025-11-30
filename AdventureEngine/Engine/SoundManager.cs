@@ -1,6 +1,8 @@
 using System;
 using System.IO;
+using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Net.Http;
 using NAudio.Wave;
 
 namespace XiloAdventures.Engine;
@@ -17,6 +19,17 @@ public class SoundManager : IDisposable
     private AudioFileReader? _roomMusicReader;
     private string? _roomMusicPath;
 
+    private IWavePlayer? _voicePlayer;
+    private WaveStream? _voiceReader;
+
+    private static readonly HttpClient TtsHttpClient = new()
+    {
+        BaseAddress = new Uri("http://localhost:5002/")
+    };
+
+
+    private readonly object _voiceCacheLock = new();
+    private readonly Dictionary<string, byte[]> _voiceCache = new(StringComparer.OrdinalIgnoreCase);
     // Flags para controlar el bucle de la música y evitar reinicios cuando se detiene explícitamente.
     private bool _worldMusicLoopEnabled;
     private bool _roomMusicLoopEnabled;
@@ -40,6 +53,11 @@ public class SoundManager : IDisposable
     /// Volumen maestro normalizado (0.0 - 1.0).
     /// </summary>
     public float MasterVolume { get; set; } = 1.0f;
+
+    /// <summary>
+    /// Volumen de la voz normalizado (0.0 - 1.0).
+    /// </summary>
+    public float VoiceVolume { get; set; } = 1.0f;
 
     public SoundManager(string soundFolder)
     {
@@ -214,7 +232,153 @@ public class SoundManager : IDisposable
         }
     }
 
-    /// <summary>
+    
+    
+    private async Task<byte[]?> FetchVoiceBytesAsync(string text)
+    {
+        var encodedText = Uri.EscapeDataString(text);
+        using var response = await TtsHttpClient
+            .GetAsync($"api/tts?text={encodedText}", HttpCompletionOption.ResponseHeadersRead)
+            .ConfigureAwait(false);
+
+        response.EnsureSuccessStatusCode();
+
+        await using var networkStream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+        using var ms = new MemoryStream();
+        await networkStream.CopyToAsync(ms).ConfigureAwait(false);
+        return ms.ToArray();
+    }
+
+    public async Task PreloadRoomVoiceAsync(string roomId, string? text)
+    {
+        if (string.IsNullOrWhiteSpace(roomId) || string.IsNullOrWhiteSpace(text))
+            return;
+
+        lock (_voiceCacheLock)
+        {
+            if (_voiceCache.ContainsKey(roomId))
+                return;
+        }
+
+        try
+        {
+            var bytes = await FetchVoiceBytesAsync(text).ConfigureAwait(false);
+            if (bytes == null || bytes.Length == 0)
+                return;
+
+            lock (_voiceCacheLock)
+            {
+                _voiceCache[roomId] = bytes;
+            }
+        }
+        catch
+        {
+            // Si el TTS falla al precargar, no consideramos esto un error fatal.
+        }
+    }
+
+    public IReadOnlyCollection<string> GetCachedVoiceRoomIds()
+    {
+        lock (_voiceCacheLock)
+        {
+            return new List<string>(_voiceCache.Keys);
+        }
+    }
+
+    public void RemoveVoiceFromCache(string roomId)
+    {
+        if (string.IsNullOrWhiteSpace(roomId))
+            return;
+
+        lock (_voiceCacheLock)
+        {
+            _voiceCache.Remove(roomId);
+        }
+    }
+
+    public async Task PlayRoomDescriptionAsync(string roomId, string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            StopVoice();
+            return;
+        }
+
+        if (!SoundEnabled || MasterVolume <= 0f || VoiceVolume <= 0f)
+        {
+            StopVoice();
+            return;
+        }
+
+        byte[]? bytes = null;
+
+        if (!string.IsNullOrWhiteSpace(roomId))
+        {
+            lock (_voiceCacheLock)
+            {
+                if (_voiceCache.TryGetValue(roomId, out var cachedBytes))
+                {
+                    bytes = cachedBytes;
+                }
+            }
+        }
+
+        try
+        {
+            if (bytes == null)
+            {
+                var fetched = await FetchVoiceBytesAsync(text).ConfigureAwait(false);
+                if (fetched == null || fetched.Length == 0)
+                {
+                    StopVoice();
+                    return;
+                }
+
+                if (!string.IsNullOrWhiteSpace(roomId))
+                {
+                    lock (_voiceCacheLock)
+                    {
+                        _voiceCache[roomId] = fetched;
+                    }
+                }
+
+                bytes = fetched;
+            }
+
+            StopVoice();
+
+            var ms = new MemoryStream(bytes);
+            var waveReader = new WaveFileReader(ms);
+            var voiceChannel = new WaveChannel32(waveReader)
+            {
+                PadWithZeroes = false
+            };
+
+            var outputDevice = new WaveOutEvent
+            {
+                DesiredLatency = 200
+            };
+
+            _voiceReader = voiceChannel;
+            _voicePlayer = outputDevice;
+
+            RefreshVoiceVolume();
+
+            _voicePlayer.Init(_voiceReader);
+            _voicePlayer.Play();
+        }
+        catch
+        {
+            // Si algo falla al generar o reproducir la voz, simplemente paramos la voz.
+            StopVoice();
+        }
+    }
+
+    public Task PlayRoomDescriptionAsync(string? text)
+        => PlayRoomDescriptionAsync(string.Empty, text);
+
+
+/// <summary>
     /// Reproduce un efecto de sonido puntual desde un archivo en la carpeta de sonido.
     /// No utiliza Base64; se asume que el archivo ya existe físicamente.
     /// </summary>
@@ -336,6 +500,25 @@ public class SoundManager : IDisposable
     {
         StopRoomMusic();
         StopWorldMusic();
+        StopVoice();
+    }
+
+    public void StopVoice()
+    {
+        try
+        {
+            _voicePlayer?.Stop();
+        }
+        catch
+        {
+            // Ignorar errores al detener la voz
+        }
+
+        _voicePlayer?.Dispose();
+        _voiceReader?.Dispose();
+
+        _voicePlayer = null;
+        _voiceReader = null;
     }
 
 
@@ -441,6 +624,28 @@ public class SoundManager : IDisposable
         }
     }
 
+    private void RefreshVoiceVolume()
+    {
+        if (_voiceReader is WaveChannel32 voiceChannel)
+        {
+            try
+            {
+                if (!SoundEnabled)
+                {
+                    voiceChannel.Volume = 0f;
+                    return;
+                }
+
+                var master = Math.Clamp(MasterVolume, 0f, 1f);
+                var voice = Math.Clamp(VoiceVolume, 0f, 1f);
+                voiceChannel.Volume = master * voice;
+            }
+            catch
+            {
+                // Ignorar problemas de volumen de voz
+            }
+        }
+    }
 
     public void RefreshVolumes()
     {
@@ -455,6 +660,8 @@ public class SoundManager : IDisposable
             {
                 try { _roomMusicReader.Volume = 0f; } catch { }
             }
+
+            RefreshVoiceVolume();
             return;
         }
 
@@ -474,6 +681,8 @@ public class SoundManager : IDisposable
                 // Ignorar problemas de volumen
             }
         }
+
+        RefreshVoiceVolume();
     }
 
     /// <summary>
