@@ -665,25 +665,35 @@ public class SoundManager : IDisposable
             return;
         }
 
-        // Música de mundo al volumen lógico 1.0 aplicando master y música.
-        SetWorldMusicVolume(1.0f);
+        var master = Math.Clamp(MasterVolume, 0f, 1f);
+        var music = Math.Clamp(MusicVolume, 0f, 1f);
 
-        if (_roomMusicReader != null)
+        var hasRoomMusic = _roomMusicPlayer != null && _roomMusicReader != null;
+        var hasWorldMusic = _worldMusicPlayer != null && _worldMusicReader != null;
+
+        if (hasRoomMusic)
         {
+            // Estamos en una sala con música especial:
+            // - NO tocamos la música de mundo: su volumen lo controla PlayRoomMusic/FadeWorldMusicTo.
+            // - Solo ajustamos el volumen de la música de sala con master + música.
             try
             {
-                var master = Math.Clamp(MasterVolume, 0f, 1f);
-                var music = Math.Clamp(MusicVolume, 0f, 1f);
-                _roomMusicReader.Volume = 1.0f * master * music;
+                _roomMusicReader!.Volume = 1.0f * master * music;
             }
             catch
             {
                 // Ignorar problemas de volumen
             }
         }
+        else if (hasWorldMusic)
+        {
+            // No hay música especial de sala: aplicamos el volumen a la música de mundo.
+            SetWorldMusicVolume(1.0f);
+        }
 
         RefreshVoiceVolume();
     }
+
 
     /// <summary>
     /// Termina la música de sala con un pequeño fade-out y la detiene.

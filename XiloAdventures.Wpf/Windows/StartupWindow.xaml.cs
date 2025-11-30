@@ -11,6 +11,8 @@ namespace XiloAdventures.Wpf.Windows;
 
 public partial class StartupWindow : Window
 {
+    private bool _isStartingNewGame;
+
     public StartupWindow()
     {
         InitializeComponent();
@@ -66,6 +68,14 @@ public partial class StartupWindow : Window
 
     private async void NewGameButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_isStartingNewGame)
+            return;
+
+        _isStartingNewGame = true;
+        NewGameButton.IsEnabled = false;
+
+        try
+        {
         var worldPath = GetSelectedWorldFile();
         if (worldPath is null)
             return;
@@ -150,6 +160,13 @@ public partial class StartupWindow : Window
         // Al cerrar la partida, volvemos a mostrar el inicio
         Show();
         ReloadWorlds();
+    
+        }
+        finally
+        {
+            _isStartingNewGame = false;
+            NewGameButton.IsEnabled = true;
+        }
     }
 
     private async void LoadGameButton_Click(object sender, RoutedEventArgs e)
