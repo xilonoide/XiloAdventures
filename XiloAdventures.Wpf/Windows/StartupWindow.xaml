@@ -49,8 +49,9 @@
             </StackPanel>
 
             <Button x:Name="NewGameButton" Content="Nueva partida" Width="120" Margin="0,0,10,0" Click="NewGameButton_Click"/>
-            <Button x:Name="LoadGameButton" Content="Cargar part....." Width="120" Margin="0,0,10,0" Click="LoadGameButton_Click"/>
-            <Button x:Name="EditorButton" Content="Editor..." Width="120" Margin="0,0,10,0" Click="EditorButton_Click"/>
+            <Button x:Name="LoadGameButton" Content="Cargar partida" Width="120" Margin="0,0,10,0" Click="LoadGameButton_Click"/>
+            <Button x:Name="EditorButton" Content="Editor" Width="80" Margin="0,0,10,0" Click="EditorButton_Click"/>
+            <Button x:Name="DeleteWorldButton" Content="Eliminar" Width="80" Margin="0,0,10,0" Click="DeleteWorldButton_Click"/>
             <Button x:Name="ExitButton" Content="Salir" Width="80" Click="ExitButton_Click"/>
         </StackPanel>
     </Grid>

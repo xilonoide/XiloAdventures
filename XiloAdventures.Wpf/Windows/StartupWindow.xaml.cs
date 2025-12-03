@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
 using Microsoft.Win32;
 using XiloAdventures.Engine;
 using XiloAdventures.Engine.Models;
@@ -37,6 +38,9 @@ public partial class StartupWindow : Window
         LlmCheckBox.IsChecked = UiSettingsManager.GlobalSettings.UseLlmForUnknownCommands;
         LlmCheckBox.Checked += LlmCheckBox_Changed;
         LlmCheckBox.Unchecked += LlmCheckBox_Changed;
+
+        WorldsList.SelectionChanged += WorldsList_SelectionChanged;
+        UpdateDeleteWorldButtonEnabled();
     }
 
     private void SoundCheckBox_Changed(object sender, RoutedEventArgs e)
@@ -71,8 +75,12 @@ public partial class StartupWindow : Window
     private void ReloadWorlds()
     {
         WorldsList.Items.Clear();
+
         if (!Directory.Exists(AppPaths.WorldsFolder))
+        {
+            UpdateDeleteWorldButtonEnabled();
             return;
+        }
 
         var files = Directory.GetFiles(AppPaths.WorldsFolder, "*.xaw");
         foreach (var file in files.OrderBy(f => f))
@@ -80,6 +88,26 @@ public partial class StartupWindow : Window
             var name = Path.GetFileNameWithoutExtension(file);
             WorldsList.Items.Add(name);
         }
+
+        if (WorldsList.Items.Count > 0 && WorldsList.SelectedIndex < 0)
+        {
+            WorldsList.SelectedIndex = 0;
+        }
+
+        UpdateDeleteWorldButtonEnabled();
+    }
+
+    private void WorldsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        UpdateDeleteWorldButtonEnabled();
+    }
+
+    private void UpdateDeleteWorldButtonEnabled()
+    {
+        if (DeleteWorldButton == null)
+            return;
+
+        DeleteWorldButton.IsEnabled = WorldsList.SelectedItem != null;
     }
 
     private string? GetSelectedWorldFile()
@@ -370,6 +398,45 @@ public partial class StartupWindow : Window
         Hide();
         editor.ShowDialog();
         Show();
+        ReloadWorlds();
+    }
+
+    
+    private void DeleteWorldButton_Click(object sender, RoutedEventArgs e)
+    {
+        var worldPath = GetSelectedWorldFile();
+        if (worldPath is null)
+            return;
+
+        var worldName = Path.GetFileNameWithoutExtension(worldPath);
+
+        var dlg = new ConfirmWindow(
+            $"¿Seguro que quieres eliminar el mundo \"{worldName}\"?\n\nEsta acción no se puede deshacer.",
+            "Eliminar mundo")
+        {
+            Owner = this
+        };
+
+        var result = dlg.ShowDialog() == true;
+        if (!result)
+            return;
+
+        try
+        {
+            if (File.Exists(worldPath))
+            {
+                File.Delete(worldPath);
+            }
+        }
+        catch (Exception ex)
+        {
+            new AlertWindow($"No se ha podido eliminar el mundo:\n{ex.Message}", "Error")
+            {
+                Owner = this
+            }.ShowDialog();
+            return;
+        }
+
         ReloadWorlds();
     }
 

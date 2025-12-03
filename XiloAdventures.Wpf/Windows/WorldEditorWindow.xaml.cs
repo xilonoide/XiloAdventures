@@ -12,6 +12,7 @@ using XiloAdventures.Engine;
 using XiloAdventures.Engine.Models;
 using XiloAdventures.Wpf.Controls;
 using XiloAdventures.Wpf.Ui;
+using XiloAdventures.Wpf.Services;
 
 namespace XiloAdventures.Wpf.Windows;
 
@@ -478,7 +479,8 @@ public partial class WorldEditorWindow : Window
 
     
 
-    private void PlayButton_Click(object sender, RoutedEventArgs e)
+    
+    private async void PlayButton_Click(object sender, RoutedEventArgs e)
     {
         if (_isPlayRunning)
             return;
@@ -487,26 +489,30 @@ public partial class WorldEditorWindow : Window
             return;
 
         _isPlayRunning = true;
-        PlayButton.IsEnabled = false;
+        if (PlayButton != null)
+            PlayButton.IsEnabled = false;
 
         try
         {
             // Sincronizamos posiciones del mapa con el modelo y guardamos el mundo actual.
             try
             {
-                var roomIds = _world.Rooms.Select(r => r.Id);
-                var positions = MapPanel.GetRoomPositions(roomIds);
-
-                _world.RoomPositions ??= new Dictionary<string, MapPosition>();
-                _world.RoomPositions.Clear();
-
-                foreach (var kv in positions)
+                if (_world != null)
                 {
-                    _world.RoomPositions[kv.Key] = new MapPosition
+                    var roomIds = _world.Rooms.Select(r => r.Id);
+                    var positions = MapPanel.GetRoomPositions(roomIds);
+
+                    _world.RoomPositions ??= new Dictionary<string, MapPosition>();
+                    _world.RoomPositions.Clear();
+
+                    foreach (var kv in positions)
                     {
-                        X = kv.Value.X,
-                        Y = kv.Value.Y
-                    };
+                        _world.RoomPositions[kv.Key] = new MapPosition
+                        {
+                            X = kv.Value.X,
+                            Y = kv.Value.Y
+                        };
+                    }
                 }
 
                 Directory.CreateDirectory(AppPaths.WorldsFolder);
@@ -519,7 +525,7 @@ public partial class WorldEditorWindow : Window
                     _currentPath = Path.Combine(AppPaths.WorldsFolder, baseName + ".xaw");
                 }
 
-                WorldLoader.SaveWorldModel(_world, _currentPath);
+                WorldLoader.SaveWorldModel(_world!, _currentPath);
             }
             catch (Exception ex)
             {
@@ -548,16 +554,61 @@ public partial class WorldEditorWindow : Window
             }
 
             var uiSettings = UiSettingsManager.LoadForWorld(world.Game.Id);
-            // Respetar la configuración de sonido global
+            // Respetar la configuración global de sonido e IA
             uiSettings.SoundEnabled = UiSettingsManager.GlobalSettings.SoundEnabled;
+            uiSettings.UseLlmForUnknownCommands = UiSettingsManager.GlobalSettings.UseLlmForUnknownCommands;
 
             var soundManager = new SoundManager(AppPaths.SoundFolder)
             {
                 SoundEnabled = uiSettings.SoundEnabled,
                 MusicVolume = (float)(uiSettings.MusicVolume / 10.0),
                 EffectsVolume = (float)(uiSettings.EffectsVolume / 10.0),
-                MasterVolume = (float)(uiSettings.MasterVolume / 10.0)
+                MasterVolume = (float)(uiSettings.MasterVolume / 10.0),
+                VoiceVolume = (float)(uiSettings.VoiceVolume / 10.0)
             };
+            soundManager.RefreshVolumes();
+
+            // Si la IA está activada para este mundo, preparar los contenedores Docker (IA + voz)
+            if (uiSettings.UseLlmForUnknownCommands)
+            {
+                var dockerWindow = new DockerProgressWindow
+                {
+                    Owner = this
+                };
+
+                var success = await dockerWindow.RunAsync();
+                if (!success)
+                {
+                    uiSettings.UseLlmForUnknownCommands = false;
+
+                    new AlertWindow(
+                        "No se han podido iniciar los servicios de IA y voz.\n\n" +
+                        "Comprueba que Docker Desktop está instalado y en ejecución.",
+                        "Error")
+                    {
+                        Owner = this
+                    }.ShowDialog();
+                }
+            }
+
+            // Precargar la voz de la sala inicial antes de mostrar la partida,
+            // para que se escuche nada más entrar.
+            if (uiSettings.SoundEnabled && uiSettings.VoiceVolume > 0)
+            {
+                try
+                {
+                    var startRoom = state.Rooms
+                        .FirstOrDefault(r => r.Id.Equals(state.CurrentRoomId, StringComparison.OrdinalIgnoreCase));
+                    if (startRoom != null && !string.IsNullOrWhiteSpace(startRoom.Description))
+                    {
+                        await soundManager.PreloadRoomVoiceAsync(startRoom.Id, startRoom.Description);
+                    }
+                }
+                catch
+                {
+                    // Si algo falla al precargar la voz, continuamos sin interrumpir la partida de prueba.
+                }
+            }
 
             var main = new MainWindow(world, state, soundManager, uiSettings)
             {
@@ -574,7 +625,6 @@ public partial class WorldEditorWindow : Window
                 PlayButton.IsEnabled = true;
         }
     }
-
 private void SaveMenu_Click(object sender, RoutedEventArgs e)
     {
         if (string.IsNullOrEmpty(_currentPath))
@@ -1462,8 +1512,19 @@ private void SaveMenu_Click(object sender, RoutedEventArgs e)
             return;
         }
 
+        // Al cerrar el editor intentamos también cerrar Docker Desktop.
+        try
+        {
+            DockerShutdownHelper.TryShutdownDockerDesktop();
+        }
+        catch
+        {
+            // Ignoramos errores al cerrar Docker; no deben bloquear el cierre del editor.
+        }
+
         base.OnClosing(e);
     }
+
 
     public class SelectRoomWindow : Window
     {

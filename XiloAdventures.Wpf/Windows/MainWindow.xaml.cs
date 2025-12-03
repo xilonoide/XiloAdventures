@@ -564,6 +564,21 @@ public partial class MainWindow : Window
             // Ignorar errores al cerrar el sonido.
         }
 
+        // Si la partida NO se ha iniciado desde el editor (Play del editor),
+        // intentamos cerrar Docker Desktop por completo.
+        try
+        {
+            if (Owner is not WorldEditorWindow)
+            {
+                DockerShutdownHelper.TryShutdownDockerDesktop();
+            }
+        }
+        catch
+        {
+            // Si algo falla al intentar cerrar Docker, lo ignoramos para no
+            // bloquear el cierre de la partida.
+        }
+
         base.OnClosing(e);
     }
 }
