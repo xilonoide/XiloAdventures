@@ -1,0 +1,29 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Xilo Adventures - Editor (WPF)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build-editor",
+            "program": "${workspaceFolder}/XiloAdventures.Wpf/bin/Debug/net8.0-windows/XiloAdventures.Wpf.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/XiloAdventures.Wpf/bin/Debug/net8.0-windows",
+            "stopAtEntry": false,
+            "console": "internalConsole",
+            "internalConsoleOptions": "openOnSessionStart"
+        },
+        {
+            "name": "Xilo Adventures - Player (WPF)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build-player",
+            "program": "${workspaceFolder}/XiloAdventures.Wpf.Player/bin/Debug/net8.0-windows/XiloAdventures.Wpf.Player.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/XiloAdventures.Wpf.Player/bin/Debug/net8.0-windows",
+            "stopAtEntry": false,
+            "console": "internalConsole",
+            "internalConsoleOptions": "openOnSessionStart"
+        }
+    ]
+}

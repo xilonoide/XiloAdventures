@@ -15,16 +15,16 @@ El objetivo es poder diseñar mundos complejos (salas, objetos, NPCs, misiones, 
 
 XiloAdventures es un **ecosistema completo** para crear y jugar aventuras conversacionales:
 
-- Un **motor** (`AdventureEngine`) que gestiona:
+- Un **motor** (`XiloAdventures.Engine`) que gestiona:
   - Mundos, salas, salidas, puertas, llaves, objetos, NPCs, etc.
   - Música e imágenes embebidas en el propio archivo de mundo.
   - Guardado/carga de partidas y mundos con **compresión + cifrado**.
-- Un **editor WPF** (`XiloAdventures.Wpf`) con:
+ - Un **editor WPF** (`XiloAdventures.Wpf`) con:
   - Mapa visual editable.
   - Árbol de contenido (salas, puertas, objetos, llaves…).
   - Propiedades contextuales.
   - Undo/Redo.
-- Un **cliente de juego WPF** con:
+- Un **cliente de juego WPF** (`XiloAdventures.Wpf.Player`) con:
   - Interfaz de partida con descripción, imagen, inventario, estados del jugador.
   - Parser de comandos.
   - Integración opcional con un **LLM local** para comandos no entendidos.
@@ -35,9 +35,13 @@ Todo está pensado para ser **auto-contenido**: tus mundos se guardan en un úni
 
 ## 🧱 Estructura de la solución
 
+
 La solución principal es `XiloAdventures.sln` e incluye:
 
-### ⚙️ Proyecto `AdventureEngine`
+- `XiloAdventures.Wpf.Player` — Cliente de juego independiente (versión "player" sin editor)
+- `XiloAdventures.Wpf.Common` — Biblioteca con código compartido (UI, servicios y assets comunes)
+
+### ⚙️ Proyecto `XiloAdventures.Engine`
 
 Núcleo del motor:
 
@@ -165,7 +169,25 @@ XiloAdventures puede apoyarse en un modelo de lenguaje local (por ejemplo, **lla
 
 3. Restaura paquetes y compila la solución.
 
-4. El proyecto WPF principal es `XiloAdventures.Wpf`.
+4. Proyectos WPF principales:
+
+  - `XiloAdventures.Wpf` — Editor WPF (editor + jugador)
+  - `XiloAdventures.Wpf.Player` — Cliente de juego independiente (solo "player")
+
+  Puedes ejecutar o compilar cualquiera de los dos proyectos según necesites.
+
+  Ejecutar el cliente Player (desde la raíz del repositorio):
+
+  ```bash
+  dotnet run --project XiloAdventures.Wpf.Player
+  ```
+
+  Compilar el cliente Player:
+
+  ```bash
+  dotnet build XiloAdventures.Wpf.Player -c Debug
+  dotnet build XiloAdventures.Wpf.Player -c Release
+  ```
 
 5. Selecciona la configuración que prefieras:
    - `Debug` para desarrollo.
@@ -261,7 +283,7 @@ Al abrir un issue, intenta incluir:
 
 ## 📁 Estructura de archivos destacada
 
-- `AdventureEngine/`
+ - `XiloAdventures.Engine/`
   - `Models/Models.cs` → Entidades del mundo.
   - `Engine/WorldLoader.cs` → Carga/guardado de `.xaw`.
   - `Engine/SoundManager.cs` → Gestión de audio.

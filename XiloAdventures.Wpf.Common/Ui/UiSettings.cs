@@ -1,0 +1,101 @@
+using System;
+using System.Text.Json;
+using XiloAdventures.Engine;
+
+namespace XiloAdventures.Wpf.Common.Ui;
+
+public class UiSettings
+{
+    public bool SoundEnabled { get; set; } = true;
+    public double FontSize { get; set; } = 14.0;
+    /// <summary>
+    /// Si está activo, al no entender un comando se consultará un LLM local.
+    /// </summary>
+    public bool UseLlmForUnknownCommands { get; set; } = false;
+    /// <summary>
+    /// Volumen de la música (0-10).
+    /// </summary>
+    public double MusicVolume { get; set; } = 10.0;
+    /// <summary>
+    /// Volumen de los efectos de sonido (0-10).
+    /// </summary>
+    public double EffectsVolume { get; set; } = 10.0;
+    /// <summary>
+    /// Volumen maestro (1-10).
+    /// </summary>
+    public double MasterVolume { get; set; } = 10.0;
+    /// <summary>
+    /// Volumen de la voz (0-10).
+    /// </summary>
+    public double VoiceVolume { get; set; } = 10.0;
+}
+
+public static class UiSettingsManager
+{
+    public static UiSettings GlobalSettings { get; private set; } = new();
+
+    private static readonly JsonSerializerOptions Options = new()
+    {
+        WriteIndented = true
+    };
+
+    public static void LoadGlobal()
+    {
+        var path = AppPaths.GlobalConfigPath;
+        try
+        {
+            if (System.IO.File.Exists(path))
+            {
+                var json = CryptoUtil.DecryptFromFile(path);
+                GlobalSettings = JsonSerializer.Deserialize<UiSettings>(json, Options) ?? new UiSettings();
+            }
+        }
+        catch
+        {
+            GlobalSettings = new UiSettings();
+        }
+    }
+
+    public static void SaveGlobal()
+    {
+        var path = AppPaths.GlobalConfigPath;
+        var json = JsonSerializer.Serialize(GlobalSettings, Options);
+        CryptoUtil.EncryptToFile(path, json, "xac");
+    }
+
+    public static UiSettings LoadForWorld(string worldId)
+    {
+        var path = AppPaths.WorldConfigPath(worldId);
+        try
+        {
+            if (System.IO.File.Exists(path))
+            {
+                var json = CryptoUtil.DecryptFromFile(path);
+                return JsonSerializer.Deserialize<UiSettings>(json, Options) ?? new UiSettings();
+            }
+        }
+        catch
+        {
+            // ignorar y devolver por defecto
+        }
+
+        // Por defecto heredamos de las globales
+        return new UiSettings
+        {
+            SoundEnabled = GlobalSettings.SoundEnabled,
+            FontSize = GlobalSettings.FontSize,
+            UseLlmForUnknownCommands = GlobalSettings.UseLlmForUnknownCommands,
+            MusicVolume = GlobalSettings.MusicVolume,
+            EffectsVolume = GlobalSettings.EffectsVolume,
+            MasterVolume = GlobalSettings.MasterVolume,
+            VoiceVolume = GlobalSettings.VoiceVolume
+        };
+    }
+
+    public static void SaveForWorld(string worldId, UiSettings settings)
+    {
+        var path = AppPaths.WorldConfigPath(worldId);
+        var json = JsonSerializer.Serialize(settings, Options);
+        CryptoUtil.EncryptToFile(path, json, "xac");
+    }
+}
