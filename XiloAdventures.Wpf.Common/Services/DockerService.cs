@@ -1,9 +1,6 @@
-using System;
 using System.Diagnostics;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Net.Http;
 using System.IO;
+using System.Net.Http;
 
 namespace XiloAdventures.Wpf.Common.Services;
 
