@@ -477,9 +477,9 @@ public partial class WorldEditorWindow : Window
         }
     }
 
-    
 
-    
+
+
     private async void PlayButton_Click(object sender, RoutedEventArgs e)
     {
         if (_isPlayRunning)
@@ -519,7 +519,7 @@ public partial class WorldEditorWindow : Window
 
                 if (string.IsNullOrEmpty(_currentPath))
                 {
-                    var baseName = string.IsNullOrWhiteSpace(_world.Game.Id)
+                    var baseName = string.IsNullOrWhiteSpace(_world!.Game.Id)
                         ? "mundo_desde_editor"
                         : _world.Game.Id;
                     _currentPath = Path.Combine(AppPaths.WorldsFolder, baseName + ".xaw");
@@ -625,7 +625,7 @@ public partial class WorldEditorWindow : Window
                 PlayButton.IsEnabled = true;
         }
     }
-private void SaveMenu_Click(object sender, RoutedEventArgs e)
+    private void SaveMenu_Click(object sender, RoutedEventArgs e)
     {
         if (string.IsNullOrEmpty(_currentPath))
         {
