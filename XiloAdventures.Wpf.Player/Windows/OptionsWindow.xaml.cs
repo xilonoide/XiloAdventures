@@ -156,7 +156,7 @@ public partial class OptionsWindow : Window
         }
     }
 
-        private void FontSizeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    private void FontSizeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         if (FontSizeLabel != null)
         {

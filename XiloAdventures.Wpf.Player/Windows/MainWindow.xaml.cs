@@ -460,7 +460,7 @@ public partial class MainWindow : Window
         dlg.ShowDialog();
     }
 
-    
+
     private void OnOptionsChanged(UiSettings settings)
     {
         // Aplicar cambios en vivo
