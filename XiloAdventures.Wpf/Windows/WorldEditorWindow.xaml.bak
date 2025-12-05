@@ -200,7 +200,9 @@
             <Button Content="NPC" Click="AddNpc_Click" Margin="2" Foreground="White"/>
             <Button Content="Misión" Click="AddQuest_Click" Margin="2" Foreground="White"/>
             <Separator/>
-                    </ToolBar>
+            <Button Content="Expandir todo" Click="ExpandAll_Click" Margin="2" Foreground="White"/>
+            <Button Content="Contraer todo" Click="CollapseAll_Click" Margin="2" Foreground="White"/>
+        </ToolBar>
 
         <Grid Margin="4">
             <Grid.ColumnDefinitions>
@@ -224,20 +226,12 @@
                                Background="#202020"/>
 
 <!-- Panel izquierdo: búsqueda + árbol -->
-            <StackPanel Grid.Column="0" Grid.Row="0" Grid.RowSpan="2" Margin="0,0,4,0" Background="#333333" Panel.ZIndex="1">
-                <DockPanel LastChildFill="True" Margin="0,0,0,4">
-                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
-                        <Button Width="28" Height="28" Margin="0,0,4,0" Click="ExpandAll_Click" ToolTip="Expandir todo">
-                            <TextBlock Text="↓" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Button>
-                        <Button Width="28" Height="28" Margin="0,0,4,0" Click="CollapseAll_Click" ToolTip="Contraer todo">
-                            <TextBlock Text="↑" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Button>
-                    </StackPanel>
-                    <TextBox x:Name="SearchTextBox"
-                             FontSize="16"
-                             TextChanged="SearchTextBox_TextChanged"/>
-                </DockPanel>
+            <StackPanel Grid.Column="0" Grid.Row="0" Grid.RowSpan="2" Margin="0,0,4,0"
+                        Background="#333333"
+                        Panel.ZIndex="1">
+                <TextBox x:Name="SearchTextBox"
+                         Margin="0,0,0,4"
+                         TextChanged="SearchTextBox_TextChanged"/>
                 <TreeView x:Name="WorldTree"
                           SelectedItemChanged="WorldTree_SelectedItemChanged"
                           KeyDown="WorldTree_KeyDown"
@@ -282,6 +276,3 @@
         </Grid>
     </DockPanel>
 </Window>
-
-
-

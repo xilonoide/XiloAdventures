@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
@@ -28,23 +28,31 @@ public partial class WorldEditorWindow : Window
     private readonly UndoRedoManager _undoRedo = new();
 
     private bool _isPlayRunning;
+    private bool _isDirty;
+    private readonly string _baseTitle;
 
     public WorldEditorWindow()
     {
         InitializeComponent();
+        _baseTitle = Title ?? "Editor de mundos";
         PropertyEditor.PropertyEdited += PropertyEditor_PropertyEdited;
         PropertyEditor.GetRooms = () => _world.Rooms;
         MapPanel.RoomClicked += MapPanel_RoomClicked;
         MapPanel.MapEdited += MapPanel_MapEdited;
+        MapPanel.DoorCreated += MapPanel_DoorCreated;
+        MapPanel.DoorDoubleClicked += MapPanel_DoorDoubleClicked;
+        MapPanel.KeyDoubleClicked += MapPanel_KeyDoubleClicked;
+        MapPanel.DoorClicked += MapPanel_DoorClicked;
         BuildTree();
         MapPanel.SetWorld(_world);
         UpdateButtonsForSelection(null);
         ResetUndoRedo();
+        SetDirty(false);
     }
 
     public WorldEditorWindow(string? worldPath) : this()
     {
-        // Si nos pasan una ruta válida, intentamos cargar ese mundo.
+        // Si nos pasan una ruta vÃ¡lida, intentamos cargar ese mundo.
         if (!string.IsNullOrWhiteSpace(worldPath) && System.IO.File.Exists(worldPath))
         {
             try
@@ -88,7 +96,7 @@ public partial class WorldEditorWindow : Window
     {
         if (obj is null) return;
 
-        // Si se ha editado el nombre, actualizamos el nodo correspondiente en el árbol
+        // Si se ha editado el nombre, actualizamos el nodo correspondiente en el Ã¡rbol
         if (propertyName == "Name")
         {
             foreach (TreeViewItem root in WorldTree.Items)
@@ -98,6 +106,7 @@ public partial class WorldEditorWindow : Window
         }
 
         PushUndoSnapshot();
+        SetDirty(true);
     }
 
     private void UpdateTreeHeaderRecursive(TreeViewItem item, object target)
@@ -139,7 +148,7 @@ public partial class WorldEditorWindow : Window
 
     private void MapPanel_RoomClicked(Room room)
     {
-        // seleccionar en el árbol la sala correspondiente
+        // seleccionar en el Ã¡rbol la sala correspondiente
         SelectRoomInTree(room);
         MapPanel.SetSelectedRoom(room);
     }
@@ -147,6 +156,40 @@ public partial class WorldEditorWindow : Window
     private void MapPanel_MapEdited()
     {
         PushUndoSnapshot();
+        SetDirty(true);
+    }
+
+    private void MapPanel_DoorCreated(Door door, KeyDefinition? createdKey, GameObject? createdObject)
+    {
+        AddDoorToTreeNode(door);
+
+        if (createdObject != null)
+            AddObjectToTreeNode(createdObject);
+
+        if (createdKey != null)
+            AddKeyToTreeNode(createdKey);
+
+        SelectDoorInTree(door);
+        PropertyEditor.SetObject(door);
+        SetDirty(true);
+    }
+
+    private void MapPanel_DoorDoubleClicked(Door door)
+    {
+        SelectDoorInTree(door);
+        PropertyEditor.SetObject(door);
+    }
+
+    private void MapPanel_KeyDoubleClicked(KeyDefinition key)
+    {
+        SelectKeyInTree(key);
+        PropertyEditor.SetObject(key);
+    }
+
+    private void MapPanel_DoorClicked(Door door)
+    {
+        SelectDoorInTree(door);
+        PropertyEditor.SetObject(door);
     }
 
     private void BuildTree()
@@ -203,7 +246,7 @@ public partial class WorldEditorWindow : Window
         }
         WorldTree.Items.Add(keysRoot);
 
-        // Seleccionar por defecto el nodo Juego al (re)construir el árbol
+        // Seleccionar por defecto el nodo Juego al (re)construir el Ã¡rbol
         gameNode.IsSelected = true;
         gameNode.Focus();
     }
@@ -326,7 +369,7 @@ public partial class WorldEditorWindow : Window
 
     private void UpdateButtonsForSelection(object? selected)
     {
-        // Los botones de imagen/música de sala ya no se usan en esta versión.
+        // Los botones de imagen/mÃºsica de sala ya no se usan en esta versiÃ³n.
     }
 
     private void ExpandAll_Click(object sender, RoutedEventArgs e)
@@ -356,22 +399,12 @@ public partial class WorldEditorWindow : Window
 
     private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
     {
-        var text = SearchTextBox.Text;
-        if (string.IsNullOrWhiteSpace(text))
-            return;
+        PerformSearch(SearchTextBox.Text);
+    }
 
-        text = text.ToLowerInvariant();
-
-        foreach (TreeViewItem root in WorldTree.Items)
-        {
-            var found = FindInTree(root, text);
-            if (found != null)
-            {
-                found.IsSelected = true;
-                found.BringIntoView();
-                break;
-            }
-        }
+    private void SearchButton_Click(object sender, RoutedEventArgs e)
+    {
+        PerformSearch(SearchTextBox.Text);
     }
 
     private TreeViewItem? FindInTree(TreeViewItem node, string text)
@@ -389,6 +422,25 @@ public partial class WorldEditorWindow : Window
         return null;
     }
 
+    private void PerformSearch(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return;
+
+        var normalized = text.ToLowerInvariant();
+
+        foreach (TreeViewItem root in WorldTree.Items)
+        {
+            var found = FindInTree(root, normalized);
+            if (found != null)
+            {
+                found.IsSelected = true;
+                found.BringIntoView();
+                break;
+            }
+        }
+    }
+
     private void RoomImageButton_Click(object sender, RoutedEventArgs e)
     {
         if (WorldTree.SelectedItem is not TreeViewItem item || item.Tag is not Room room)
@@ -397,7 +449,7 @@ public partial class WorldEditorWindow : Window
         var dlg = new OpenFileDialog
         {
             Title = "Seleccionar imagen de sala",
-            Filter = "Imágenes (*.png;*.jpg;*.jpeg)|*.png;*.jpg;*.jpeg|Todos los archivos (*.*)|*.*"
+            Filter = "ImÃ¡genes (*.png;*.jpg;*.jpeg)|*.png;*.jpg;*.jpeg|Todos los archivos (*.*)|*.*"
         };
 
         if (dlg.ShowDialog(this) == true)
@@ -417,7 +469,7 @@ public partial class WorldEditorWindow : Window
 
         var dlg = new OpenFileDialog
         {
-            Title = "Seleccionar música de sala",
+            Title = "Seleccionar mÃºsica de sala",
             Filter = "Audio (*.mp3;*.wav)|*.mp3;*.wav|Todos los archivos (*.*)|*.*"
         };
 
@@ -488,6 +540,9 @@ public partial class WorldEditorWindow : Window
         if (_world == null)
             return;
 
+        // Guardar antes de lanzar la partida de prueba
+        SaveMenu_Click(sender, new RoutedEventArgs());
+
         _isPlayRunning = true;
         if (PlayButton != null)
             PlayButton.IsEnabled = false;
@@ -554,7 +609,7 @@ public partial class WorldEditorWindow : Window
             }
 
             var uiSettings = UiSettingsManager.LoadForWorld(world.Game.Id);
-            // Respetar la configuración global de sonido e IA
+            // Respetar la configuraciÃ³n global de sonido e IA
             uiSettings.SoundEnabled = UiSettingsManager.GlobalSettings.SoundEnabled;
             uiSettings.UseLlmForUnknownCommands = UiSettingsManager.GlobalSettings.UseLlmForUnknownCommands;
 
@@ -568,7 +623,7 @@ public partial class WorldEditorWindow : Window
             };
             soundManager.RefreshVolumes();
 
-            // Si la IA está activada para este mundo, preparar los contenedores Docker (IA + voz)
+            // Si la IA estÃ¡ activada para este mundo, preparar los contenedores Docker (IA + voz)
             if (uiSettings.UseLlmForUnknownCommands)
             {
                 var dockerWindow = new DockerProgressWindow
@@ -583,7 +638,7 @@ public partial class WorldEditorWindow : Window
 
                     new AlertWindow(
                         "No se han podido iniciar los servicios de IA y voz.\n\n" +
-                        "Comprueba que Docker Desktop está instalado y en ejecución.",
+                        "Comprueba que Docker Desktop estÃ¡ instalado y en ejecuciÃ³n.",
                         "Error")
                     {
                         Owner = this
@@ -592,7 +647,7 @@ public partial class WorldEditorWindow : Window
             }
 
             // Precargar la voz de la sala inicial antes de mostrar la partida,
-            // para que se escuche nada más entrar.
+            // para que se escuche nada mÃ¡s entrar.
             if (uiSettings.SoundEnabled && uiSettings.VoiceVolume > 0)
             {
                 try
@@ -615,7 +670,7 @@ public partial class WorldEditorWindow : Window
                 Owner = this
             };
 
-            // Mostramos la ventana de juego como diálogo modal para no abrir varios tests a la vez.
+            // Mostramos la ventana de juego como diÃ¡logo modal para no abrir varios tests a la vez.
             main.ShowDialog();
         }
         finally
@@ -656,6 +711,7 @@ public partial class WorldEditorWindow : Window
 
             Directory.CreateDirectory(AppPaths.WorldsFolder);
             WorldLoader.SaveWorldModel(_world!, _currentPath);
+            SetDirty(false);
         }
         catch (Exception ex)
         {
@@ -677,6 +733,7 @@ public partial class WorldEditorWindow : Window
         {
             _currentPath = dlg.FileName;
             SaveMenu_Click(sender, e);
+            SetDirty(false);
         }
     }
 
@@ -700,6 +757,7 @@ public partial class WorldEditorWindow : Window
         SelectRoomInTree(room);
 
         PushUndoSnapshot();
+        SetDirty(true);
     }
 
     private void AddExit_Click(object sender, RoutedEventArgs e)
@@ -719,7 +777,7 @@ public partial class WorldEditorWindow : Window
                 if (RoomHasExitInDirection(room, direction))
                 {
                     new AlertWindow(
-                        $"La sala '{room.Name}' ya tiene una salida en dirección '{NormalizeDirectionForRoom(direction)}'.",
+                        $"La sala '{room.Name}' ya tiene una salida en direcciÃ³n '{NormalizeDirectionForRoom(direction)}'.",
                         "Xilo Adventures")
                     {
                         Owner = this
@@ -736,12 +794,13 @@ public partial class WorldEditorWindow : Window
                     MapPanel.InvalidateVisual();
                     PropertyEditor.SetObject(room);
                     PushUndoSnapshot();
+                    SetDirty(true);
                 }
             }
         }
         else
         {
-            new AlertWindow("Selecciona primero una sala en el árbol.", "Xilo Adventures")
+            new AlertWindow("Selecciona primero una sala en el Ã¡rbol.", "Xilo Adventures")
             {
                 Owner = this
             }.ShowDialog();
@@ -774,6 +833,7 @@ public partial class WorldEditorWindow : Window
         BuildTree();
         PropertyEditor.SetObject(door);
         PushUndoSnapshot();
+        SetDirty(true);
     }
 
     private void AddKey_Click(object sender, RoutedEventArgs e)
@@ -797,6 +857,7 @@ public partial class WorldEditorWindow : Window
         BuildTree();
         PropertyEditor.SetObject(key);
         PushUndoSnapshot();
+        SetDirty(true);
     }
 
 
@@ -820,6 +881,7 @@ public partial class WorldEditorWindow : Window
         _world.Objects.Add(obj);
         BuildTree();
         PushUndoSnapshot();
+        SetDirty(true);
     }
 
     private void AddNpc_Click(object sender, RoutedEventArgs e)
@@ -841,6 +903,7 @@ public partial class WorldEditorWindow : Window
         _world.Npcs.Add(npc);
         BuildTree();
         PushUndoSnapshot();
+        SetDirty(true);
     }
 
     private void AddQuest_Click(object sender, RoutedEventArgs e)
@@ -849,12 +912,13 @@ public partial class WorldEditorWindow : Window
         var q = new QuestDefinition
         {
             Id = $"quest_{index}",
-            Name = $"Misión {index}",
-            Description = "Nueva misión."
+            Name = $"MisiÃ³n {index}",
+            Description = "Nueva misiÃ³n."
         };
         _world.Quests.Add(q);
         BuildTree();
         PushUndoSnapshot();
+        SetDirty(true);
     }
 
     private static string NormalizeDirectionForRoom(string direction)
@@ -930,7 +994,7 @@ public partial class WorldEditorWindow : Window
     {
         if (room is null) return;
 
-        var dlg = new ConfirmWindow($"¿Eliminar la sala '{room.Name}'?", "Confirmar eliminación")
+        var dlg = new ConfirmWindow($"Â¿Eliminar la sala '{room.Name}'?", "Confirmar eliminaciÃ³n")
         {
             Owner = this
         };
@@ -973,13 +1037,18 @@ public partial class WorldEditorWindow : Window
 
         BuildTree();
         MapPanel.SetWorld(_world);
-    }
+        PushUndoSnapshot();
+        SetDirty(true);
+        PushUndoSnapshot();
+        SetDirty(true);
+
+        }
 
     private void DeleteObject(GameObject obj)
     {
         if (obj is null) return;
 
-        var dlg = new ConfirmWindow($"¿Eliminar el objeto '{obj.Name}'?", "Confirmar eliminación")
+        var dlg = new ConfirmWindow($"Â¿Eliminar el objeto '{obj.Name}'?", "Confirmar eliminaciÃ³n")
         {
             Owner = this
         };
@@ -987,33 +1056,22 @@ public partial class WorldEditorWindow : Window
         if (dlg.ShowDialog() != true)
             return;
 
-        _world.Objects.Remove(obj);
-
-        // Quitar referencias desde salas y otros objetos / NPCs
-        foreach (var room in _world.Rooms)
-        {
-            room.ObjectIds.Remove(obj.Id);
-        }
-
-        foreach (var other in _world.Objects)
-        {
-            other.ContainedObjectIds.Remove(obj.Id);
-        }
-
-        foreach (var npc in _world.Npcs)
-        {
-            npc.InventoryObjectIds.Remove(obj.Id);
-        }
+        WorldEditorHelpers.DeleteObject(_world, obj);
 
         BuildTree();
         MapPanel.SetWorld(_world);
-    }
+        PushUndoSnapshot();
+        SetDirty(true);
+        PushUndoSnapshot();
+        SetDirty(true);
+
+        }
 
     private void DeleteDoor(Door door)
     {
         if (door is null) return;
 
-        var dlg = new ConfirmWindow($"¿Eliminar la puerta '{door.Name}'?", "Confirmar eliminación")
+        var dlg = new ConfirmWindow($"Â¿Eliminar la puerta '{door.Name}'?", "Confirmar eliminaciÃ³n")
         {
             Owner = this
         };
@@ -1021,29 +1079,22 @@ public partial class WorldEditorWindow : Window
         if (dlg.ShowDialog() != true)
             return;
 
-        // Quitar referencias a esta puerta desde las salidas
-        foreach (var room in _world.Rooms)
-        {
-            foreach (var ex in room.Exits)
-            {
-                if (string.Equals(ex.DoorId, door.Id, StringComparison.OrdinalIgnoreCase))
-                {
-                    ex.DoorId = null;
-                }
-            }
-        }
-
-        _world.Doors?.Remove(door);
+        WorldEditorHelpers.DeleteDoor(_world, door);
 
         BuildTree();
         MapPanel.SetWorld(_world);
-    }
+        PushUndoSnapshot();
+        SetDirty(true);
+        PushUndoSnapshot();
+        SetDirty(true);
+
+        }
 
     private void DeleteKey(KeyDefinition key)
     {
         if (key is null) return;
 
-        var dlg = new ConfirmWindow($"¿Eliminar la definición de llave '{key.Id}'?", "Confirmar eliminación")
+        var dlg = new ConfirmWindow($"Â¿Eliminar la definiciÃ³n de llave '{key.Id}'?", "Confirmar eliminaciÃ³n")
         {
             Owner = this
         };
@@ -1055,14 +1106,19 @@ public partial class WorldEditorWindow : Window
 
         BuildTree();
         MapPanel.SetWorld(_world);
-    }
+        PushUndoSnapshot();
+        SetDirty(true);
+        PushUndoSnapshot();
+        SetDirty(true);
+
+        }
 
 
     private void DeleteNpc(Npc npc)
     {
         if (npc is null) return;
 
-        var dlg = new ConfirmWindow($"¿Eliminar el NPC '{npc.Name}'?", "Confirmar eliminación")
+        var dlg = new ConfirmWindow($"Â¿Eliminar el NPC '{npc.Name}'?", "Confirmar eliminaciÃ³n")
         {
             Owner = this
         };
@@ -1079,13 +1135,18 @@ public partial class WorldEditorWindow : Window
 
         BuildTree();
         MapPanel.SetWorld(_world);
-    }
+        PushUndoSnapshot();
+        SetDirty(true);
+        PushUndoSnapshot();
+        SetDirty(true);
+
+        }
 
     private void DeleteQuest(QuestDefinition quest)
     {
         if (quest is null) return;
 
-        var dlg = new ConfirmWindow($"¿Eliminar la misión '{quest.Name}'?", "Confirmar eliminación")
+        var dlg = new ConfirmWindow($"Â¿Eliminar la misiÃ³n '{quest.Name}'?", "Confirmar eliminaciÃ³n")
         {
             Owner = this
         };
@@ -1097,6 +1158,100 @@ public partial class WorldEditorWindow : Window
 
         BuildTree();
         MapPanel.SetWorld(_world);
+        PushUndoSnapshot();
+        SetDirty(true);
+        PushUndoSnapshot();
+        SetDirty(true);
+
+        }
+
+    private void AddDoorToTreeNode(Door door)
+    {
+        var root = WorldTree.Items.OfType<TreeViewItem>().FirstOrDefault(i => i.Header?.ToString() == "Puertas");
+        if (root == null)
+        {
+            BuildTree();
+            return;
+        }
+
+        if (!root.Items.OfType<TreeViewItem>().Any(i => ReferenceEquals(i.Tag, door)))
+        {
+            root.Items.Add(new TreeViewItem { Header = door.Name, Tag = door, Foreground = Brushes.White });
+        }
+    }
+
+    private void AddObjectToTreeNode(GameObject obj)
+    {
+        var root = WorldTree.Items.OfType<TreeViewItem>().FirstOrDefault(i => i.Header?.ToString() == "Objetos");
+        if (root == null)
+        {
+            BuildTree();
+            return;
+        }
+
+        if (!root.Items.OfType<TreeViewItem>().Any(i => ReferenceEquals(i.Tag, obj)))
+        {
+            root.Items.Add(new TreeViewItem { Header = obj.Name, Tag = obj, Foreground = Brushes.White });
+        }
+    }
+
+    private void AddKeyToTreeNode(KeyDefinition key)
+    {
+        var root = WorldTree.Items.OfType<TreeViewItem>().FirstOrDefault(i => i.Header?.ToString() == "Llaves");
+        if (root == null)
+        {
+            BuildTree();
+            return;
+        }
+
+        var header = string.IsNullOrWhiteSpace(key.ObjectId) ? key.Id : $"Llave ({key.ObjectId})";
+
+        if (!root.Items.OfType<TreeViewItem>().Any(i => ReferenceEquals(i.Tag, key)))
+        {
+            root.Items.Add(new TreeViewItem { Header = header, Tag = key, Foreground = Brushes.White });
+        }
+    }
+
+    private void SelectDoorInTree(Door door)
+    {
+        foreach (TreeViewItem root in WorldTree.Items)
+        {
+            if (root.Header?.ToString() == "Puertas")
+            {
+                foreach (TreeViewItem child in root.Items.OfType<TreeViewItem>())
+                {
+                    if (child.Tag == door)
+                    {
+                        WorldTree.Focus();
+                        child.IsSelected = true;
+                        child.BringIntoView();
+                        child.Focus();
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    private void SelectKeyInTree(KeyDefinition key)
+    {
+        foreach (TreeViewItem root in WorldTree.Items)
+        {
+            if (root.Header?.ToString() == "Llaves")
+            {
+                foreach (TreeViewItem child in root.Items.OfType<TreeViewItem>())
+                {
+                    if (child.Tag == key)
+                    {
+                        WorldTree.Focus();
+                        child.IsSelected = true;
+                        child.BringIntoView();
+                        child.Focus();
+                        return;
+                    }
+                }
+            }
+        }
     }
 
     private void SelectRoomInTree(Room room)
@@ -1111,7 +1266,7 @@ public partial class WorldEditorWindow : Window
                 {
                     if (child.Tag == room)
                     {
-                        // Seleccionamos la sala en el árbol exactamente igual
+                        // Seleccionamos la sala en el Ã¡rbol exactamente igual
                         // que si el usuario hubiese hecho clic en el TreeView.
                         WorldTree.Focus();
                         child.IsSelected = true;
@@ -1149,7 +1304,7 @@ public partial class WorldEditorWindow : Window
         _roomsClipboard = CloneRoomsForClipboard(selected);
         _roomsClipboardIsCut = true;
 
-        // Guardamos también las posiciones actuales de las salas copiadas
+        // Guardamos tambiÃ©n las posiciones actuales de las salas copiadas
         _roomsClipboardPositions = MapPanel.GetRoomPositions(selected.Select(r => r.Id));
         _lastClipboardIdMap = null;
 
@@ -1160,6 +1315,11 @@ public partial class WorldEditorWindow : Window
 
         BuildTree();
         MapPanel.SetWorld(_world);
+        PushUndoSnapshot();
+        SetDirty(true);
+        PushUndoSnapshot();
+        SetDirty(true);
+
         MapPanel.ClearSelection();
         PushUndoSnapshot();
     }
@@ -1173,7 +1333,7 @@ public partial class WorldEditorWindow : Window
         _roomsClipboard = CloneRoomsForClipboard(selected);
         _roomsClipboardIsCut = false;
 
-        // Guardamos también las posiciones actuales de las salas copiadas
+        // Guardamos tambiÃ©n las posiciones actuales de las salas copiadas
         _roomsClipboardPositions = MapPanel.GetRoomPositions(selected.Select(r => r.Id));
         _lastClipboardIdMap = null;
     }
@@ -1192,6 +1352,10 @@ public partial class WorldEditorWindow : Window
 
         BuildTree();
         MapPanel.SetWorld(_world);
+        PushUndoSnapshot();
+        SetDirty(true);
+        PushUndoSnapshot();
+        SetDirty(true);
 
         // Si tenemos posiciones de las salas originales y un mapa de Ids,
         // recolocamos las salas nuevas en las mismas coordenadas pero
@@ -1433,6 +1597,7 @@ public partial class WorldEditorWindow : Window
         var initial = CreateSnapshot();
         _undoRedo.Reset(initial);
         CommandManager.InvalidateRequerySuggested();
+        SetDirty(false);
     }
 
     private void PushUndoSnapshot()
@@ -1440,6 +1605,13 @@ public partial class WorldEditorWindow : Window
         var snapshot = CreateSnapshot();
         _undoRedo.Push(snapshot);
         CommandManager.InvalidateRequerySuggested();
+        SetDirty(true);
+    }
+
+    private void SetDirty(bool dirty)
+    {
+        _isDirty = dirty;
+        Title = _isDirty ? $"{_baseTitle} *" : _baseTitle;
     }
 
     private void RestoreSnapshot(EditorSnapshot snapshot)
@@ -1500,16 +1672,19 @@ public partial class WorldEditorWindow : Window
 
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
-        var dlg = new ConfirmWindow("¿Seguro que quieres cerrar el editor de mundos?", "Cerrar editor")
+        if (_isDirty)
         {
-            Owner = this
-        };
+            var dlg = new ConfirmWindow("¿Seguro que quieres cerrar el editor de mundos?", "Cerrar editor")
+            {
+                Owner = this
+            };
 
-        var result = dlg.ShowDialog() == true;
-        if (!result)
-        {
-            e.Cancel = true;
-            return;
+            var result = dlg.ShowDialog() == true;
+            if (!result)
+            {
+                e.Cancel = true;
+                return;
+            }
         }
 
         // Al cerrar el editor intentamos también cerrar Docker Desktop.
@@ -1599,3 +1774,9 @@ public partial class WorldEditorWindow : Window
     }
 
 }
+
+
+
+
+
+

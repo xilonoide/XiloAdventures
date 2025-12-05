@@ -82,6 +82,8 @@ public partial class MapPanel : Control
         _roomNpcIconRects.Clear();
         _roomStartIconRects.Clear();
         _doorIconRects.Clear();
+        _keyIconRects.Clear();
+        _keyIconKeyDefs.Clear();
 
         if (_world == null)
             return;
@@ -354,6 +356,7 @@ private void DrawConnections(DrawingContext dc)
 
     // Conjunto de LockIds que tienen al menos una llave asociada.
     HashSet<string> locksWithKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    var firstKeyByLockId = new Dictionary<string, KeyDefinition>(StringComparer.OrdinalIgnoreCase);
     if (_world.Keys != null)
     {
         foreach (var key in _world.Keys)
@@ -366,6 +369,8 @@ private void DrawConnections(DrawingContext dc)
                 if (!string.IsNullOrWhiteSpace(lockId))
                 {
                     locksWithKeys.Add(lockId);
+                    if (!firstKeyByLockId.ContainsKey(lockId))
+                        firstKeyByLockId[lockId] = key;
                 }
             }
         }
@@ -588,9 +593,15 @@ private void DrawConnections(DrawingContext dc)
                     SolidColorBrush keyFill = doorFill; // mismo color que la puerta
                     Pen keyPen = new Pen(new SolidColorBrush(Color.FromRgb(240, 240, 240)), 0.8);
 
-                    dc.DrawRoundedRectangle(keyFill, keyPen, keyRect, 3, 3);
+                dc.DrawRoundedRectangle(keyFill, keyPen, keyRect, 3, 3);
 
-                    // Un pequeño "diente" de llave dentro
+                if (firstKeyByLockId.TryGetValue(door.LockId, out var keyDef))
+                {
+                    _keyIconRects[door.LockId] = keyRect;
+                    _keyIconKeyDefs[door.LockId] = keyDef;
+                }
+
+                // Un pequeño "diente" de llave dentro
                     Point toothStart = new(keyRect.X + 3, keyRect.Y + keyRect.Height / 2.0);
                     Point toothEnd = new(keyRect.Right - 3, keyRect.Y + keyRect.Height / 2.0);
                     dc.DrawLine(new Pen(new SolidColorBrush(Color.FromRgb(240, 240, 240)), 1.2), toothStart, toothEnd);

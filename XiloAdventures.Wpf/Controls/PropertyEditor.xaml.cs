@@ -6,6 +6,8 @@ using System.Linq;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
 using XiloAdventures.Engine.Models;
 using XiloAdventures.Wpf.Windows;
 using Microsoft.Win32;
@@ -204,15 +206,26 @@ public partial class PropertyEditor : UserControl
                 }
                 else if (obj is GameInfo && prop.Name == "ParserDictionaryJson" && prop.PropertyType == typeof(string))
                 {
-                    var tbJson = new TextBox
+                    var panel = new Grid
                     {
                         Margin = new Thickness(0, 2, 0, 0),
+                        ColumnDefinitions =
+                        {
+                            new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+                            new ColumnDefinition { Width = GridLength.Auto }
+                        }
+                    };
+
+                    var tbJson = new TextBox
+                    {
+                        Margin = new Thickness(0, 0, 4, 0),
                         AcceptsReturn = true,
                         TextWrapping = TextWrapping.Wrap,
                         VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                         MinHeight = 80,
                         Text = Convert.ToString(prop.GetValue(obj)) ?? string.Empty
                     };
+                    Grid.SetColumn(tbJson, 0);
 
                     tbJson.LostKeyboardFocus += (_, _) =>
                     {
@@ -228,7 +241,23 @@ public partial class PropertyEditor : UserControl
                         }
                     };
 
-                    editor = tbJson;
+                    var helpIcon = new TextBlock
+                    {
+                        Text = "?",
+                        Foreground = Brushes.Yellow,
+                        FontWeight = FontWeights.Bold,
+                        Margin = new Thickness(0, 2, 0, 0),
+                        Cursor = Cursors.Hand,
+                        VerticalAlignment = VerticalAlignment.Top,
+                        ToolTip = "Ayuda sobre el diccionario del parser"
+                    };
+                    helpIcon.MouseLeftButtonUp += (_, _) => ShowParserDictionaryHelp();
+                    Grid.SetColumn(helpIcon, 1);
+
+                    panel.Children.Add(tbJson);
+                    panel.Children.Add(helpIcon);
+
+                    editor = panel;
                 }
                 
                 
@@ -584,5 +613,43 @@ public partial class PropertyEditor : UserControl
             }
             RootPanel.Children.Add(editor);
         }
+    }
+
+    private void ShowParserDictionaryHelp()
+    {
+        const string exampleJson = @"{
+  ""verbs"": {
+    ""mirar"": [""examinar"", ""observar""],
+    ""coger"": [""tomar"", ""agarrar""],
+    ""usar"": [""emplear""]
+  },
+  ""nouns"": {
+    ""llave"": [""llavin""],
+    ""puerta"": [""porton""],
+    ""cuerda"": []
+  },
+  ""adjectives"": {
+    ""rojo"": [""bermellon""],
+    ""oxidado"": []
+  },
+  ""stopwords"": [""el"", ""la"", ""los"", ""las"", ""de"", ""del"", ""un"", ""una""]
+}";
+
+        var message =
+            "Diccionario del parser (por mundo):\n\n" +
+            "• Usa JSON para definir sinónimos y palabras que el parser debe reconocer solo en este mundo.\n" +
+            "• Secciones habituales:\n" +
+            "   - verbs: verbo base -> lista de sinónimos.\n" +
+            "   - nouns: sustantivo base -> lista de sinónimos.\n" +
+            "   - adjectives: adjetivo base -> lista de sinónimos.\n" +
+            "   - stopwords: palabras a ignorar (artículos, preposiciones...).\n" +
+            "• El verbo/sustantivo/adjetivo base es el que usas en las reglas y textos; los sinónimos se mapearán a él.\n\n" +
+            "Ejemplo completo:\n" + exampleJson;
+
+        var owner = Window.GetWindow(this);
+        new AlertWindow(message, "Diccionario del parser")
+        {
+            Owner = owner
+        }.ShowDialog();
     }
 }

@@ -28,6 +28,22 @@ public partial class MapPanel : Control
 
         if (e.ChangedButton == MouseButton.Left && e.ClickCount == 2)
         {
+            var doorDouble = HitTestDoorIcon(pos);
+            if (doorDouble != null)
+            {
+                DoorDoubleClicked?.Invoke(doorDouble);
+                e.Handled = true;
+                return;
+            }
+
+            var keyDouble = HitTestKeyIcon(pos);
+            if (keyDouble != null)
+            {
+                KeyDoubleClicked?.Invoke(keyDouble);
+                e.Handled = true;
+                return;
+            }
+
             var doubleClickRoom = HitTestRoom(pos);
             if (doubleClickRoom != null)
             {
@@ -75,6 +91,14 @@ public partial class MapPanel : Control
             if (doorHit != null)
             {
                 ShowDoorContextMenu(doorHit, pos);
+                e.Handled = true;
+                return;
+            }
+
+            var exitHit = HitTestExit(pos);
+            if (exitHit.HasValue)
+            {
+                ShowExitContextMenu(exitHit.Value, pos);
                 e.Handled = true;
                 return;
             }
@@ -977,6 +1001,25 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
         return null;
     }
 
+    private KeyDefinition? HitTestKeyIcon(Point screenPoint)
+    {
+        if (_world == null || _keyIconRects.Count == 0)
+            return null;
+
+        foreach (var kvp in _keyIconRects.Reverse())
+        {
+            Rect rect = kvp.Value;
+            if (!rect.Contains(screenPoint))
+                continue;
+
+            string lockId = kvp.Key;
+            if (_keyIconKeyDefs.TryGetValue(lockId, out var keyDef))
+                return keyDef;
+        }
+
+        return null;
+    }
+
     private void ShowDoorContextMenu(Door door, Point screenPoint)
     {
         var menu = new ContextMenu();
@@ -993,6 +1036,448 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
         menu.Placement = PlacementMode.MousePoint;
         menu.IsOpen = true;
     }
+
+    private void ShowExitContextMenu((Room room, int exitIndex) exitHit, Point screenPoint)
+    {
+        if (_world == null)
+            return;
+
+        var menu = new ContextMenu
+        {
+            Background = new SolidColorBrush(Color.FromRgb(32, 32, 32)),
+            Foreground = Brushes.White
+        };
+
+        var createDoorItem = new MenuItem
+        {
+            Header = "Crear puerta",
+            Background = new SolidColorBrush(Color.FromRgb(32, 32, 32)),
+            Foreground = Brushes.White
+        };
+        createDoorItem.Click += (_, _) => PromptCreateDoor(exitHit.room, exitHit.exitIndex);
+
+        menu.Items.Add(createDoorItem);
+
+        menu.PlacementTarget = this;
+        menu.Placement = PlacementMode.MousePoint;
+        menu.IsOpen = true;
+    }
+
+    private void PromptCreateDoor(Room room, int exitIndex)
+    {
+        if (_world == null)
+            return;
+
+        if (room.Exits == null || exitIndex < 0 || exitIndex >= room.Exits.Count)
+            return;
+
+        var exit = room.Exits[exitIndex];
+
+        if (string.IsNullOrWhiteSpace(exit.TargetRoomId))
+        {
+            new AlertWindow("Esta salida no tiene sala destino definida.", "Crear puerta")
+            {
+                Owner = Window.GetWindow(this)
+            }.ShowDialog();
+            return;
+        }
+
+        var targetRoom = _world.Rooms.FirstOrDefault(r =>
+            string.Equals(r.Id, exit.TargetRoomId, StringComparison.OrdinalIgnoreCase));
+
+        if (targetRoom == null)
+        {
+            new AlertWindow("La sala destino de esta salida no existe en el mundo.", "Crear puerta")
+            {
+                Owner = Window.GetWindow(this)
+            }.ShowDialog();
+            return;
+        }
+
+        if (TryGetExistingDoorForExit(room, targetRoom, exit))
+        {
+            new AlertWindow("Esta salida ya tiene una puerta asociada.", "Crear puerta")
+            {
+                Owner = Window.GetWindow(this)
+            }.ShowDialog();
+            return;
+        }
+
+        var dialog = BuildDoorCreationDialog(room, targetRoom);
+        var result = dialog.ShowDialog();
+
+        if (result == true && dialog.Tag is DoorCreationResult creation)
+        {
+            var outcome = CreateDoorFromExit(room, targetRoom, exit, creation);
+            if (outcome != null)
+            {
+                MapEdited?.Invoke();
+                DoorCreated?.Invoke(outcome.Door, outcome.CreatedKey, outcome.CreatedObject);
+                InvalidateVisual();
+            }
+        }
+    }
+
+    private bool TryGetExistingDoorForExit(Room room, Room targetRoom, Exit exit)
+    {
+        if (_world?.Doors == null)
+            return false;
+
+        if (!string.IsNullOrWhiteSpace(exit.DoorId) &&
+            _world.Doors.Any(d => string.Equals(d.Id, exit.DoorId, StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        return _world.Doors.Any(d =>
+            !string.IsNullOrWhiteSpace(d.RoomIdA) &&
+            !string.IsNullOrWhiteSpace(d.RoomIdB) &&
+            ((string.Equals(d.RoomIdA, room.Id, StringComparison.OrdinalIgnoreCase) &&
+              string.Equals(d.RoomIdB, targetRoom.Id, StringComparison.OrdinalIgnoreCase)) ||
+             (string.Equals(d.RoomIdB, room.Id, StringComparison.OrdinalIgnoreCase) &&
+              string.Equals(d.RoomIdA, targetRoom.Id, StringComparison.OrdinalIgnoreCase))));
+    }
+
+    private AlertWindow BuildDoorCreationDialog(Room room, Room targetRoom)
+    {
+        var owner = Window.GetWindow(this);
+        var alert = new AlertWindow(
+            $"Configura la puerta para la salida entre '{room.Name}' y '{targetRoom.Name}'.",
+            "Crear puerta")
+        {
+            Owner = owner
+        };
+
+        alert.ShowCancelButton(true);
+
+        var content = new StackPanel
+        {
+            Margin = new Thickness(0, 8, 0, 0)
+        };
+
+        var stateLabel = new TextBlock
+        {
+            Text = "Estado inicial:",
+            Margin = new Thickness(0, 0, 0, 4),
+            Foreground = Brushes.White
+        };
+
+        var openRadio = new RadioButton
+        {
+            Content = "Abierta",
+            IsChecked = true,
+            Foreground = Brushes.White
+        };
+
+        var closedRadio = new RadioButton
+        {
+            Content = "Cerrada",
+            Margin = new Thickness(0, 2, 0, 0),
+            Foreground = Brushes.White
+        };
+
+        var keyCheck = new CheckBox
+        {
+            Content = "Asignar llave a la puerta",
+            Margin = new Thickness(0, 10, 0, 4),
+            Foreground = Brushes.White
+        };
+
+        var keyOptions = BuildKeyOptions();
+        var keyCombo = new ComboBox
+        {
+            ItemsSource = keyOptions,
+            DisplayMemberPath = "Name",
+            SelectedValuePath = "Id",
+            IsEnabled = false,
+            MinWidth = 240
+        };
+
+        if (keyOptions.Count > 0)
+            keyCombo.SelectedIndex = 0;
+
+        keyCheck.Checked += (_, _) => keyCombo.IsEnabled = true;
+        keyCheck.Unchecked += (_, _) => keyCombo.IsEnabled = false;
+
+        content.Children.Add(stateLabel);
+        content.Children.Add(openRadio);
+        content.Children.Add(closedRadio);
+        content.Children.Add(new Separator
+        {
+            Margin = new Thickness(0, 10, 0, 10),
+            Background = new SolidColorBrush(Color.FromRgb(60, 60, 60)),
+            Height = 1
+        });
+        content.Children.Add(keyCheck);
+        content.Children.Add(keyCombo);
+
+        alert.SetCustomContent(content);
+        alert.Accepted += (_, _) =>
+        {
+            alert.Tag = new DoorCreationResult
+            {
+                IsOpen = openRadio.IsChecked == true,
+                WithKey = keyCheck.IsChecked == true,
+                SelectedKeyOption = keyCombo.SelectedItem as KeyObjectOption
+            };
+        };
+
+        return alert;
+    }
+
+    private List<KeyObjectOption> BuildKeyOptions()
+    {
+        var options = new List<KeyObjectOption>
+        {
+            new KeyObjectOption
+            {
+                Id = "__auto__",
+                Name = "Crear nuevo objeto de llave automáticamente",
+                IsAutoNew = true
+            }
+        };
+
+        if (_world?.Objects != null)
+        {
+            foreach (var obj in _world.Objects)
+            {
+                options.Add(new KeyObjectOption
+                {
+                    Id = obj.Id,
+                    Name = string.IsNullOrWhiteSpace(obj.Name) ? obj.Id : obj.Name,
+                    IsAutoNew = false
+                });
+            }
+        }
+
+        return options;
+    }
+
+    private DoorCreationOutcome? CreateDoorFromExit(Room fromRoom, Room targetRoom, Exit exit, DoorCreationResult data)
+    {
+        if (_world == null)
+            return null;
+
+        _world.Doors ??= new List<Door>();
+        _world.Keys ??= new List<KeyDefinition>();
+        _world.Objects ??= new List<GameObject>();
+
+        string doorId = GenerateUniqueDoorId();
+        string doorName = $"Puerta {fromRoom.Name} - {targetRoom.Name}";
+
+        var door = new Door
+        {
+            Id = doorId,
+            Name = doorName,
+            Description = $"Puerta entre {fromRoom.Name} y {targetRoom.Name}",
+            RoomIdA = fromRoom.Id,
+            RoomIdB = targetRoom.Id,
+            IsOpen = data.IsOpen,
+            HasLock = data.WithKey,
+            LockId = data.WithKey ? GenerateUniqueLockId() : null,
+            OpenFromSide = DoorOpenSide.Both
+        };
+
+        KeyDefinition? createdKey = null;
+        GameObject? createdObject = null;
+
+        if (data.WithKey && !string.IsNullOrWhiteSpace(door.LockId))
+        {
+            var selectedOption = data.SelectedKeyOption ?? BuildKeyOptions().First();
+
+            if (selectedOption.IsAutoNew)
+            {
+                createdObject = CreateKeyObjectForDoor(doorName);
+            }
+            else
+            {
+                createdObject = _world.Objects.FirstOrDefault(o =>
+                    string.Equals(o.Id, selectedOption.Id, StringComparison.OrdinalIgnoreCase));
+
+                if (createdObject == null)
+                {
+                    createdObject = CreateKeyObjectForDoor(doorName);
+                }
+            }
+
+            if (createdObject != null)
+            {
+                createdKey = EnsureKeyDefinition(createdObject, door.LockId);
+            }
+        }
+
+        exit.DoorId = door.Id;
+
+        var reverseExit = targetRoom.Exits?.FirstOrDefault(ex =>
+            string.Equals(ex.TargetRoomId, fromRoom.Id, StringComparison.OrdinalIgnoreCase));
+        if (reverseExit != null)
+        {
+            reverseExit.DoorId = door.Id;
+        }
+
+        _world.Doors.Add(door);
+
+        return new DoorCreationOutcome(door, createdKey, createdObject);
+    }
+
+    private GameObject CreateKeyObjectForDoor(string doorName)
+    {
+        _world!.Objects ??= new List<GameObject>();
+
+        var obj = new GameObject
+        {
+            Id = GenerateUniqueObjectId("obj_llave"),
+            Name = $"Llave de {doorName}",
+            Description = $"Llave que abre {doorName}.",
+            CanTake = true,
+            Visible = true
+        };
+
+        _world.Objects.Add(obj);
+        return obj;
+    }
+
+    private KeyDefinition? EnsureKeyDefinition(GameObject keyObject, string lockId)
+    {
+        if (_world == null)
+            return null;
+
+        _world.Keys ??= new List<KeyDefinition>();
+
+        var existing = _world.Keys.FirstOrDefault(k =>
+            string.Equals(k.ObjectId, keyObject.Id, StringComparison.OrdinalIgnoreCase));
+
+        bool created = false;
+
+        if (existing == null)
+        {
+            existing = new KeyDefinition
+            {
+                Id = GenerateUniqueKeyId(),
+                ObjectId = keyObject.Id,
+                LockIds = new List<string>()
+            };
+            _world.Keys.Add(existing);
+            created = true;
+        }
+
+        if (!existing.LockIds.Any(l => string.Equals(l, lockId, StringComparison.OrdinalIgnoreCase)))
+        {
+            existing.LockIds.Add(lockId);
+        }
+
+        return created ? existing : null;
+    }
+
+    private string GenerateUniqueDoorId()
+    {
+        var existing = _world?.Doors != null
+            ? new HashSet<string>(_world.Doors.Where(d => !string.IsNullOrWhiteSpace(d.Id)).Select(d => d.Id), StringComparer.OrdinalIgnoreCase)
+            : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        int index = existing.Count + 1;
+        string candidate;
+
+        do
+        {
+            candidate = $"door_{index}";
+            index++;
+        } while (existing.Contains(candidate));
+
+        return candidate;
+    }
+
+    private string GenerateUniqueKeyId()
+    {
+        var existing = _world?.Keys != null
+            ? new HashSet<string>(_world.Keys.Where(k => !string.IsNullOrWhiteSpace(k.Id)).Select(k => k.Id), StringComparer.OrdinalIgnoreCase)
+            : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        int index = existing.Count + 1;
+        string candidate;
+
+        do
+        {
+            candidate = $"key_{index}";
+            index++;
+        } while (existing.Contains(candidate));
+
+        return candidate;
+    }
+
+    private string GenerateUniqueLockId()
+    {
+        var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (_world?.Doors != null)
+        {
+            foreach (var d in _world.Doors)
+            {
+                if (!string.IsNullOrWhiteSpace(d.LockId))
+                    existing.Add(d.LockId);
+            }
+        }
+
+        if (_world?.Keys != null)
+        {
+            foreach (var k in _world.Keys)
+            {
+                if (k.LockIds == null)
+                    continue;
+
+                foreach (var lockId in k.LockIds)
+                {
+                    if (!string.IsNullOrWhiteSpace(lockId))
+                        existing.Add(lockId);
+                }
+            }
+        }
+
+        int index = existing.Count + 1;
+        string candidate;
+
+        do
+        {
+            candidate = $"lock_{index}";
+            index++;
+        } while (existing.Contains(candidate));
+
+        return candidate;
+    }
+
+    private string GenerateUniqueObjectId(string prefix)
+    {
+        var existing = _world?.Objects != null
+            ? new HashSet<string>(_world.Objects.Where(o => !string.IsNullOrWhiteSpace(o.Id)).Select(o => o.Id), StringComparer.OrdinalIgnoreCase)
+            : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        int index = existing.Count + 1;
+        string candidate;
+
+        do
+        {
+            candidate = $"{prefix}_{index}";
+            index++;
+        } while (existing.Contains(candidate));
+
+        return candidate;
+    }
+
+    private sealed class DoorCreationResult
+    {
+        public bool IsOpen { get; set; }
+        public bool WithKey { get; set; }
+        public KeyObjectOption? SelectedKeyOption { get; set; }
+    }
+
+    private sealed class KeyObjectOption
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public bool IsAutoNew { get; set; }
+    }
+
+    private sealed record DoorCreationOutcome(Door Door, KeyDefinition? CreatedKey, GameObject? CreatedObject);
 
     private void CreateExitFromPendingPort(Room targetRoom)
     {
