@@ -182,8 +182,14 @@ public partial class StartupWindow : Window
                 Owner = this
             };
 
-            var success = await dockerWindow.RunAsync();
-            if (!success)
+            var dockerResult = await dockerWindow.RunAsync();
+            if (dockerResult.Canceled)
+            {
+                uiSettings.UseLlmForUnknownCommands = false;
+                return;
+            }
+
+            if (!dockerResult.Success)
             {
                 uiSettings.UseLlmForUnknownCommands = false;
 
@@ -335,8 +341,14 @@ public partial class StartupWindow : Window
                 Owner = this
             };
 
-            var success = await dockerWindow.RunAsync();
-            if (!success)
+            var dockerResult = await dockerWindow.RunAsync();
+            if (dockerResult.Canceled)
+            {
+                uiSettings.UseLlmForUnknownCommands = false;
+                return;
+            }
+
+            if (!dockerResult.Success)
             {
                 uiSettings.UseLlmForUnknownCommands = false;
 

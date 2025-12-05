@@ -1,9 +1,9 @@
 using System;
 using System.Diagnostics;
+using System.IO;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Net.Http;
-using System.IO;
 
 namespace XiloAdventures.Wpf.Services;
 
@@ -14,22 +14,24 @@ public static class DockerService
     private const string OllamaContainerName = "xilo-ollama";
     private const string TtsContainerName = "xilo-tts";
 
-    public static async Task EnsureAllAsync(IProgress<string>? progress = null)
+    public static async Task EnsureAllAsync(IProgress<string>? progress = null, CancellationToken cancellationToken = default)
     {
-        await _lock.WaitAsync().ConfigureAwait(false);
+        await _lock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             progress?.Report("Comprobando Docker Desktop...");
-            await EnsureDockerAvailableAsync(progress).ConfigureAwait(false);
+            await EnsureDockerAvailableAsync(progress, cancellationToken).ConfigureAwait(false);
 
             progress?.Report("Preparando contenedor de IA (Ollama)...");
-            await EnsureOllamaAsync(progress).ConfigureAwait(false);
+            await EnsureOllamaAsync(progress, cancellationToken).ConfigureAwait(false);
 
             progress?.Report("Descargando modelo llama3 (si es necesario)...");
-            await EnsureLlamaModelAsync(progress).ConfigureAwait(false);
+            await EnsureLlamaModelAsync(progress, cancellationToken).ConfigureAwait(false);
 
             progress?.Report("Preparando servidor de voz (Coqui TTS)...");
-            await EnsureTtsAsync(progress).ConfigureAwait(false);
+            await EnsureTtsAsync(progress, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -37,12 +39,45 @@ public static class DockerService
         }
     }
 
-    private static async Task EnsureDockerAvailableAsync(IProgress<string>? progress)
+    public static async Task StopAllAsync(CancellationToken cancellationToken = default)
     {
+        await _lock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            await StopContainerIfExistsAsync(OllamaContainerName, cancellationToken).ConfigureAwait(false);
+            await StopContainerIfExistsAsync(TtsContainerName, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
+
+    private static async Task StopContainerIfExistsAsync(string name, CancellationToken cancellationToken)
+    {
+        if (await ContainerExistsAsync(name, cancellationToken).ConfigureAwait(false))
+        {
+            try
+            {
+                await RunDockerCheckedAsync($"stop {name}", cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                // Si no podemos parar un contenedor, no bloqueamos la cancelación.
+            }
+        }
+    }
+
+    private static async Task EnsureDockerAvailableAsync(IProgress<string>? progress, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
         // Primero intentamos hablar con Docker normalmente.
         try
         {
-            await RunDockerCheckedAsync("info").ConfigureAwait(false);
+            await RunDockerCheckedAsync("info", cancellationToken).ConfigureAwait(false);
             return;
         }
         catch
@@ -50,7 +85,7 @@ public static class DockerService
             // Si falla, intentamos arrancar Docker Desktop nosotros mismos (si existe).
         }
 
-        if (await TryStartDockerDesktopAsync(progress, TimeSpan.FromMinutes(2)).ConfigureAwait(false))
+        if (await TryStartDockerDesktopAsync(progress, TimeSpan.FromMinutes(2), cancellationToken).ConfigureAwait(false))
         {
             // Si hemos conseguido arrancar Docker Desktop y 'docker info' responde, todo OK.
             return;
@@ -60,7 +95,6 @@ public static class DockerService
         throw new InvalidOperationException(
             "No se ha podido contactar con Docker. Asegúrate de que Docker Desktop está instalado y en ejecución.");
     }
-
 
     private static bool TryGetDockerDesktopPath(out string path)
     {
@@ -87,7 +121,7 @@ public static class DockerService
         return false;
     }
 
-    private static async Task<bool> TryStartDockerDesktopAsync(IProgress<string>? progress, TimeSpan timeout)
+    private static async Task<bool> TryStartDockerDesktopAsync(IProgress<string>? progress, TimeSpan timeout, CancellationToken cancellationToken)
     {
         if (!TryGetDockerDesktopPath(out var exePath))
         {
@@ -119,11 +153,13 @@ public static class DockerService
 
         while (DateTime.UtcNow - start < timeout)
         {
-            await Task.Delay(TimeSpan.FromSeconds(3)).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            await Task.Delay(TimeSpan.FromSeconds(3), cancellationToken).ConfigureAwait(false);
 
             try
             {
-                await RunDockerCheckedAsync("info").ConfigureAwait(false);
+                await RunDockerCheckedAsync("info", cancellationToken).ConfigureAwait(false);
                 // Si llegamos aquí sin excepción, Docker ya está operativo.
                 return true;
             }
@@ -138,68 +174,69 @@ public static class DockerService
         return false;
     }
 
-    private static async Task EnsureOllamaAsync(IProgress<string>? progress)
+    private static async Task EnsureOllamaAsync(IProgress<string>? progress, CancellationToken cancellationToken)
     {
-        if (await IsContainerRunningAsync(OllamaContainerName).ConfigureAwait(false))
+        if (await IsContainerRunningAsync(OllamaContainerName, cancellationToken).ConfigureAwait(false))
         {
             return;
         }
 
-        if (await ContainerExistsAsync(OllamaContainerName).ConfigureAwait(false))
+        if (await ContainerExistsAsync(OllamaContainerName, cancellationToken).ConfigureAwait(false))
         {
             progress?.Report("Arrancando contenedor existente de Ollama...");
-            await RunDockerCheckedAsync($"start {OllamaContainerName}").ConfigureAwait(false);
+            await RunDockerCheckedAsync($"start {OllamaContainerName}", cancellationToken).ConfigureAwait(false);
             return;
         }
 
         progress?.Report("Descargando imagen de Ollama (la primera vez tarda un poco)...");
-        await RunDockerCheckedAsync("pull ollama/ollama:latest").ConfigureAwait(false);
+        await RunDockerCheckedAsync("pull ollama/ollama:latest", cancellationToken).ConfigureAwait(false);
 
         progress?.Report("Creando contenedor de Ollama...");
         // Creamos el contenedor con volumen persistente para los modelos
         await RunDockerCheckedAsync(
-            $"run -d --name {OllamaContainerName} -p 11434:11434 -v {OllamaContainerName}:/root/.ollama ollama/ollama:latest").ConfigureAwait(false);
+            $"run -d --name {OllamaContainerName} -p 11434:11434 -v {OllamaContainerName}:/root/.ollama ollama/ollama:latest",
+            cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task EnsureLlamaModelAsync(IProgress<string>? progress)
+    private static async Task EnsureLlamaModelAsync(IProgress<string>? progress, CancellationToken cancellationToken)
     {
         // Siempre intentamos hacer pull; si ya está descargado será rápido.
         progress?.Report("Comprobando modelo llama3 dentro del contenedor de Ollama...");
-        await RunDockerCheckedAsync($"exec {OllamaContainerName} ollama pull llama3").ConfigureAwait(false);
+        await RunDockerCheckedAsync($"exec {OllamaContainerName} ollama pull llama3", cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task EnsureTtsAsync(IProgress<string>? progress)
+    private static async Task EnsureTtsAsync(IProgress<string>? progress, CancellationToken cancellationToken)
     {
-        if (await IsContainerRunningAsync(TtsContainerName).ConfigureAwait(false))
+        if (await IsContainerRunningAsync(TtsContainerName, cancellationToken).ConfigureAwait(false))
         {
             progress?.Report("Coqui TTS ya está en ejecución.");
             return;
         }
 
-        if (await ContainerExistsAsync(TtsContainerName).ConfigureAwait(false))
+        if (await ContainerExistsAsync(TtsContainerName, cancellationToken).ConfigureAwait(false))
         {
             progress?.Report("Arrancando contenedor existente de Coqui TTS...");
-            await RunDockerCheckedAsync($"start {TtsContainerName}").ConfigureAwait(false);
+            await RunDockerCheckedAsync($"start {TtsContainerName}", cancellationToken).ConfigureAwait(false);
 
             progress?.Report("Esperando a que Coqui TTS esté listo...");
-            await WaitForTtsReadyAsync(progress).ConfigureAwait(false);
+            await WaitForTtsReadyAsync(progress, cancellationToken).ConfigureAwait(false);
             return;
         }
 
         progress?.Report("Descargando imagen de Coqui TTS (la primera vez tarda un poco)...");
-        await RunDockerCheckedAsync("pull ghcr.io/idiap/coqui-tts-cpu:latest").ConfigureAwait(false);
+        await RunDockerCheckedAsync("pull ghcr.io/idiap/coqui-tts-cpu:latest", cancellationToken).ConfigureAwait(false);
 
         progress?.Report("Creando contenedor de Coqui TTS...");
         // Arrancamos el servidor HTTP de TTS en el puerto 5002 con un modelo de un solo hablante
         await RunDockerCheckedAsync(
-            $"run -d --name {TtsContainerName} -p 5002:5002 --entrypoint python3 ghcr.io/idiap/coqui-tts-cpu TTS/server/server.py --model_name tts_models/es/css10/vits").ConfigureAwait(false);
+            $"run -d --name {TtsContainerName} -p 5002:5002 --entrypoint python3 ghcr.io/idiap/coqui-tts-cpu TTS/server/server.py --model_name tts_models/es/css10/vits",
+            cancellationToken).ConfigureAwait(false);
 
         progress?.Report("Esperando a que Coqui TTS esté listo...");
-        await WaitForTtsReadyAsync(progress).ConfigureAwait(false);
+        await WaitForTtsReadyAsync(progress, cancellationToken).ConfigureAwait(false);
     }
 
-
-    private static async Task WaitForTtsReadyAsync(IProgress<string>? progress)
+    private static async Task WaitForTtsReadyAsync(IProgress<string>? progress, CancellationToken cancellationToken)
     {
         const int maxAttempts = 100;
         var maxDuration = TimeSpan.FromMinutes(2);
@@ -208,6 +245,7 @@ public static class DockerService
 
         while (attempt < maxAttempts && stopwatch.Elapsed < maxDuration)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             attempt++;
             try
             {
@@ -215,50 +253,54 @@ public static class DockerService
 
                 using var client = new HttpClient
                 {
-                    BaseAddress = new Uri("http://localhost:5002")
+                    BaseAddress = new Uri("http://localhost:5002"),
+                    Timeout = TimeSpan.FromSeconds(3)
                 };
-                client.Timeout = TimeSpan.FromSeconds(3);
 
-                var response = await client.GetAsync("api/tts?text=ok").ConfigureAwait(false);
+                var response = await client.GetAsync("api/tts?text=ok", cancellationToken).ConfigureAwait(false);
                 if (response.IsSuccessStatusCode)
                 {
-                    var bytes = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+                    var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
                     if (bytes.Length > 0)
                     {
                         return;
                     }
                 }
             }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                // Timeout interno de la petición HTTP, reintentamos.
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (HttpRequestException)
             {
                 // El servidor aún no está listo, reintentamos.
             }
-            catch (TaskCanceledException)
-            {
-                // Timeout de la petición HTTP, volvemos a intentar.
-            }
 
-            await Task.Delay(1000).ConfigureAwait(false);
+            await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
         }
 
         throw new InvalidOperationException("Coqui TTS no ha estado disponible tras 100 reintentos o 2 minutos de espera.");
     }
 
-private static async Task<bool> IsContainerRunningAsync(string name)
+    private static async Task<bool> IsContainerRunningAsync(string name, CancellationToken cancellationToken)
     {
         var output = await RunDockerGetOutputAsync(
-            $"ps --filter name={name} --format {{{{.ID}}}}").ConfigureAwait(false);
+            $"ps --filter name={name} --format {{{{.ID}}}}", cancellationToken).ConfigureAwait(false);
         return !string.IsNullOrWhiteSpace(output);
     }
 
-    private static async Task<bool> ContainerExistsAsync(string name)
+    private static async Task<bool> ContainerExistsAsync(string name, CancellationToken cancellationToken)
     {
         var output = await RunDockerGetOutputAsync(
-            $"ps -a --filter name={name} --format {{{{.ID}}}}").ConfigureAwait(false);
+            $"ps -a --filter name={name} --format {{{{.ID}}}}", cancellationToken).ConfigureAwait(false);
         return !string.IsNullOrWhiteSpace(output);
     }
 
-    private static async Task RunDockerCheckedAsync(string args)
+    private static async Task RunDockerCheckedAsync(string args, CancellationToken cancellationToken)
     {
         var psi = new ProcessStartInfo
         {
@@ -276,11 +318,25 @@ private static async Task<bool> IsContainerRunningAsync(string name)
             throw new InvalidOperationException("No se ha podido iniciar el comando 'docker'.");
         }
 
+        using var reg = cancellationToken.Register(() =>
+        {
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill(true);
+                }
+            }
+            catch
+            {
+                // Ignoramos errores al matar el proceso en cancelación.
+            }
+        });
+
         Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync();
         Task<string> stderrTask = process.StandardError.ReadToEndAsync();
 
-        await Task.WhenAll(stdoutTask, stderrTask).ConfigureAwait(false);
-        await process.WaitForExitAsync().ConfigureAwait(false);
+        await Task.WhenAll(process.WaitForExitAsync(cancellationToken), stdoutTask, stderrTask).ConfigureAwait(false);
 
         string stdout = stdoutTask.Result;
         string stderr = stderrTask.Result;
@@ -292,8 +348,7 @@ private static async Task<bool> IsContainerRunningAsync(string name)
         }
     }
 
-
-    private static async Task<string> RunDockerGetOutputAsync(string args)
+    private static async Task<string> RunDockerGetOutputAsync(string args, CancellationToken cancellationToken)
     {
         var psi = new ProcessStartInfo
         {
@@ -311,11 +366,25 @@ private static async Task<bool> IsContainerRunningAsync(string name)
             throw new InvalidOperationException("No se ha podido iniciar el comando 'docker'.");
         }
 
+        using var reg = cancellationToken.Register(() =>
+        {
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill(true);
+                }
+            }
+            catch
+            {
+                // Ignoramos errores al matar el proceso en cancelación.
+            }
+        });
+
         Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync();
         Task<string> stderrTask = process.StandardError.ReadToEndAsync();
 
-        await Task.WhenAll(stdoutTask, stderrTask).ConfigureAwait(false);
-        await process.WaitForExitAsync().ConfigureAwait(false);
+        await Task.WhenAll(process.WaitForExitAsync(cancellationToken), stdoutTask, stderrTask).ConfigureAwait(false);
 
         string stdout = stdoutTask.Result;
         string stderr = stderrTask.Result;
@@ -328,5 +397,4 @@ private static async Task<bool> IsContainerRunningAsync(string name)
 
         return stdout.Trim();
     }
-
 }

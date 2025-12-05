@@ -86,9 +86,18 @@ public partial class OptionsWindow : Window
                 Owner = this
             };
 
-            var success = await progressWindow.RunAsync().ConfigureAwait(true);
+            var result = await progressWindow.RunAsync().ConfigureAwait(true);
 
-            if (!success)
+            if (result.Canceled)
+            {
+                UseLlmCheckBox.IsChecked = false;
+                _settings.UseLlmForUnknownCommands = false;
+
+                UiSettingsManager.SaveForWorld(_worldId, _settings);
+                return;
+            }
+
+            if (!result.Success)
             {
                 UseLlmCheckBox.IsChecked = false;
                 _settings.UseLlmForUnknownCommands = false;
