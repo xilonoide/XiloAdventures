@@ -2,6 +2,9 @@ using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Navigation;
+using System.Windows.Documents;
+using System.Diagnostics;
 using XiloAdventures.Wpf.Ui;
 using XiloAdventures.Wpf.Services;
 
@@ -105,8 +108,8 @@ public partial class OptionsWindow : Window
                 UiSettingsManager.SaveForWorld(_worldId, _settings);
 
                 new AlertWindow(
-                    "No se han podido iniciar los servicios de IA y voz.\n\n" +
-                    "Comprueba que Docker Desktop está instalado y en ejecución.",
+                    "No se han podido iniciar los servicios de IA y voz." +
+                    "Comprueba que Docker Desktop estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ instalado y en ejecuciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n.",
                     "Error")
                 {
                     Owner = this
@@ -165,7 +168,7 @@ public partial class OptionsWindow : Window
         }
     }
 
-        private void FontSizeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    private void FontSizeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         if (FontSizeLabel != null)
         {
@@ -175,30 +178,51 @@ public partial class OptionsWindow : Window
         }
     }
 
+    private void ApplyChanges()
+    {
+        UiSettingsManager.SaveForWorld(_worldId, _settings);
+        _onChanged?.Invoke(_settings);
+    }
+
     private void LlmInfoIcon_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
-        var message = "Si activas la IA, el juego intentará entender mejor comandos complejos o mal escritos. " +
-                      "Además, si subes el volumen de voz en las opciones, oiras las descripciones de las salas.\n\n" +
-                      "Para usarla debes tener Docker Desktop instalado y funcionando. La primera vez que se use " +
-                      "se descargarán algunas cosas y puede tardar unos minutos. Después " +
-                      "funcionará muy rápido.";
+        var message = "Si activas la IA, el juego intentara entender mejor comandos complejos o mal escritos. Ademas, si subes el volumen de voz en las opciones, oiras las descripciones de las salas.\n\nPara usarla debes tener Docker Desktop instalado y funcionando. La primera vez que se use se descargaran algunas cosas y puede tardar unos minutos. Despues funcionara muy rapido.";
 
-        var dlg = new AlertWindow(message, "Ayuda sobre la IA")
+        var link = new TextBlock
+        {
+            Margin = new Thickness(0, 12, 0, 0)
+        };
+        var hyperlink = new Hyperlink
+        {
+            NavigateUri = new Uri("https://docs.docker.com/desktop/setup/install/windows-install/")
+        };
+        hyperlink.Inlines.Add("Instala Docker Desktop");
+        hyperlink.RequestNavigate += LlmHelpLink_RequestNavigate;
+        link.Inlines.Add(hyperlink);
+
+        var dlg = new AlertWindow(message, "IA y voz")
         {
             Owner = this
         };
+        dlg.SetCustomContent(link);
+        dlg.HideOkButton();
         dlg.ShowDialog();
     }
 
-    private void ApplyChanges()
+    private void LlmHelpLink_RequestNavigate(object sender, RequestNavigateEventArgs e)
     {
-        _onChanged(_settings);
-        UiSettingsManager.SaveForWorld(_worldId, _settings);
-    }
-
-    private void OkButton_Click(object sender, RoutedEventArgs e)
-    {
-        DialogResult = true;
-        Close();
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = e.Uri.AbsoluteUri,
+                UseShellExecute = true
+            });
+            e.Handled = true;
+        }
+        catch
+        {
+            // Ignorar errores al abrir el navegador
+        }
     }
 }

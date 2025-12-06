@@ -29,7 +29,7 @@
                     <TextBlock x:Name="MessageTextBlock"
                                TextWrapping="Wrap"
                                TextTrimming="None"
-                               FontSize="14"
+                               FontSize="16"
                                Foreground="#F5F5F5"
                                Text="Mensaje" />
                     <ContentPresenter x:Name="CustomContentPresenter"

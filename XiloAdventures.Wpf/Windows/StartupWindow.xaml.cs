@@ -3,6 +3,9 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Diagnostics;
+using System.Windows.Navigation;
+using System.Windows.Documents;
 using Microsoft.Win32;
 using XiloAdventures.Engine;
 using XiloAdventures.Engine.Models;
@@ -13,6 +16,7 @@ namespace XiloAdventures.Wpf.Windows;
 public partial class StartupWindow : Window
 {
     private bool _isStartingNewGame;
+    private bool _isLoadingVisible;
 
     public StartupWindow()
     {
@@ -24,8 +28,8 @@ public partial class StartupWindow : Window
     {
         ReloadWorlds();
 
-        // Seleccionar automáticamente el primer mundo disponible al iniciar,
-        // si hay alguno y nada está seleccionado todavía.
+        // Seleccionar automÃƒÂ¡ticamente el primer mundo disponible al iniciar,
+        // si hay alguno y nada estÃƒÂ¡ seleccionado todavÃƒÂ­a.
         if (WorldsList.Items.Count > 0 && WorldsList.SelectedIndex < 0)
         {
             WorldsList.SelectedIndex = 0;
@@ -57,19 +61,47 @@ public partial class StartupWindow : Window
 
 
 
-    private void LlmInfoIcon_MouseLeftButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private void LlmInfoIcon_MouseLeftButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
-        var message = "Si activas la IA, el juego intentará entender mejor comandos complejos o mal escritos. " +
-                      "Además, si subes el volumen de voz en las opciones, oiras las descripciones de las salas.\n\n" +
-                      "Para usarla debes tener Docker Desktop instalado y funcionando. La primera vez que se use " +
-                      "se descargarán algunas cosas y puede tardar unos minutos. Después " +
-                      "funcionará muy rápido.";
+        var message = "Si activas la IA, el juego intentara entender mejor comandos complejos o mal escritos. Ademas, si subes el volumen de voz en las opciones, oiras las descripciones de las salas.\n\nPara usarla debes tener Docker Desktop instalado y funcionando. La primera vez que se use se descargaran algunas cosas y puede tardar unos minutos. Despues funcionara muy rapido.";
+
+        var link = new TextBlock
+        {
+            Margin = new Thickness(0, 12, 0, 0)
+        };
+        var hyperlink = new Hyperlink
+        {
+            NavigateUri = new Uri("https://docs.docker.com/desktop/setup/install/windows-install/")
+        };
+        hyperlink.Inlines.Add("Instala Docker Desktop");
+        hyperlink.RequestNavigate += LlmHelpLink_RequestNavigate;
+        link.Inlines.Add(new Run(""));
+        link.Inlines.Add(hyperlink);
 
         var dlg = new AlertWindow(message, "Ayuda sobre la IA")
         {
             Owner = this
         };
+        dlg.SetCustomContent(link);
+        dlg.HideOkButton();
         dlg.ShowDialog();
+    }
+
+    private void LlmHelpLink_RequestNavigate(object sender, RequestNavigateEventArgs e)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = e.Uri.AbsoluteUri,
+                UseShellExecute = true
+            });
+            e.Handled = true;
+        }
+        catch
+        {
+            // Ignoramos errores al abrir el navegador
+        }
     }
 
     private void ReloadWorlds()
@@ -128,6 +160,7 @@ public partial class StartupWindow : Window
 
         _isStartingNewGame = true;
         NewGameButton.IsEnabled = false;
+        ShowLoading("Iniciando partida...");
 
         try
         {
@@ -154,7 +187,7 @@ public partial class StartupWindow : Window
         // Respetar el check de sonido global
         uiSettings.SoundEnabled = SoundCheckBox.IsChecked == true;
 
-        // Respetar también el check de IA global de la pantalla inicial
+        // Respetar tambiÃƒÂ©n el check de IA global de la pantalla inicial
         if (LlmCheckBox.IsChecked == true)
         {
             uiSettings.UseLlmForUnknownCommands = true;
@@ -164,7 +197,7 @@ public partial class StartupWindow : Window
             uiSettings.UseLlmForUnknownCommands = false;
         }
 
-        var soundManager = new SoundManager(AppPaths.SoundFolder)
+        var soundManager = new SoundManager()
         {
             SoundEnabled = uiSettings.SoundEnabled,
             MusicVolume = (float)(uiSettings.MusicVolume / 10.0),
@@ -174,7 +207,7 @@ public partial class StartupWindow : Window
         };
         soundManager.RefreshVolumes();
 
-        // Si la IA está activada para este mundo, preparar los contenedores Docker (IA + voz)
+        // Si la IA estÃƒÂ¡ activada para este mundo, preparar los contenedores Docker (IA + voz)
         if (uiSettings.UseLlmForUnknownCommands)
         {
             var dockerWindow = new DockerProgressWindow
@@ -195,7 +228,7 @@ public partial class StartupWindow : Window
 
                 new AlertWindow(
                     "No se han podido iniciar los servicios de IA y voz.\n\n" +
-                    "Comprueba que Docker Desktop está instalado y en ejecución.",
+                    "Comprueba que Docker Desktop estÃƒÂ¡ instalado y en ejecuciÃƒÂ³n.",
                     "Error")
                 {
                     Owner = this
@@ -204,7 +237,7 @@ public partial class StartupWindow : Window
         }
 
         // Precargar la voz de la sala inicial antes de mostrar la partida,
-        // para que se escuche nada más entrar.
+        // para que se escuche nada mÃƒÂ¡s entrar.
         if (uiSettings.SoundEnabled && uiSettings.VoiceVolume > 0)
         {
             try
@@ -235,6 +268,7 @@ public partial class StartupWindow : Window
         }
         finally
         {
+            HideLoading();
             _isStartingNewGame = false;
             NewGameButton.IsEnabled = true;
         }
@@ -242,154 +276,148 @@ public partial class StartupWindow : Window
 
     private async void LoadGameButton_Click(object sender, RoutedEventArgs e)
     {
-        var dlg = new OpenFileDialog
-        {
-            Title = "Cargar partida",
-            Filter = "Partidas guardadas (*.xas)|*.xas|Todos los archivos (*.*)|*.*",
-            InitialDirectory = AppPaths.SavesFolder
-        };
-
-        if (dlg.ShowDialog(this) != true)
-            return;
-
-        SaveData? save;
+        ShowLoading("Cargando partida...");
         try
         {
-            var json = CryptoUtil.DecryptFromFile(dlg.FileName);
-            save = System.Text.Json.JsonSerializer.Deserialize<SaveData>(json);
-        }
-        catch (Exception ex)
-        {
-            new AlertWindow($"Error al leer la partida:\n{ex.Message}", "Error") { Owner = this }.ShowDialog();
-            return;
-        }
+            var dlg = new OpenFileDialog
+            {
+                Title = "Cargar partida",
+                Filter = "Partidas guardadas (*.xas)|*.xas|Todos los archivos (*.*)|*.*",
+                InitialDirectory = AppPaths.SavesFolder
+            };
 
-        if (save == null || string.IsNullOrWhiteSpace(save.WorldId))
-        {
-            new AlertWindow("La partida no contiene un identificador de mundo válido.", "Error") { Owner = this }.ShowDialog();
-            return;
-        }
+            if (dlg.ShowDialog(this) != true)
+                return;
 
-        // Buscar el mundo correspondiente
-        WorldModel? world = null;
-        if (Directory.Exists(AppPaths.WorldsFolder))
-        {
-            foreach (var f in Directory.GetFiles(AppPaths.WorldsFolder, "*.xaw"))
+            SaveData? save;
+            try
+            {
+                var json = CryptoUtil.DecryptFromFile(dlg.FileName);
+                save = System.Text.Json.JsonSerializer.Deserialize<SaveData>(json);
+            }
+            catch (Exception ex)
+            {
+                new AlertWindow($"Error al leer la partida:\n{ex.Message}", "Error") { Owner = this }.ShowDialog();
+                return;
+            }
+
+            if (save == null || string.IsNullOrWhiteSpace(save.WorldId))
+            {
+                new AlertWindow("La partida no contiene un identificador de mundo válido.", "Error") { Owner = this }.ShowDialog();
+                return;
+            }
+
+            WorldModel? world = null;
+            if (Directory.Exists(AppPaths.WorldsFolder))
+            {
+                foreach (var f in Directory.GetFiles(AppPaths.WorldsFolder, "*.xaw"))
+                {
+                    try
+                    {
+                        var candidate = WorldLoader.LoadWorldModel(f);
+                        if (candidate.Game.Id == save.WorldId)
+                        {
+                            world = candidate;
+                            break;
+                        }
+                    }
+                    catch
+                    {
+                        // ignorar ficheros corruptos
+                    }
+                }
+            }
+
+            if (world == null)
+            {
+                new AlertWindow("No se ha encontrado el mundo correspondiente a la partida.", "Error") { Owner = this }.ShowDialog();
+                return;
+            }
+
+            GameState state;
+            try
+            {
+                Parser.SetWorldDictionary(world.Game.ParserDictionaryJson);
+                state = SaveManager.LoadFromPath(dlg.FileName, world);
+            }
+            catch (Exception ex)
+            {
+                new AlertWindow($"Error al cargar la partida:\n{ex.Message}", "Error") { Owner = this }.ShowDialog();
+                return;
+            }
+
+            var uiSettings = UiSettingsManager.LoadForWorld(world.Game.Id);
+            uiSettings.SoundEnabled = SoundCheckBox.IsChecked == true;
+            uiSettings.UseLlmForUnknownCommands = LlmCheckBox.IsChecked == true;
+
+            var soundManager = new SoundManager()
+            {
+                SoundEnabled = uiSettings.SoundEnabled,
+                MusicVolume = (float)(uiSettings.MusicVolume / 10.0),
+                EffectsVolume = (float)(uiSettings.EffectsVolume / 10.0),
+                MasterVolume = (float)(uiSettings.MasterVolume / 10.0),
+                VoiceVolume = (float)(uiSettings.VoiceVolume / 10.0)
+            };
+            soundManager.RefreshVolumes();
+
+            if (uiSettings.UseLlmForUnknownCommands)
+            {
+                var dockerWindow = new DockerProgressWindow
+                {
+                    Owner = this
+                };
+
+                var dockerResult = await dockerWindow.RunAsync();
+                if (dockerResult.Canceled)
+                {
+                    uiSettings.UseLlmForUnknownCommands = false;
+                    return;
+                }
+
+                if (!dockerResult.Success)
+                {
+                    uiSettings.UseLlmForUnknownCommands = false;
+
+                    new AlertWindow(
+                        "No se han podido iniciar los servicios de IA y voz.\n\n" +
+                        "Comprueba que Docker Desktop está instalado y en ejecución.",
+                        "Error")
+                    {
+                        Owner = this
+                    }.ShowDialog();
+                }
+            }
+
+            if (uiSettings.SoundEnabled && uiSettings.VoiceVolume > 0)
             {
                 try
                 {
-                    var candidate = WorldLoader.LoadWorldModel(f);
-                    if (candidate.Game.Id == save.WorldId)
+                    var startRoom = state.Rooms
+                        .FirstOrDefault(r => r.Id.Equals(state.CurrentRoomId, StringComparison.OrdinalIgnoreCase));
+                    if (startRoom != null && !string.IsNullOrWhiteSpace(startRoom.Description))
                     {
-                        world = candidate;
-                        break;
+                        await soundManager.PreloadRoomVoiceAsync(startRoom.Id, startRoom.Description);
                     }
                 }
                 catch
                 {
-                    // ignorar ficheros corruptos
+                    // Si algo falla al precargar la voz, continuamos sin interrumpir el inicio de la partida.
                 }
             }
+
+            var main = new MainWindow(world, state, soundManager, uiSettings);
+
+            main.Owner = this;
+            Hide();
+            main.ShowDialog();
+            Show();
+            ReloadWorlds();
         }
-
-        if (world == null)
+        finally
         {
-            new AlertWindow("No se ha encontrado el mundo correspondiente a la partida.", "Error") { Owner = this }.ShowDialog();
-            return;
+            HideLoading();
         }
-
-        GameState state;
-        try
-        {
-            Parser.SetWorldDictionary(world.Game.ParserDictionaryJson);
-            state = SaveManager.LoadFromPath(dlg.FileName, world);
-        }
-        catch (Exception ex)
-        {
-            new AlertWindow($"Error al cargar la partida:\n{ex.Message}", "Error") { Owner = this }.ShowDialog();
-            return;
-        }
-
-        
-        var uiSettings = UiSettingsManager.LoadForWorld(world.Game.Id);
-        uiSettings.SoundEnabled = SoundCheckBox.IsChecked == true;
-
-        // Respetar también el check de IA global de la pantalla inicial
-        if (LlmCheckBox.IsChecked == true)
-        {
-            uiSettings.UseLlmForUnknownCommands = true;
-        }
-        else
-        {
-            uiSettings.UseLlmForUnknownCommands = false;
-        }
-
-        var soundManager = new SoundManager(AppPaths.SoundFolder)
-        {
-            SoundEnabled = uiSettings.SoundEnabled,
-            MusicVolume = (float)(uiSettings.MusicVolume / 10.0),
-            EffectsVolume = (float)(uiSettings.EffectsVolume / 10.0),
-            MasterVolume = (float)(uiSettings.MasterVolume / 10.0),
-            VoiceVolume = (float)(uiSettings.VoiceVolume / 10.0)
-        };
-        soundManager.RefreshVolumes();
-
-        if (uiSettings.UseLlmForUnknownCommands)
-        {
-            var dockerWindow = new DockerProgressWindow
-            {
-                Owner = this
-            };
-
-            var dockerResult = await dockerWindow.RunAsync();
-            if (dockerResult.Canceled)
-            {
-                uiSettings.UseLlmForUnknownCommands = false;
-                return;
-            }
-
-            if (!dockerResult.Success)
-            {
-                uiSettings.UseLlmForUnknownCommands = false;
-
-                new AlertWindow(
-                    "No se han podido iniciar los servicios de IA y voz.\n\n" +
-                    "Comprueba que Docker Desktop está instalado y en ejecución.",
-                    "Error")
-                {
-                    Owner = this
-                }.ShowDialog();
-            }
-        }
-
-        // Precargar la voz de la sala inicial antes de mostrar la partida,
-        // para que se escuche nada más entrar.
-        if (uiSettings.SoundEnabled && uiSettings.VoiceVolume > 0)
-        {
-            try
-            {
-                var startRoom = state.Rooms
-                    .FirstOrDefault(r => r.Id.Equals(state.CurrentRoomId, StringComparison.OrdinalIgnoreCase));
-                if (startRoom != null && !string.IsNullOrWhiteSpace(startRoom.Description))
-                {
-                    await soundManager.PreloadRoomVoiceAsync(startRoom.Id, startRoom.Description);
-                }
-            }
-            catch
-            {
-                // Si algo falla al precargar la voz, continuamos sin interrumpir el inicio de la partida.
-            }
-        }
-
-        var main = new MainWindow(world, state, soundManager, uiSettings);
-
-        main.Owner = this;
-        Hide();
-        main.ShowDialog();
-        Show();
-        ReloadWorlds();
     }
-
     private void EditorButton_Click(object sender, RoutedEventArgs e)
     {
         string? worldPath = null;
@@ -404,7 +432,7 @@ public partial class StartupWindow : Window
             }
         }
 
-        // Si worldPath es null o el fichero no existe, el editor creará un mundo nuevo
+        // Si worldPath es null o el fichero no existe, el editor crearÃƒÂ¡ un mundo nuevo
         var editor = new WorldEditorWindow(worldPath);
         editor.Owner = this;
         Hide();
@@ -423,7 +451,7 @@ public partial class StartupWindow : Window
         var worldName = Path.GetFileNameWithoutExtension(worldPath);
 
         var dlg = new ConfirmWindow(
-            $"¿Seguro que quieres eliminar el mundo \"{worldName}\"?\n\nEsta acción no se puede deshacer.",
+            $"\u00bfSeguro que quieres eliminar el mundo \"{worldName}\"?\n\nEsta acci\u00f3n no se puede deshacer.",
             "Eliminar mundo")
         {
             Owner = this
@@ -460,7 +488,7 @@ public partial class StartupWindow : Window
     
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
-        var dlg = new ConfirmWindow("¿Seguro que quieres salir de Xilo Adventures?", "Confirmar salida")
+        var dlg = new ConfirmWindow("\u00bfSeguro que quieres salir de Xilo Adventures?", "Confirmar salida")
         {
             Owner = this
         };
@@ -474,4 +502,26 @@ public partial class StartupWindow : Window
         base.OnClosing(e);
     }
 
+    private void ShowLoading(string message)
+    {
+        _isLoadingVisible = true;
+        LoadingText.Text = message;
+        LoadingOverlay.Visibility = Visibility.Visible;
+    }
+
+    private void HideLoading()
+    {
+        if (!_isLoadingVisible)
+            return;
+
+        _isLoadingVisible = false;
+        LoadingOverlay.Visibility = Visibility.Collapsed;
+    }
+
 }
+
+
+
+
+
+

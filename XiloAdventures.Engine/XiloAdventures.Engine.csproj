@@ -10,7 +10,6 @@
     <PackageReference Include="NAudio" Version="2.2.1" />
   </ItemGroup>
 
-
   <ItemGroup>
     <EmbeddedResource Include="Engine\ParserDictionary.json" />
   </ItemGroup>

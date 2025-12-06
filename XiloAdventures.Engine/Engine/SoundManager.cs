@@ -9,8 +9,6 @@ namespace XiloAdventures.Engine;
 
 public class SoundManager : IDisposable
 {
-    private readonly string _soundFolder;
-
     private IWavePlayer? _worldMusicPlayer;
     private AudioFileReader? _worldMusicReader;
     private string? _worldMusicPath;
@@ -59,18 +57,8 @@ public class SoundManager : IDisposable
     /// </summary>
     public float VoiceVolume { get; set; } = 1.0f;
 
-    public SoundManager(string soundFolder)
+    public SoundManager()
     {
-        _soundFolder = soundFolder;
-        try
-        {
-            if (!Directory.Exists(_soundFolder))
-                Directory.CreateDirectory(_soundFolder);
-        }
-        catch
-        {
-            // Si falla la creación de la carpeta, seguimos pero la música puede no funcionar correctamente.
-        }
     }
 
     /// <summary>
@@ -232,8 +220,8 @@ public class SoundManager : IDisposable
         }
     }
 
-    
-    
+
+
     private async Task<byte[]?> FetchVoiceBytesAsync(string text)
     {
         var encodedText = Uri.EscapeDataString(text);
@@ -377,55 +365,6 @@ public class SoundManager : IDisposable
     public Task PlayRoomDescriptionAsync(string? text)
         => PlayRoomDescriptionAsync(string.Empty, text);
 
-
-/// <summary>
-    /// Reproduce un efecto de sonido puntual desde un archivo en la carpeta de sonido.
-    /// No utiliza Base64; se asume que el archivo ya existe físicamente.
-    /// </summary>
-    public void PlayEffect(string effectFileName)
-    {
-        if (!SoundEnabled)
-            return;
-
-        try
-        {
-            var path = Path.Combine(_soundFolder, effectFileName);
-            if (!File.Exists(path))
-                return;
-
-            var reader = new AudioFileReader(path)
-            {
-                Volume = Math.Clamp(MasterVolume, 0f, 1f) * Math.Clamp(EffectsVolume, 0f, 1f)
-            };
-            var player = new WaveOutEvent();
-            player.Init(reader);
-            player.Play();
-
-
-            player.PlaybackStopped += (_, _) =>
-            {
-                try
-                {
-                    player.Dispose();
-                }
-                catch
-                {
-                }
-
-                try
-                {
-                    reader.Dispose();
-                }
-                catch
-                {
-                }
-            };
-        }
-        catch
-        {
-            // Ignorar errores de sonido
-        }
-    }
 
     public void StopRoomMusic()
     {
@@ -807,7 +746,7 @@ public class SoundManager : IDisposable
                     fileName = $"music_{basePart}.mp3";
                 }
 
-                var path = Path.Combine(_soundFolder, fileName);
+                var path = Path.Combine(Path.GetTempPath(), fileName);
 
                 if (!File.Exists(path))
                 {
@@ -824,8 +763,8 @@ public class SoundManager : IDisposable
 
         if (!string.IsNullOrWhiteSpace(musicId))
         {
-            var path = Path.Combine(_soundFolder, musicId);
-            return path;
+            var path = Path.Combine(Path.GetTempPath(), musicId);
+            return File.Exists(path) ? path : null;
         }
 
         return null;
@@ -836,3 +775,5 @@ public class SoundManager : IDisposable
         StopMusic();
     }
 }
+
+

@@ -376,31 +376,48 @@ public partial class MainWindow : Window
 
         RoomTitleText.Text = room.Name;
 
-        // Imagen de la sala desde el propio mundo (Base64)
-        if (!string.IsNullOrWhiteSpace(room.ImageBase64))
+        RoomImage.Source = TryLoadRoomImage(room.ImageBase64) ?? DefaultRoomImage;
+    }
+
+    private static readonly System.Windows.Media.Imaging.BitmapImage? DefaultRoomImage = LoadDefaultRoomImage();
+
+    private static System.Windows.Media.Imaging.BitmapImage? LoadDefaultRoomImage()
+    {
+        try
         {
-            try
-            {
-                var bytes = Convert.FromBase64String(room.ImageBase64);
-                using var ms = new MemoryStream(bytes);
-
-                var bmp = new System.Windows.Media.Imaging.BitmapImage();
-                bmp.BeginInit();
-                bmp.StreamSource = ms;
-                bmp.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
-                bmp.EndInit();
-                bmp.Freeze();
-
-                RoomImage.Source = bmp;
-            }
-            catch
-            {
-                RoomImage.Source = null;
-            }
+            var uri = new Uri("pack://application:,,,/logo.png", UriKind.Absolute);
+            var bmp = new System.Windows.Media.Imaging.BitmapImage(uri);
+            bmp.Freeze();
+            return bmp;
         }
-        else
+        catch
         {
-            RoomImage.Source = null;
+            return null;
+        }
+    }
+
+    private static System.Windows.Media.Imaging.BitmapImage? TryLoadRoomImage(string? base64)
+    {
+        if (string.IsNullOrWhiteSpace(base64))
+            return null;
+
+        try
+        {
+            var bytes = Convert.FromBase64String(base64);
+            using var ms = new MemoryStream(bytes);
+
+            var bmp = new System.Windows.Media.Imaging.BitmapImage();
+            bmp.BeginInit();
+            bmp.StreamSource = ms;
+            bmp.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+            bmp.EndInit();
+            bmp.Freeze();
+
+            return bmp;
+        }
+        catch
+        {
+            return null;
         }
     }
 
@@ -538,16 +555,24 @@ public partial class MainWindow : Window
 
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
-        var dlg = new ConfirmWindow(
-            "¿Quieres salir de la partida? Puedes guardar antes de salir desde Archivo -> Guardar partida...",
-            "Salir")
+        var saveConfirm = new ConfirmWindow("¿Quieres guardar la partida antes de salir?", "Salir de la partida")
         {
             Owner = this
         };
 
-        var result = dlg.ShowDialog() == true;
+        var saveResult = saveConfirm.ShowDialog() == true;
+        if (saveResult)
+        {
+            SaveMenu_Click(this, new RoutedEventArgs());
+        }
 
-        if (!result)
+        var exitConfirm = new ConfirmWindow("¿Seguro que quieres salir de la partida?", "Salir")
+        {
+            Owner = this
+        };
+
+        var exitResult = exitConfirm.ShowDialog() == true;
+        if (!exitResult)
         {
             e.Cancel = true;
             return;

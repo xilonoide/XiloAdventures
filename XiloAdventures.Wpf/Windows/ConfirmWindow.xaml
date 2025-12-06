@@ -2,7 +2,10 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Confirmar"
-        Height="160" Width="420"
+        Width="500"
+        MinWidth="420"
+        MaxWidth="720"
+        SizeToContent="WidthAndHeight"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         Background="#222222"
@@ -15,8 +18,7 @@
         </Grid.RowDefinitions>
 
         <TextBlock x:Name="MessageText"
-                   TextWrapping="Wrap"
-                   FontSize="14"/>
+                   TextWrapping="Wrap" />
 
         <StackPanel Grid.Row="1"
                     Orientation="Horizontal"

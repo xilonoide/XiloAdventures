@@ -162,7 +162,7 @@ public partial class StartupWindow : Window
                 uiSettings.UseLlmForUnknownCommands = false;
             }
 
-            var soundManager = new SoundManager(AppPaths.SoundFolder)
+            var soundManager = new SoundManager()
             {
                 SoundEnabled = uiSettings.SoundEnabled,
                 MusicVolume = (float)(uiSettings.MusicVolume / 10.0),
@@ -322,7 +322,7 @@ public partial class StartupWindow : Window
             uiSettings.UseLlmForUnknownCommands = false;
         }
 
-        var soundManager = new SoundManager(AppPaths.SoundFolder)
+        var soundManager = new SoundManager()
         {
             SoundEnabled = uiSettings.SoundEnabled,
             MusicVolume = (float)(uiSettings.MusicVolume / 10.0),
@@ -449,3 +449,5 @@ public partial class StartupWindow : Window
     }
 
 }
+
+

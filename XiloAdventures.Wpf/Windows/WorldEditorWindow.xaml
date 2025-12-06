@@ -7,7 +7,8 @@
         WindowStartupLocation="CenterOwner"
         WindowState="Maximized"
         Background="#222222"
-        Foreground="White">
+        Foreground="White"
+        FontSize="18">
 
     <Window.CommandBindings>
         <CommandBinding Command="ApplicationCommands.Undo"
@@ -35,11 +36,52 @@
         <KeyBinding Command="ApplicationCommands.Paste" Modifiers="Control" Key="V" />
     </Window.InputBindings>
 
-    <DockPanel>
-        
+    <Grid>
+        <DockPanel>
+        <DockPanel.Resources>
+            <Style x:Key="CommandButtonStyle" TargetType="Button">
+                <Setter Property="Margin" Value="0,0,8,0"/>
+                <Setter Property="Padding" Value="16,10"/>
+                <Setter Property="Background" Value="#3A3A3A"/>
+                <Setter Property="Foreground" Value="White"/>
+                <Setter Property="BorderBrush" Value="#4A4A4A"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="RootBorder"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="4"
+                                    Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="RootBorder" Property="Background" Value="#4A4A4A"/>
+                                    <Setter TargetName="RootBorder" Property="BorderBrush" Value="#5A5A5A"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="RootBorder" Property="Background" Value="#5A5A5A"/>
+                                    <Setter TargetName="RootBorder" Property="BorderBrush" Value="#6A6A6A"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="RootBorder" Property="Background" Value="#2A2A2A"/>
+                                    <Setter Property="Foreground" Value="#777777"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </DockPanel.Resources>
         <Menu DockPanel.Dock="Top" Background="#303030" Foreground="White">
             <Menu.Resources>
-                <!-- Estilo para elementos de nivel superior (Archivo, Ayuda) -->
                 <Style x:Key="TopMenuItemStyle" TargetType="MenuItem">
                     <Setter Property="Foreground" Value="White"/>
                     <Setter Property="Background" Value="#303030"/>
@@ -87,7 +129,6 @@
                     </Setter>
                 </Style>
 
-                <!-- Estilo para elementos dentro de los menús desplegados -->
                 <Style x:Key="SubMenuItemStyle" TargetType="MenuItem">
                     <Setter Property="Foreground" Value="White"/>
                     <Setter Property="Background" Value="#303030"/>
@@ -126,81 +167,139 @@
                 </Style>
             </Menu.Resources>
 
-            <MenuItem Header="Archivo" Style="{StaticResource TopMenuItemStyle}">
+                        <MenuItem Header="Archivo" Style="{StaticResource TopMenuItemStyle}">
                 <MenuItem Header="Nuevo" Click="NewMenu_Click" Style="{StaticResource SubMenuItemStyle}">
                     <MenuItem.Icon>
-                        <TextBlock Text="🆕" FontSize="14" Margin="2"/>
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE109;" FontSize="18" Margin="2"/>
                     </MenuItem.Icon>
                 </MenuItem>
                 <MenuItem Header="Abrir..." Click="OpenMenu_Click" Style="{StaticResource SubMenuItemStyle}">
                     <MenuItem.Icon>
-                        <TextBlock Text="📂" FontSize="14" Margin="2"/>
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8E5;" FontSize="18" Margin="2"/>
                     </MenuItem.Icon>
                 </MenuItem>
                 <MenuItem Header="Guardar" Click="SaveMenu_Click" Style="{StaticResource SubMenuItemStyle}">
                     <MenuItem.Icon>
-                        <TextBlock Text="💾" FontSize="14" Margin="2"/>
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE105;" FontSize="18" Margin="2"/>
                     </MenuItem.Icon>
                 </MenuItem>
                 <MenuItem Header="Guardar como..." Click="SaveAsMenu_Click" Style="{StaticResource SubMenuItemStyle}">
                     <MenuItem.Icon>
-                        <TextBlock Text="📝" FontSize="14" Margin="2"/>
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE792;" FontSize="18" Margin="2"/>
                     </MenuItem.Icon>
                 </MenuItem>
                 <Separator/>
                 <MenuItem Header="Cerrar" Click="CloseMenu_Click" Style="{StaticResource SubMenuItemStyle}">
                     <MenuItem.Icon>
-                        <TextBlock Text="✖" FontSize="14" Margin="2"/>
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8BB;" FontSize="18" Margin="2"/>
                     </MenuItem.Icon>
                 </MenuItem>
             </MenuItem>
             <MenuItem Header="Editar" Style="{StaticResource TopMenuItemStyle}">
                 <MenuItem Header="Deshacer" Command="ApplicationCommands.Undo" Style="{StaticResource SubMenuItemStyle}">
                     <MenuItem.Icon>
-                        <TextBlock Text="↶" FontSize="14" Margin="2"/>
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE10E;" FontSize="18" Margin="2"/>
                     </MenuItem.Icon>
                 </MenuItem>
                 <MenuItem Header="Rehacer" Command="ApplicationCommands.Redo" Style="{StaticResource SubMenuItemStyle}">
                     <MenuItem.Icon>
-                        <TextBlock Text="↷" FontSize="14" Margin="2"/>
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE10D;" FontSize="18" Margin="2"/>
                     </MenuItem.Icon>
                 </MenuItem>
                 <MenuItem Header="Cortar" Command="ApplicationCommands.Cut" Style="{StaticResource SubMenuItemStyle}">
                     <MenuItem.Icon>
-                        <TextBlock Text="✂" FontSize="14" Margin="2"/>
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE16B;" FontSize="18" Margin="2"/>
                     </MenuItem.Icon>
                 </MenuItem>
                 <MenuItem Header="Copiar" Command="ApplicationCommands.Copy" Style="{StaticResource SubMenuItemStyle}">
                     <MenuItem.Icon>
-                        <TextBlock Text="📄" FontSize="14" Margin="2"/>
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE16A;" FontSize="18" Margin="2"/>
                     </MenuItem.Icon>
                 </MenuItem>
                 <MenuItem Header="Pegar" Command="ApplicationCommands.Paste" Style="{StaticResource SubMenuItemStyle}">
                     <MenuItem.Icon>
-                        <TextBlock Text="📋" FontSize="14" Margin="2"/>
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE16D;" FontSize="18" Margin="2"/>
                     </MenuItem.Icon>
                 </MenuItem>
             </MenuItem>
         </Menu>
 
+        <Border DockPanel.Dock="Top"
+                Background="#2B2B2B"
+                Padding="12,8">
+            <WrapPanel VerticalAlignment="Center">
+                <Button x:Name="PlayButton"
+                        Style="{StaticResource CommandButtonStyle}"
+                        Click="PlayButton_Click"
+                        ToolTip="Probar mundo (nueva partida)"
+                        Foreground="LawnGreen">
+                    <TextBlock FontFamily="Segoe MDL2 Assets"
+                                Text="&#xE768;"
+                                Foreground="LawnGreen"
+                                FontSize="18" />
+                </Button>
 
-        <ToolBar DockPanel.Dock="Top" Background="#303030">
-            <Button x:Name="PlayButton"
-                    Margin="2"
-                    Click="PlayButton_Click"
-                    ToolTip="Probar mundo (nueva partida)"
-                    Foreground="LawnGreen">
-                <TextBlock Text="▶" FontSize="14" />
-            </Button>
-            <Separator/>
-            <Button Content="Sala" Click="AddRoom_Click" Margin="2" Foreground="White"/>
-            <Button Content="Salida" Click="AddExit_Click" Margin="2" Foreground="White"/>
-            <Button Content="Llave" Click="AddKey_Click" Margin="2" Foreground="White"/>
-            <Button Content="Objeto" Click="AddObject_Click" Margin="2" Foreground="White"/>
-            <Button Content="NPC" Click="AddNpc_Click" Margin="2" Foreground="White"/>
-            <Button Content="Misión" Click="AddQuest_Click" Margin="2" Foreground="White"/>
-            <Separator/>
-                    </ToolBar>
+                <Button Style="{StaticResource CommandButtonStyle}"
+                        Click="AddRoom_Click">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock FontFamily="Segoe MDL2 Assets"
+                                   Text="&#xE80F;"
+                                   Margin="0,0,8,0"/>
+                        <TextBlock Text="Sala"/>
+                    </StackPanel>
+                </Button>
+
+                <Button Style="{StaticResource CommandButtonStyle}"
+                        Click="AddExit_Click">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock FontFamily="Segoe MDL2 Assets"
+                                   Text="&#xE75D;"
+                                   Margin="0,0,8,0"/>
+                        <TextBlock Text="Salida"/>
+                    </StackPanel>
+                </Button>
+
+                <Button Style="{StaticResource CommandButtonStyle}"
+                        Click="AddKey_Click">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock FontFamily="Segoe MDL2 Assets"
+                                   Text="&#xE192;"
+                                   Margin="0,0,8,0"/>
+                        <TextBlock Text="Llave"/>
+                    </StackPanel>
+                </Button>
+
+                <Button Style="{StaticResource CommandButtonStyle}"
+                        Click="AddObject_Click">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock FontFamily="Segoe MDL2 Assets"
+                                   Text="&#xE8B8;"
+                                   Margin="0,0,8,0"/>
+                        <TextBlock Text="Objeto"/>
+                    </StackPanel>
+                </Button>
+
+                <Button Style="{StaticResource CommandButtonStyle}"
+                        Click="AddNpc_Click">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock FontFamily="Segoe MDL2 Assets"
+                                   Text="&#xE77B;"
+                                   Margin="0,0,8,0"/>
+                        <TextBlock Text="NPC"/>
+                    </StackPanel>
+                </Button>
+
+                <Button Style="{StaticResource CommandButtonStyle}"
+                        Click="AddQuest_Click">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock FontFamily="Segoe MDL2 Assets"
+                                   Text="&#xE129;"
+                                   Margin="0,0,8,0"/>
+                        <TextBlock Text="Misi&#xF3;n"/>
+                    </StackPanel>
+                </Button>
+            </WrapPanel>
+        </Border>
 
         <Grid Margin="4">
             <Grid.ColumnDefinitions>
@@ -228,14 +327,22 @@
                 <DockPanel LastChildFill="True" Margin="0,0,0,4">
                     <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
                         <Button Width="28" Height="28" Margin="0,0,4,0" Click="ExpandAll_Click" ToolTip="Expandir todo">
-                            <TextBlock Text="↓" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <TextBlock FontFamily="Segoe MDL2 Assets"
+                                       Text="&#xE70D;"
+                                        FontSize="18" 
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
                         </Button>
                         <Button Width="28" Height="28" Margin="0,0,4,0" Click="CollapseAll_Click" ToolTip="Contraer todo">
-                            <TextBlock Text="↑" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <TextBlock FontFamily="Segoe MDL2 Assets"
+                                       Text="&#xE70E;"
+                                        FontSize="18" 
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
                         </Button>
                     </StackPanel>
                     <TextBox x:Name="SearchTextBox"
-                             FontSize="16"
+                              FontSize="18" 
                              TextChanged="SearchTextBox_TextChanged"/>
                 </DockPanel>
                 <TreeView x:Name="WorldTree"
@@ -280,8 +387,32 @@
                         Visibility="Collapsed" />
             </StackPanel>
         </Grid>
-    </DockPanel>
+        </DockPanel>
+
+        <Border x:Name="PlayLoadingOverlay"
+                Background="#AA000000"
+                Visibility="Collapsed">
+            <Border HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Width="260"
+                    Background="#222222"
+                    Padding="16"
+                    CornerRadius="6">
+                <StackPanel>
+                    <TextBlock x:Name="PlayLoadingText"
+                               Text="Preparando partida..."
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,12"/>
+                    <ProgressBar IsIndeterminate="True" Height="12"/>
+                </StackPanel>
+            </Border>
+        </Border>
+    </Grid>
 </Window>
+
+
+
+
 
 
 

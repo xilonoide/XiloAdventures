@@ -7,7 +7,8 @@ namespace XiloAdventures.Wpf.Ui;
 public class UiSettings
 {
     public bool SoundEnabled { get; set; } = true;
-    public double FontSize { get; set; } = 14.0;
+    public double FontSize { get; set; } = 18.0;
+    public int Version { get; set; } = 3;
     /// <summary>
     /// Si está activo, al no entender un comando se consultará un LLM local.
     /// </summary>
@@ -32,6 +33,8 @@ public class UiSettings
 
 public static class UiSettingsManager
 {
+    private const int CurrentVersion = 3;
+
     public static UiSettings GlobalSettings { get; private set; } = new();
 
     private static readonly JsonSerializerOptions Options = new()
@@ -47,17 +50,20 @@ public static class UiSettingsManager
             if (System.IO.File.Exists(path))
             {
                 var json = CryptoUtil.DecryptFromFile(path);
-                GlobalSettings = JsonSerializer.Deserialize<UiSettings>(json, Options) ?? new UiSettings();
+                GlobalSettings = Upgrade(JsonSerializer.Deserialize<UiSettings>(json, Options) ?? new UiSettings());
             }
         }
         catch
         {
             GlobalSettings = new UiSettings();
         }
+
+        GlobalSettings = Upgrade(GlobalSettings);
     }
 
     public static void SaveGlobal()
     {
+        GlobalSettings = Upgrade(GlobalSettings);
         var path = AppPaths.GlobalConfigPath;
         var json = JsonSerializer.Serialize(GlobalSettings, Options);
         CryptoUtil.EncryptToFile(path, json, "xac");
@@ -71,7 +77,7 @@ public static class UiSettingsManager
             if (System.IO.File.Exists(path))
             {
                 var json = CryptoUtil.DecryptFromFile(path);
-                return JsonSerializer.Deserialize<UiSettings>(json, Options) ?? new UiSettings();
+                return Upgrade(JsonSerializer.Deserialize<UiSettings>(json, Options) ?? new UiSettings());
             }
         }
         catch
@@ -80,7 +86,7 @@ public static class UiSettingsManager
         }
 
         // Por defecto heredamos de las globales
-        return new UiSettings
+        return Upgrade(new UiSettings
         {
             SoundEnabled = GlobalSettings.SoundEnabled,
             FontSize = GlobalSettings.FontSize,
@@ -89,13 +95,31 @@ public static class UiSettingsManager
             EffectsVolume = GlobalSettings.EffectsVolume,
             MasterVolume = GlobalSettings.MasterVolume,
             VoiceVolume = GlobalSettings.VoiceVolume
-        };
+        });
     }
 
     public static void SaveForWorld(string worldId, UiSettings settings)
     {
+        settings = Upgrade(settings);
         var path = AppPaths.WorldConfigPath(worldId);
         var json = JsonSerializer.Serialize(settings, Options);
         CryptoUtil.EncryptToFile(path, json, "xac");
+    }
+
+    private static UiSettings Upgrade(UiSettings settings)
+    {
+        settings ??= new UiSettings();
+
+        if (settings.Version < 2)
+        {
+            settings.FontSize += 2.0;
+        }
+        if (settings.Version < 3)
+        {
+            settings.FontSize = 18.0;
+        }
+
+        settings.Version = CurrentVersion;
+        return settings;
     }
 }

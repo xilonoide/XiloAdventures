@@ -19,7 +19,11 @@ public partial class MapPanel : Control
     {
         base.OnMouseDown(e);
 
-        Focus();
+        // No cambiamos el foco al hacer pan con el boton central; asi evitamos que se "pierda" la seleccion en el arbol.
+        if (e.ChangedButton != MouseButton.Middle)
+        {
+            Focus();
+        }
 
         if (_world == null)
             return;
@@ -256,6 +260,15 @@ public partial class MapPanel : Control
             }
             else
             {
+                // Si clicamos en zona vacía sin modificadores, limpiamos la selección y notificamos.
+                if (Keyboard.Modifiers == ModifierKeys.None)
+                {
+                    _selectedRoomIds.Clear();
+                    _selectedExits.Clear();
+                    InvalidateVisual();
+                    SelectionCleared?.Invoke();
+                }
+
                 // Arrastre de selección en área vacía
                 _isDragSelecting = true;
                 _selectionStartScreen = pos;
@@ -722,28 +735,35 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
             return;
         }
 
-        byte[] bytes;
-        try
-        {
-            bytes = Convert.FromBase64String(room.ImageBase64);
-        }
-        catch
-        {
-            HideRoomImageTooltip();
-            return;
-        }
-
         BitmapImage bmp;
         try
         {
-            bmp = new BitmapImage();
-            using (var ms = new MemoryStream(bytes))
+            byte[]? bytes = null;
+            if (room.ImageBase64.StartsWith("data:image", StringComparison.OrdinalIgnoreCase))
             {
-                bmp.BeginInit();
-                bmp.CacheOption = BitmapCacheOption.OnLoad;
-                bmp.StreamSource = ms;
-                bmp.EndInit();
+                var commaIndex = room.ImageBase64.IndexOf(',');
+                if (commaIndex >= 0)
+                {
+                    bytes = Convert.FromBase64String(room.ImageBase64[(commaIndex + 1)..]);
+                }
             }
+            else
+            {
+                bytes = Convert.FromBase64String(room.ImageBase64);
+            }
+
+            if (bytes == null)
+            {
+                HideRoomImageTooltip();
+                return;
+            }
+
+            using var ms = new MemoryStream(bytes);
+            bmp = new BitmapImage();
+            bmp.BeginInit();
+            bmp.CacheOption = BitmapCacheOption.OnLoad;
+            bmp.StreamSource = ms;
+            bmp.EndInit();
             bmp.Freeze();
         }
         catch

@@ -47,6 +47,11 @@ namespace XiloAdventures.Wpf.Windows
                 : Visibility.Visible;
         }
 
+        public void HideOkButton()
+        {
+            OkButton.Visibility = Visibility.Collapsed;
+        }
+
         public static void Show(string message, Window? owner = null)
         {
             var w = new AlertWindow(message);
