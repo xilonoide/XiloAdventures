@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,6 +9,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using System.Text.Json;
+using System.Security.Cryptography;
 using XiloAdventures.Engine;
 using XiloAdventures.Engine.Models;
 using XiloAdventures.Wpf.Controls;
@@ -25,6 +26,7 @@ public partial class WorldEditorWindow : Window
     private bool _roomsClipboardIsCut;
     private IReadOnlyDictionary<string, Point>? _roomsClipboardPositions;
     private Dictionary<string, string>? _lastClipboardIdMap;
+    private string _loadedEncryptionKey = string.Empty;
 
     private readonly UndoRedoManager _undoRedo = new();
 
@@ -32,6 +34,8 @@ public partial class WorldEditorWindow : Window
     private bool _isDirty;
     private readonly string _baseTitle;
     private TreeViewItem? _gameTreeNode;
+    private bool _lastKeyPromptCanceled;
+    public bool IsCanceled { get; private set; }
 
     public WorldEditorWindow()
     {
@@ -51,23 +55,19 @@ public partial class WorldEditorWindow : Window
         UpdateButtonsForSelection(null);
         ResetUndoRedo();
         SetDirty(false);
+        UpdateLoadedEncryptionKey();
     }
 
     public WorldEditorWindow(string? worldPath) : this()
     {
-        // Si nos pasan una ruta vÃƒÂ¡lida, intentamos cargar ese mundo.
+        // Si nos pasan una ruta válida, intentamos cargar ese mundo.
         if (!string.IsNullOrWhiteSpace(worldPath) && System.IO.File.Exists(worldPath))
         {
-            try
+            TryLoadWorldWithPrompt(worldPath);
+            if (_lastKeyPromptCanceled)
             {
-                _world = WorldLoader.LoadWorldModel(worldPath);
-                _currentPath = worldPath;
-            }
-            catch (Exception ex)
-            {
-                new AlertWindow($"Error al abrir mundo:\n{ex.Message}", "Error") { Owner = this }.ShowDialog();
-                _world = new WorldModel();
-                _currentPath = null;
+                IsCanceled = true;
+                return;
             }
         }
         else
@@ -93,13 +93,281 @@ public partial class WorldEditorWindow : Window
         BuildTree();
         UpdateButtonsForSelection(null);
         ResetUndoRedo();
+        UpdateLoadedEncryptionKey();
     }
 
+    private void TryLoadWorldWithPrompt(string worldPath)
+    {
+        _lastKeyPromptCanceled = false;
+        while (true)
+        {
+            try
+            {
+                _world = WorldLoader.LoadWorldModel(worldPath, null, () => PromptForEncryptionKey("Introduce la clave usada para cifrar este mundo:"));
+                _currentPath = worldPath;
+                UpdateLoadedEncryptionKey();
+                break;
+            }
+            catch (CryptographicException)
+            {
+                if (HandleCanceled()) return;
+                ShowKeyError();
+            }
+            catch (InvalidDataException)
+            {
+                if (HandleCanceled()) return;
+                ShowKeyError();
+            }
+            catch (JsonException)
+            {
+                if (HandleCanceled()) return;
+                ShowKeyError();
+            }
+            catch (Exception)
+            {
+                if (HandleCanceled()) return;
+                ShowKeyError();
+            }
+        }
+    }
+
+    private void UpdateLoadedEncryptionKey()
+    {
+        _loadedEncryptionKey = (_world?.Game?.EncryptionKey ?? string.Empty).Trim();
+    }
+
+    private bool HandleCanceled()
+    {
+        if (_lastKeyPromptCanceled)
+        {
+            IsCanceled = true;
+            return true;
+        }
+        return false;
+    }
+
+    private void ShowKeyError()
+    {
+        var alert = new AlertWindow("Clave incorrecta", "Error");
+        if (IsLoaded && IsVisible)
+            alert.Owner = this;
+        else if (Application.Current?.MainWindow is { IsVisible: true } mainOwner)
+            alert.Owner = mainOwner;
+        alert.ShowDialog();
+    }
+
+    private void ShowGenericLoadError(string message)
+    {
+        var alert = new AlertWindow($"Error al abrir mundo:\n{message}", "Error");
+        if (IsLoaded && IsVisible)
+            alert.Owner = this;
+        else if (Application.Current?.MainWindow is { IsVisible: true } mainOwner)
+            alert.Owner = mainOwner;
+        alert.ShowDialog();
+    }
+
+    private string? PromptForEncryptionKey(string message)
+    {
+        var ownerWindow = (IsLoaded && IsVisible) ? this : Application.Current.MainWindow;
+
+        var dialog = new Window
+        {
+            Title = "Clave de cifrado",
+            Width = 420,
+            Height = 180,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ResizeMode = ResizeMode.NoResize,
+            Background = new SolidColorBrush(Color.FromRgb(34, 34, 34)),
+            Foreground = Brushes.White,
+            WindowStyle = WindowStyle.ToolWindow,
+            ShowInTaskbar = false
+        };
+        if (ownerWindow != null)
+            dialog.Owner = ownerWindow;
+
+        var grid = new Grid { Margin = new Thickness(16) };
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        var msg = new TextBlock
+        {
+            Text = message,
+            TextWrapping = TextWrapping.Wrap
+        };
+        Grid.SetRow(msg, 0);
+
+        var pb = new PasswordBox
+        {
+            Margin = new Thickness(0, 8, 0, 0)
+        };
+        pb.KeyDown += (s, e) =>
+        {
+            if (e.Key == Key.Enter)
+            {
+                dialog.DialogResult = true;
+                dialog.Close();
+                e.Handled = true;
+            }
+        };
+        Grid.SetRow(pb, 1);
+
+        var btnPanel = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 12, 0, 0)
+        };
+
+        var ok = new Button
+        {
+            Content = "Aceptar",
+            Width = 90,
+            Margin = new Thickness(0, 0, 8, 0)
+        };
+        ok.Click += (_, _) =>
+        {
+            dialog.DialogResult = true;
+            dialog.Close();
+        };
+
+        var cancel = new Button
+        {
+            Content = "Cancelar",
+            Width = 90
+        };
+        cancel.Click += (_, _) =>
+        {
+            dialog.DialogResult = false;
+            dialog.Close();
+        };
+
+        btnPanel.Children.Add(ok);
+        btnPanel.Children.Add(cancel);
+        Grid.SetRow(btnPanel, 2);
+
+        grid.Children.Add(msg);
+        grid.Children.Add(pb);
+        grid.Children.Add(btnPanel);
+
+        dialog.Content = grid;
+        dialog.Loaded += (_, _) => pb.Focus();
+
+        var result = dialog.ShowDialog();
+        if (result == true)
+        {
+            return pb.Password.Trim();
+        }
+
+        _lastKeyPromptCanceled = true;
+        return null;
+    }
+
+    private bool ConfirmEncryptionKey(string newKey)
+    {
+        var ownerWindow = (IsLoaded && IsVisible) ? this : Application.Current?.MainWindow;
+
+        var dialog = new Window
+        {
+            Title = "Confirmar clave",
+            Width = 420,
+            Height = 180,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ResizeMode = ResizeMode.NoResize,
+            Background = new SolidColorBrush(Color.FromRgb(34, 34, 34)),
+            Foreground = Brushes.White,
+            WindowStyle = WindowStyle.ToolWindow,
+            ShowInTaskbar = false,
+            Owner = ownerWindow
+        };
+
+        var grid = new Grid { Margin = new Thickness(16) };
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        var msg = new TextBlock
+        {
+            Text = "Repite la clave de cifrado:",
+            TextWrapping = TextWrapping.Wrap
+        };
+        Grid.SetRow(msg, 0);
+
+        var pb = new PasswordBox
+        {
+            Margin = new Thickness(0, 8, 0, 0)
+        };
+        Grid.SetRow(pb, 1);
+
+        var btnPanel = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 12, 0, 0)
+        };
+
+        var ok = new Button
+        {
+            Content = "Aceptar",
+            Width = 90,
+            Margin = new Thickness(0, 0, 8, 0)
+        };
+        pb.KeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Enter)
+            {
+                ok.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                e.Handled = true;
+            }
+        };
+        ok.Click += (_, _) =>
+        {
+            var confirm = (pb.Password ?? string.Empty).Trim();
+            if (!string.Equals(confirm, newKey, StringComparison.Ordinal))
+            {
+                new AlertWindow("Las claves no coinciden", "Clave invalida")
+                {
+                    Owner = dialog
+                }.ShowDialog();
+                dialog.DialogResult = false;
+                dialog.Close();
+                return;
+            }
+
+            dialog.DialogResult = true;
+            dialog.Close();
+        };
+
+        var cancel = new Button
+        {
+            Content = "Cancelar",
+            Width = 90
+        };
+        cancel.Click += (_, _) =>
+        {
+            dialog.DialogResult = false;
+            dialog.Close();
+        };
+
+        btnPanel.Children.Add(ok);
+        btnPanel.Children.Add(cancel);
+        Grid.SetRow(btnPanel, 2);
+
+        grid.Children.Add(msg);
+        grid.Children.Add(pb);
+        grid.Children.Add(btnPanel);
+
+        dialog.Content = grid;
+        dialog.Loaded += (_, _) => pb.Focus();
+
+        var result = dialog.ShowDialog();
+        return result == true;
+    }
     private void PropertyEditor_PropertyEdited(object? obj, string propertyName)
     {
         if (obj is null) return;
 
-        // Si se ha editado el nombre, actualizamos el nodo correspondiente en el ÃƒÂ¡rbol
+        // Si se ha editado el nombre, actualizamos el nodo correspondiente en el ├âãÆ├é┬írbol
         if (propertyName == "Name")
         {
             foreach (TreeViewItem root in WorldTree.Items)
@@ -151,7 +419,7 @@ public partial class WorldEditorWindow : Window
 
     private void MapPanel_RoomClicked(Room room)
     {
-        // seleccionar en el ÃƒÂ¡rbol la sala correspondiente
+        // seleccionar en el ├âãÆ├é┬írbol la sala correspondiente
         SelectRoomInTree(room);
         MapPanel.SetSelectedRoom(room);
     }
@@ -258,7 +526,7 @@ public partial class WorldEditorWindow : Window
         }
         WorldTree.Items.Add(keysRoot);
 
-        // Seleccionar por defecto el nodo Juego al (re)construir el ÃƒÂ¡rbol
+        // Seleccionar por defecto el nodo Juego al (re)construir el ├âãÆ├é┬írbol
         SelectGameTreeNode();
     }
 
@@ -402,7 +670,7 @@ public partial class WorldEditorWindow : Window
 
     private void UpdateButtonsForSelection(object? selected)
     {
-        // Los botones de imagen/mÃƒÂºsica de sala ya no se usan en esta versiÃƒÂ³n.
+        // Los botones de imagen/m├âãÆ├é┬║sica de sala ya no se usan en esta versi├âãÆ├é┬│n.
     }
 
     private void ExpandAll_Click(object sender, RoutedEventArgs e)
@@ -482,7 +750,7 @@ public partial class WorldEditorWindow : Window
         var dlg = new OpenFileDialog
         {
             Title = "Seleccionar imagen de sala",
-            Filter = "ImÃƒÂ¡genes (*.png;*.jpg;*.jpeg)|*.png;*.jpg;*.jpeg|Todos los archivos (*.*)|*.*"
+            Filter = "Im├âãÆ├é┬ígenes (*.png;*.jpg;*.jpeg)|*.png;*.jpg;*.jpeg|Todos los archivos (*.*)|*.*"
         };
 
         if (dlg.ShowDialog(this) == true)
@@ -502,7 +770,7 @@ public partial class WorldEditorWindow : Window
 
         var dlg = new OpenFileDialog
         {
-            Title = "Seleccionar mÃƒÂºsica de sala",
+            Title = "Seleccionar m├âãÆ├é┬║sica de sala",
             Filter = "Audio (*.mp3;*.wav)|*.mp3;*.wav|Todos los archivos (*.*)|*.*"
         };
 
@@ -534,6 +802,7 @@ public partial class WorldEditorWindow : Window
         MapPanel.SetWorld(_world);
         BuildTree();
         ResetUndoRedo();
+        UpdateLoadedEncryptionKey();
     }
 
     private void OpenMenu_Click(object sender, RoutedEventArgs e)
@@ -547,18 +816,13 @@ public partial class WorldEditorWindow : Window
 
         if (dlg.ShowDialog(this) == true)
         {
-            try
-            {
-                _world = WorldLoader.LoadWorldModel(dlg.FileName);
-                _currentPath = dlg.FileName;
-                MapPanel.SetWorld(_world);
-                BuildTree();
-                ResetUndoRedo();
-            }
-            catch (Exception ex)
-            {
-                new AlertWindow($"Error al abrir mundo:\n{ex.Message}", "Error") { Owner = this }.ShowDialog();
-            }
+            TryLoadWorldWithPrompt(dlg.FileName);
+            if (_lastKeyPromptCanceled)
+                return;
+
+            MapPanel.SetWorld(_world);
+            BuildTree();
+            ResetUndoRedo();
         }
     }
 
@@ -645,7 +909,7 @@ public partial class WorldEditorWindow : Window
             }
 
             var uiSettings = UiSettingsManager.LoadForWorld(world.Game.Id);
-            // Respetar la configuraciÃƒÂ³n global de sonido e IA
+            // Respetar la configuraci├âãÆ├é┬│n global de sonido e IA
             uiSettings.SoundEnabled = UiSettingsManager.GlobalSettings.SoundEnabled;
             uiSettings.UseLlmForUnknownCommands = UiSettingsManager.GlobalSettings.UseLlmForUnknownCommands;
 
@@ -659,7 +923,7 @@ public partial class WorldEditorWindow : Window
             };
             soundManager.RefreshVolumes();
 
-            // Si la IA estÃƒÂ¡ activada para este mundo, preparar los contenedores Docker (IA + voz)
+            // Si la IA est├âãÆ├é┬í activada para este mundo, preparar los contenedores Docker (IA + voz)
             if (uiSettings.UseLlmForUnknownCommands)
             {
                 var dockerWindow = new DockerProgressWindow
@@ -680,7 +944,7 @@ public partial class WorldEditorWindow : Window
 
                     new AlertWindow(
                         "No se han podido iniciar los servicios de IA y voz.\n\n" +
-                        "Comprueba que Docker Desktop estÃƒÂ¡ instalado y en ejecuciÃƒÂ³n.",
+                        "Comprueba que Docker Desktop est├âãÆ├é┬í instalado y en ejecuci├âãÆ├é┬│n.",
                         "Error")
                     {
                         Owner = this
@@ -689,7 +953,7 @@ public partial class WorldEditorWindow : Window
             }
 
             // Precargar la voz de la sala inicial antes de mostrar la partida,
-            // para que se escuche nada mÃƒÂ¡s entrar.
+            // para que se escuche nada m├âãÆ├é┬ís entrar.
             if (uiSettings.SoundEnabled && uiSettings.VoiceVolume > 0)
             {
                 try
@@ -712,7 +976,7 @@ public partial class WorldEditorWindow : Window
                 Owner = this
             };
 
-            // Mostramos la ventana de juego como diÃƒÂ¡logo modal para no abrir varios tests a la vez.
+            // Mostramos la ventana de juego como di├âãÆ├é┬ílogo modal para no abrir varios tests a la vez.
             main.ShowDialog();
         }
         finally
@@ -745,6 +1009,9 @@ public partial class WorldEditorWindow : Window
 
         try
         {
+            if (!SyncEncryptionKeyFromEditor())
+                return;
+
             // Antes de guardar, sincronizamos las posiciones actuales del mapa con el modelo.
             if (_world != null)
             {
@@ -774,6 +1041,50 @@ public partial class WorldEditorWindow : Window
         }
     }
 
+    private bool SyncEncryptionKeyFromEditor()
+    {
+        if (_world?.Game == null)
+            return true;
+
+        var pb = PropertyEditor?.EncryptionPasswordBox;
+        var trimmed = pb != null
+            ? (pb.Password ?? string.Empty).Trim()
+            : (_world.Game.EncryptionKey ?? string.Empty).Trim();
+
+        if (!string.IsNullOrEmpty(trimmed))
+        {
+            var length = System.Text.Encoding.UTF8.GetByteCount(trimmed);
+            if (length != 8 && length != 32)
+            {
+                new AlertWindow("La clave de cifrado debe ser de 8 caracteres", "Clave invalida")
+                {
+                    Owner = this
+                }.ShowDialog();
+                return false;
+            }
+        }
+
+        var current = _world.Game.EncryptionKey ?? string.Empty;
+        if (!string.IsNullOrEmpty(trimmed) &&
+            !string.Equals(trimmed, _loadedEncryptionKey, StringComparison.Ordinal))
+        {
+            if (!ConfirmEncryptionKey(trimmed))
+                return false;
+        }
+
+        if (!string.Equals(current, trimmed, StringComparison.Ordinal))
+        {
+            _world.Game.EncryptionKey = trimmed;
+            _loadedEncryptionKey = trimmed;
+            PushUndoSnapshot();
+        }
+        else
+        {
+            _loadedEncryptionKey = trimmed;
+        }
+        return true;
+    }
+
     private void SaveAsMenu_Click(object sender, RoutedEventArgs e)
     {
         var dlg = new SaveFileDialog
@@ -788,7 +1099,6 @@ public partial class WorldEditorWindow : Window
         {
             _currentPath = dlg.FileName;
             SaveMenu_Click(sender, e);
-            SetDirty(false);
         }
     }
 
@@ -832,7 +1142,7 @@ public partial class WorldEditorWindow : Window
                 if (RoomHasExitInDirection(room, direction))
                 {
                     new AlertWindow(
-                        $"La sala '{room.Name}' ya tiene una salida en direcciÃƒÂ³n '{NormalizeDirectionForRoom(direction)}'.",
+                        $"La sala '{room.Name}' ya tiene una salida en direcci├âãÆ├é┬│n '{NormalizeDirectionForRoom(direction)}'.",
                         "Xilo Adventures")
                     {
                         Owner = this
@@ -855,7 +1165,7 @@ public partial class WorldEditorWindow : Window
         }
         else
         {
-            new AlertWindow("Selecciona primero una sala en el ÃƒÂ¡rbol.", "Xilo Adventures")
+            new AlertWindow("Selecciona primero una sala en el ├âãÆ├é┬írbol.", "Xilo Adventures")
             {
                 Owner = this
             }.ShowDialog();
@@ -967,8 +1277,8 @@ public partial class WorldEditorWindow : Window
         var q = new QuestDefinition
         {
             Id = $"quest_{index}",
-            Name = $"MisiÃƒÂ³n {index}",
-            Description = "Nueva misiÃƒÂ³n."
+            Name = $"Misi├âãÆ├é┬│n {index}",
+            Description = "Nueva misi├âãÆ├é┬│n."
         };
         _world.Quests.Add(q);
         BuildTree();
@@ -1049,7 +1359,7 @@ public partial class WorldEditorWindow : Window
     {
         if (room is null) return;
 
-        var dlg = new ConfirmWindow($"Ã‚Â¿Eliminar la sala '{room.Name}'?", "Confirmar eliminaciÃƒÂ³n")
+        var dlg = new ConfirmWindow($"├âÔÇÜ├é┬┐Eliminar la sala '{room.Name}'?", "Confirmar eliminaci├âãÆ├é┬│n")
         {
             Owner = this
         };
@@ -1103,7 +1413,7 @@ public partial class WorldEditorWindow : Window
     {
         if (obj is null) return;
 
-        var dlg = new ConfirmWindow($"Ã‚Â¿Eliminar el objeto '{obj.Name}'?", "Confirmar eliminaciÃƒÂ³n")
+        var dlg = new ConfirmWindow($"├âÔÇÜ├é┬┐Eliminar el objeto '{obj.Name}'?", "Confirmar eliminaci├âãÆ├é┬│n")
         {
             Owner = this
         };
@@ -1126,7 +1436,7 @@ public partial class WorldEditorWindow : Window
     {
         if (door is null) return;
 
-        var dlg = new ConfirmWindow($"Ã‚Â¿Eliminar la puerta '{door.Name}'?", "Confirmar eliminaciÃƒÂ³n")
+        var dlg = new ConfirmWindow($"├âÔÇÜ├é┬┐Eliminar la puerta '{door.Name}'?", "Confirmar eliminaci├âãÆ├é┬│n")
         {
             Owner = this
         };
@@ -1149,7 +1459,7 @@ public partial class WorldEditorWindow : Window
     {
         if (key is null) return;
 
-        var dlg = new ConfirmWindow($"Ã‚Â¿Eliminar la definiciÃƒÂ³n de llave '{key.Id}'?", "Confirmar eliminaciÃƒÂ³n")
+        var dlg = new ConfirmWindow($"├âÔÇÜ├é┬┐Eliminar la definici├âãÆ├é┬│n de llave '{key.Id}'?", "Confirmar eliminaci├âãÆ├é┬│n")
         {
             Owner = this
         };
@@ -1173,7 +1483,7 @@ public partial class WorldEditorWindow : Window
     {
         if (npc is null) return;
 
-        var dlg = new ConfirmWindow($"Ã‚Â¿Eliminar el NPC '{npc.Name}'?", "Confirmar eliminaciÃƒÂ³n")
+        var dlg = new ConfirmWindow($"├âÔÇÜ├é┬┐Eliminar el NPC '{npc.Name}'?", "Confirmar eliminaci├âãÆ├é┬│n")
         {
             Owner = this
         };
@@ -1201,7 +1511,7 @@ public partial class WorldEditorWindow : Window
     {
         if (quest is null) return;
 
-        var dlg = new ConfirmWindow($"Ã‚Â¿Eliminar la misiÃƒÂ³n '{quest.Name}'?", "Confirmar eliminaciÃƒÂ³n")
+        var dlg = new ConfirmWindow($"├âÔÇÜ├é┬┐Eliminar la misi├âãÆ├é┬│n '{quest.Name}'?", "Confirmar eliminaci├âãÆ├é┬│n")
         {
             Owner = this
         };
@@ -1321,7 +1631,7 @@ public partial class WorldEditorWindow : Window
                 {
                     if (child.Tag == room)
                     {
-                        // Seleccionamos la sala en el ÃƒÂ¡rbol exactamente igual
+                        // Seleccionamos la sala en el ├âãÆ├é┬írbol exactamente igual
                         // que si el usuario hubiese hecho clic en el TreeView.
                         WorldTree.Focus();
                         child.IsSelected = true;
@@ -1366,7 +1676,7 @@ public partial class WorldEditorWindow : Window
         _roomsClipboard = CloneRoomsForClipboard(selected);
         _roomsClipboardIsCut = true;
 
-        // Guardamos tambiÃƒÂ©n las posiciones actuales de las salas copiadas
+        // Guardamos tambi├âãÆ├é┬®n las posiciones actuales de las salas copiadas
         _roomsClipboardPositions = MapPanel.GetRoomPositions(selected.Select(r => r.Id));
         _lastClipboardIdMap = null;
 
@@ -1395,7 +1705,7 @@ public partial class WorldEditorWindow : Window
         _roomsClipboard = CloneRoomsForClipboard(selected);
         _roomsClipboardIsCut = false;
 
-        // Guardamos tambiÃƒÂ©n las posiciones actuales de las salas copiadas
+        // Guardamos tambi├âãÆ├é┬®n las posiciones actuales de las salas copiadas
         _roomsClipboardPositions = MapPanel.GetRoomPositions(selected.Select(r => r.Id));
         _lastClipboardIdMap = null;
     }
@@ -1749,7 +2059,7 @@ public partial class WorldEditorWindow : Window
             }
         }
 
-        // Al cerrar el editor intentamos tambiÃ¯Â¿Â½n cerrar Docker Desktop.
+        // Al cerrar el editor intentamos tambi├â┬»├é┬┐├é┬¢n cerrar Docker Desktop.
         try
         {
             DockerShutdownHelper.TryShutdownDockerDesktop();
@@ -1836,6 +2146,7 @@ public partial class WorldEditorWindow : Window
     }
 
 }
+
 
 
 

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Windows;
@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Diagnostics;
 using System.Windows.Navigation;
 using System.Windows.Documents;
+using System.Windows.Media;
 using Microsoft.Win32;
 using XiloAdventures.Engine;
 using XiloAdventures.Engine.Models;
@@ -172,7 +173,7 @@ public partial class StartupWindow : Window
         GameState state;
         try
         {
-            world = WorldLoader.LoadWorldModel(worldPath);
+            world = WorldLoader.LoadWorldModel(worldPath, null, () => PromptForEncryptionKey("Introduce la clave usada para cifrar este mundo:"));
             Parser.SetWorldDictionary(world.Game.ParserDictionaryJson);
             state = WorldLoader.CreateInitialState(world);
         }
@@ -314,7 +315,7 @@ public partial class StartupWindow : Window
                 {
                     try
                     {
-                        var candidate = WorldLoader.LoadWorldModel(f);
+                        var candidate = WorldLoader.LoadWorldModel(f, null, () => PromptForEncryptionKey("Introduce la clave usada para cifrar este mundo:"));
                         if (candidate.Game.Id == save.WorldId)
                         {
                             world = candidate;
@@ -432,8 +433,10 @@ public partial class StartupWindow : Window
             }
         }
 
-        // Si worldPath es null o el fichero no existe, el editor crearÃƒÂ¡ un mundo nuevo
+        // Si worldPath es null o el fichero no existe, el editor creará un mundo nuevo
         var editor = new WorldEditorWindow(worldPath);
+        if (editor.IsCanceled)
+            return;
         editor.Owner = this;
         Hide();
         editor.ShowDialog();
@@ -518,7 +521,71 @@ public partial class StartupWindow : Window
         LoadingOverlay.Visibility = Visibility.Collapsed;
     }
 
+    private string? PromptForEncryptionKey(string message)
+    {
+        var dialog = new Window
+        {
+            Title = "Clave de cifrado",
+            Owner = this,
+            Width = 420,
+            Height = 180,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ResizeMode = ResizeMode.NoResize,
+            Background = new SolidColorBrush(Color.FromRgb(34, 34, 34)),
+            Foreground = Brushes.White,
+            WindowStyle = WindowStyle.ToolWindow,
+            ShowInTaskbar = false
+        };
+
+        var grid = new Grid { Margin = new Thickness(16) };
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        var msg = new TextBlock
+        {
+            Text = message,
+            TextWrapping = TextWrapping.Wrap
+        };
+        Grid.SetRow(msg, 0);
+
+        var pb = new PasswordBox
+        {
+            Margin = new Thickness(0, 8, 0, 0)
+        };
+        Grid.SetRow(pb, 1);
+
+        var btnPanel = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 12, 0, 0)
+        };
+        var ok = new Button { Content = "Aceptar", Width = 90, Margin = new Thickness(0, 0, 8, 0) };
+        var cancel = new Button { Content = "Cancelar", Width = 90 };
+        ok.Click += (_, _) => { dialog.DialogResult = true; dialog.Close(); };
+        cancel.Click += (_, _) => { dialog.DialogResult = false; dialog.Close(); };
+        btnPanel.Children.Add(ok);
+        btnPanel.Children.Add(cancel);
+        Grid.SetRow(btnPanel, 2);
+
+        grid.Children.Add(msg);
+        grid.Children.Add(pb);
+        grid.Children.Add(btnPanel);
+
+        dialog.Content = grid;
+        var result = dialog.ShowDialog();
+        if (result == true)
+        {
+            return pb.Password.Trim();
+        }
+
+        return null;
+    }
+
 }
+
+
 
 
 

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 
@@ -57,6 +57,9 @@ public class GameInfo
 
     /// <summary>Diccionario de sinónimos por mundo para el parser (JSON).</summary>
     public string? ParserDictionaryJson { get; set; }
+
+    /// <summary>Clave de cifrado personalizada (8 o 32 caracteres). Null = clave por defecto. Cadena vacía = sin cifrar.</summary>
+    public string? EncryptionKey { get; set; }
 }
 
 public class Room
@@ -290,3 +293,6 @@ public class MapPosition
     public double X { get; set; }
     public double Y { get; set; }
 }
+
+
+

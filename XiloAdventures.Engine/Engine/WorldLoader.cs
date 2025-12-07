@@ -17,9 +17,11 @@ public static class WorldLoader
         PropertyNameCaseInsensitive = true
     };
 
-    public static WorldModel LoadWorldModel(string path)
+    private static bool TryParseWorldFromText(string text, out WorldModel? world)
     {
-        var text = CryptoUtil.DecryptFromFile(path);
+        world = null;
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
 
         string json;
         if (!TryDecodeZippedJson(text, out json))
@@ -28,7 +30,62 @@ public static class WorldLoader
             json = text;
         }
 
-        var world = JsonSerializer.Deserialize<WorldModel>(json, Options) ?? new WorldModel();
+        try
+        {
+            world = JsonSerializer.Deserialize<WorldModel>(json, Options);
+            return world != null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public static WorldModel LoadWorldModel(string path, string? encryptionKey = null, Func<string?>? promptForKey = null)
+    {
+        // 1) Probar lectura directa (mundo sin cifrar)
+        var rawText = File.ReadAllText(path, Encoding.UTF8);
+        if (TryParseWorldFromText(rawText, out var parsedWorld))
+            return NormalizeWorld(parsedWorld);
+
+        // 2) Probar con la clave proporcionada (o por defecto si es null)
+        try
+        {
+            var decrypted = CryptoUtil.DecryptFromFile(path, encryptionKey, throwOnError: true);
+            if (TryParseWorldFromText(decrypted, out parsedWorld))
+                return NormalizeWorld(parsedWorld);
+        }
+        catch
+        {
+            // seguir abajo para pedir clave si procede
+        }
+
+        // 3) Pedir clave al usuario si hay callback
+        if (promptForKey != null)
+        {
+            var key = promptForKey();
+            if (key is null)
+                throw new InvalidDataException("No se proporciono ninguna clave.");
+
+            key = key.Trim();
+
+            if (key.Length == 0)
+            {
+                // sin cifrar: ya probamos lectura directa; si estamos aqui es que fallo
+                throw new InvalidDataException("Contenido del mundo no valido.");
+            }
+
+            var retry = CryptoUtil.DecryptFromFile(path, key, throwOnError: true);
+            if (TryParseWorldFromText(retry, out parsedWorld))
+                return NormalizeWorld(parsedWorld);
+        }
+
+        throw new InvalidDataException("No se pudo leer el mundo (clave incorrecta o fichero corrupto).");
+    }
+
+    private static WorldModel NormalizeWorld(WorldModel? world)
+    {
+        world ??= new WorldModel();
 
         // Asegurar listas inicializadas
         world.Rooms ??= new List<Room>();
@@ -174,7 +231,15 @@ public static class WorldLoader
         var compressedBytes = ms.ToArray();
         var base64 = Convert.ToBase64String(compressedBytes);
 
-        CryptoUtil.EncryptToFile(path, base64, "xaw");
+        var key = world.Game?.EncryptionKey?.Trim();
+        if (!string.IsNullOrEmpty(key))
+        {
+            var length = Encoding.UTF8.GetByteCount(key);
+            if (length != 8 && length != 32)
+                throw new ArgumentException("La clave de cifrado debe ser de 8 caracteres.");
+        }
+        var encrypt = !(key != null && key.Length == 0);
+        CryptoUtil.EncryptToFile(path, base64, "xaw", key, encryptIfEmpty: encrypt);
     }
 
 

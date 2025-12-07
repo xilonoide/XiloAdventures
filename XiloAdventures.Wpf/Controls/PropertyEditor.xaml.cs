@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System;
 using System.IO;
 using System.ComponentModel;
@@ -17,9 +17,12 @@ namespace XiloAdventures.Wpf.Controls;
 
 public partial class PropertyEditor : UserControl
 {
+    private PasswordBox? _encryptionPasswordBox;
     private object? _currentObject;
 
     public event Action<object?, string>? PropertyEdited;
+
+    public PasswordBox? EncryptionPasswordBox => _encryptionPasswordBox;
 
     public Func<IEnumerable<Room>>? GetRooms { get; set; }
 
@@ -32,6 +35,7 @@ public partial class PropertyEditor : UserControl
     public void SetObject(object? obj)
     {
         _currentObject = obj;
+        _encryptionPasswordBox = null;
         RootPanel.Children.Clear();
 
         if (obj == null)
@@ -343,8 +347,8 @@ public partial class PropertyEditor : UserControl
                                 if (fileInfo.Length > MaxAudioBytes)
                                 {
                                     {
-                                    var msg = $"El archivo de mÃºsica es demasiado grande ({fileInfo.Length / (1024 * 1024)} MB).\n" +
-                                              "El tamaÃ±o mÃ¡ximo permitido es de 20MB.";
+                                    var msg = $"El archivo de mÃƒÂºsica es demasiado grande ({fileInfo.Length / (1024 * 1024)} MB).\n" +
+                                              "El tamaÃƒÂ±o mÃƒÂ¡ximo permitido es de 20MB.";
                                     new AlertWindow(msg, "Archivo demasiado grande")
                                     {
                                         Owner = Window.GetWindow(this)
@@ -377,7 +381,7 @@ public partial class PropertyEditor : UserControl
                 }
 
 
-// ImageId de Room: textbox + botÃ³n ... para imagen de sala
+// ImageId de Room: textbox + botÃƒÂ³n ... para imagen de sala
                 else if (prop.Name == "ImageId" && prop.PropertyType == typeof(string))
                 {
                     var valueObj = prop.GetValue(obj);
@@ -428,13 +432,13 @@ public partial class PropertyEditor : UserControl
 
                             var dlg = new OpenFileDialog
                             {
-                                Filter = "ImÃ¡genes (*.png;*.jpg;*.jpeg)|*.png;*.jpg;*.jpeg|Todos los archivos (*.*)|*.*",
+                                Filter = "ImÃƒÂ¡genes (*.png;*.jpg;*.jpeg)|*.png;*.jpg;*.jpeg|Todos los archivos (*.*)|*.*",
                                 InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)
                             };
 
                             if (dlg.ShowDialog() == true)
                             {
-                                // Guardamos el nombre de archivo (con extensiÃ³n) y la imagen en Base64 dentro del mundo
+                                // Guardamos el nombre de archivo (con extensiÃƒÂ³n) y la imagen en Base64 dentro del mundo
                                 var fileName = Path.GetFileName(dlg.FileName);
                                 var bytes = File.ReadAllBytes(dlg.FileName);
                                 var base64 = Convert.ToBase64String(bytes);
@@ -459,11 +463,11 @@ public partial class PropertyEditor : UserControl
                 }
 
                 
-                // MusicId de Room: textbox + botÃ³n ... para mÃºsica de sala
+                // MusicId de Room: textbox + botón ... para música de sala
                 else if (prop.Name == "MusicId" && prop.PropertyType == typeof(string))
                 {
                     var valueObj = prop.GetValue(obj);
-                    string text = Convert.ToString(valueObj) ?? string.Empty;
+                    var text = Convert.ToString(valueObj) ?? string.Empty;
 
                     var panel = new Grid
                     {
@@ -520,14 +524,12 @@ public partial class PropertyEditor : UserControl
 
                                 if (fileInfo.Length > MaxAudioBytes)
                                 {
-                                    {
-                                    var msg = $"El archivo de mÃºsica es demasiado grande ({fileInfo.Length / (1024 * 1024)} MB).\n" +
-                                              "El tamaÃ±o mÃ¡ximo permitido es de 20MB.";
+                                    var msg = $"El archivo de musica es demasiado grande ({fileInfo.Length / (1024 * 1024)} MB).\\n" +
+                                              "El tamano maximo permitido es de 20MB.";
                                     new AlertWindow(msg, "Archivo demasiado grande")
                                     {
                                         Owner = Window.GetWindow(this)
                                     }.ShowDialog();
-                                };
                                     return;
                                 }
 
@@ -553,8 +555,52 @@ public partial class PropertyEditor : UserControl
                     panel.Children.Add(btn);
                     editor = panel;
                 }
+                else if (prop.PropertyType == typeof(string) &&
+                         obj is GameInfo &&
+                         string.Equals(prop.Name, "EncryptionKey", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Clave de cifrado: se muestra como password
+                    var valueObj = prop.GetValue(obj);
+                    var text = Convert.ToString(valueObj) ?? string.Empty;
 
+                    var pb = new PasswordBox
+                    {
+                        Password = text,
+                        Margin = new Thickness(0, 2, 0, 0)
+                    };
+                    _encryptionPasswordBox = pb;
 
+                    pb.LostFocus += (_, _) =>
+                    {
+                        try
+                        {
+                            if (_currentObject is not { } target) return;
+
+                            var trimmed = (pb.Password ?? string.Empty).Trim();
+                            if (!string.IsNullOrEmpty(trimmed))
+                            {
+                                var length = Encoding.UTF8.GetByteCount(trimmed);
+                                if (length != 8 && length != 32)
+                                {
+                                    new AlertWindow("La clave de cifrado debe ser de 8 caracteres", "Clave invalida")
+                                    {
+                                        Owner = Window.GetWindow(this)
+                                    }.ShowDialog();
+                                    return;
+                                }
+                            }
+
+                            prop.SetValue(target, trimmed);
+                            PropertyEdited?.Invoke(target, prop.Name);
+                        }
+                        catch
+                        {
+                            // Ignorar errores de conversion
+                        }
+                    };
+
+                    editor = pb;
+                }
                 else
                 {
                     // Texto normal / listas
@@ -583,6 +629,7 @@ public partial class PropertyEditor : UserControl
                         VerticalScrollBarVisibility = isMultilineDescription ? ScrollBarVisibility.Auto : ScrollBarVisibility.Hidden,
                         MinHeight = isMultilineDescription ? 80 : 0
                     };
+                    var originalText = text;
                     tb.LostFocus += (_, _) =>
                     {
                         try
@@ -590,6 +637,27 @@ public partial class PropertyEditor : UserControl
                             if (_currentObject is not { } target) return;
 
                             object? value = tb.Text;
+                            if (prop.PropertyType == typeof(string) &&
+                                obj is GameInfo &&
+                                string.Equals(prop.Name, "EncryptionKey", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var trimmed = (tb.Text ?? string.Empty).Trim();
+                                if (!string.IsNullOrEmpty(trimmed))
+                                {
+                                    var length = Encoding.UTF8.GetByteCount(trimmed);
+                                    if (length != 8 && length != 32)
+                                    {
+                                        new AlertWindow("La clave de cifrado debe ser de 8 caracteres", "Clave invalida")
+                                        {
+                                            Owner = Window.GetWindow(this)
+                                        }.ShowDialog();
+                                        tb.Text = originalText;
+                                        return;
+                                    }
+                                }
+
+                                value = trimmed;
+                            }
                             if (prop.PropertyType == typeof(int))
                             {
                                 if (int.TryParse(tb.Text, out var i)) value = i;
@@ -600,7 +668,7 @@ public partial class PropertyEditor : UserControl
                             }
                             else if (prop.PropertyType == typeof(List<string>))
                             {
-                                var parts = tb.Text.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
+                                var parts = (tb.Text ?? string.Empty).Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
                                 var list = new List<string>();
                                 foreach (var p in parts)
                                 {
@@ -616,10 +684,9 @@ public partial class PropertyEditor : UserControl
                         }
                         catch
                         {
-                            // Ignorar errores de conversiÃ³n
+                            // Ignorar errores de conversion
                         }
                     };
-
                     // Para propiedades de texto (como Name), actualizamos en vivo al teclear
                     if (prop.PropertyType == typeof(string))
                     {
@@ -640,10 +707,10 @@ public partial class PropertyEditor : UserControl
 
                     editor = tb;
                 }
-            }
 
             RootPanel.Children.Add(editor);
         }
+    }
     }
 
     private static readonly Dictionary<string, string> DisplayNameMap = new(StringComparer.OrdinalIgnoreCase)
@@ -657,6 +724,7 @@ public partial class PropertyEditor : UserControl
         ["MusicBase64"] = "Musica (Base64)",
         ["WorldMusicId"] = "Musica global (id)",
         ["WorldMusicBase64"] = "Musica global (Base64)",
+        ["EncryptionKey"] = "Clave de cifrado",
         ["ImageBase64"] = "Imagen (Base64)",
         ["ImageId"] = "Imagen (id)",
         ["RoomId"] = "Sala",
@@ -704,6 +772,7 @@ public partial class PropertyEditor : UserControl
         ["GameInfo.StartWeather"] = "Clima inicial",
         ["GameInfo.WorldMusicId"] = "Musica global",
         ["GameInfo.WorldMusicBase64"] = "Musica global (Base64)",
+        ["GameInfo.EncryptionKey"] = "Clave de cifrado",
 
         // Sala
         ["Room.Name"] = "Nombre",
@@ -809,13 +878,13 @@ public partial class PropertyEditor : UserControl
 
         var message =
             "Diccionario del parser (por mundo):\n\n" +
-            "â€¢ Usa JSON para definir sinÃ³nimos y palabras que el parser debe reconocer solo en este mundo.\n" +
-            "â€¢ Secciones habituales:\n" +
-            "   - verbs: verbo base -> lista de sinÃ³nimos.\n" +
-            "   - nouns: sustantivo base -> lista de sinÃ³nimos.\n" +
-            "   - adjectives: adjetivo base -> lista de sinÃ³nimos.\n" +
-            "   - stopwords: palabras a ignorar (artÃ­culos, preposiciones...).\n" +
-            "â€¢ El verbo/sustantivo/adjetivo base es el que usas en las reglas y textos; los sinÃ³nimos se mapearÃ¡n a Ã©l.\n\n" +
+            "Ã¢â‚¬Â¢ Usa JSON para definir sinÃƒÂ³nimos y palabras que el parser debe reconocer solo en este mundo.\n" +
+            "Ã¢â‚¬Â¢ Secciones habituales:\n" +
+            "   - verbs: verbo base -> lista de sinÃƒÂ³nimos.\n" +
+            "   - nouns: sustantivo base -> lista de sinÃƒÂ³nimos.\n" +
+            "   - adjectives: adjetivo base -> lista de sinÃƒÂ³nimos.\n" +
+            "   - stopwords: palabras a ignorar (artÃƒÂ­culos, preposiciones...).\n" +
+            "Ã¢â‚¬Â¢ El verbo/sustantivo/adjetivo base es el que usas en las reglas y textos; los sinÃƒÂ³nimos se mapearÃƒÂ¡n a ÃƒÂ©l.\n\n" +
             "Ejemplo completo:\n" + exampleJson;
 
         var owner = Window.GetWindow(this);
@@ -825,3 +894,7 @@ public partial class PropertyEditor : UserControl
         }.ShowDialog();
     }
 }
+
+
+
+
