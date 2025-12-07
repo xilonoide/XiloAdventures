@@ -279,14 +279,13 @@ public partial class MainWindow : Window
         {
             message =
                 "No se ha podido contactar con el modelo IA en http://localhost:11434.\n\n" +
-                "He intentado arrancar el servicio usando 'docker compose up' con el fichero docker-compose.yml.\n" +
                 "Asegúrate de que Docker Desktop está instalado y ejecutándose y vuelve a probar el comando.";
         }
         else
         {
             message =
                 "No se ha podido contactar con el modelo IA en http://localhost:11434.\n\n" +
-                "Debes tener Docker Desktop instalado y en ejecución, y el comando 'docker compose' disponible, " +
+                "Debes tener Docker Desktop instalado y en ejecución" +
                 "para poder usar esta opción.";
         }
 

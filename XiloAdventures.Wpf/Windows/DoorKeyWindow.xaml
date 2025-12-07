@@ -21,7 +21,7 @@
         </StackPanel>
 
         <StackPanel Grid.Row="1" Margin="0,0,0,8">
-            <TextBlock Text="Objeto que serï¿½ la llave:" FontWeight="Bold" />
+            <TextBlock Text="Objeto que será la llave:" FontWeight="Bold" />
             <ComboBox x:Name="ObjectCombo"
                       Margin="0,2,0,0"
                       MinWidth="240"
@@ -29,18 +29,22 @@
                       SelectedValuePath="Id" />
         </StackPanel>
 
-        <StackPanel Grid.Row="2"
-                    Orientation="Horizontal"
-                    HorizontalAlignment="Right">
-            <Button Content="Aceptar"
-                    Width="80"
-                    Margin="0,8,8,0"
+        <Grid Grid.Row="2"
+              Margin="0,8,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Button Grid.Column="0"
+                    Style="{StaticResource CommandButtonStyle}"
+                    Content="Aceptar"
                     IsDefault="True"
                     Click="Ok_Click" />
-            <Button Content="Cancelar"
-                    Width="80"
-                    Margin="0,8,0,0"
+            <Button Grid.Column="2"
+                    Style="{StaticResource CommandButtonStyle}"
+                    Content="Cancelar"
                     IsCancel="True" />
-        </StackPanel>
+        </Grid>
     </Grid>
 </Window>

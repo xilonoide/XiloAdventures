@@ -188,7 +188,7 @@ public static class DockerService
             return;
         }
 
-        progress?.Report("Descargando imagen de Ollama (la primera vez tarda un poco)...");
+        progress?.Report("Descargando imagen de Ollama (la primera vez tarda hasta 15')...");
         await RunDockerCheckedAsync("pull ollama/ollama:latest", cancellationToken).ConfigureAwait(false);
 
         progress?.Report("Creando contenedor de Ollama...");
@@ -201,7 +201,7 @@ public static class DockerService
     private static async Task EnsureLlamaModelAsync(IProgress<string>? progress, CancellationToken cancellationToken)
     {
         // Siempre intentamos hacer pull; si ya está descargado será rápido.
-        progress?.Report("Comprobando modelo llama3 dentro del contenedor de Ollama...");
+        progress?.Report("Descargando modelo llama3 dentro del contenedor de Ollama (esto tarda hasta 15' o más)...");
         await RunDockerCheckedAsync($"exec {OllamaContainerName} ollama pull llama3", cancellationToken).ConfigureAwait(false);
     }
 
@@ -223,7 +223,7 @@ public static class DockerService
             return;
         }
 
-        progress?.Report("Descargando imagen de Coqui TTS (la primera vez tarda un poco)...");
+        progress?.Report("Descargando imagen de Coqui TTS (la primera vez tarda hasta 15')...");
         await RunDockerCheckedAsync("pull ghcr.io/idiap/coqui-tts-cpu:latest", cancellationToken).ConfigureAwait(false);
 
         progress?.Report("Creando contenedor de Coqui TTS...");

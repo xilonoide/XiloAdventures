@@ -29,8 +29,8 @@ public partial class StartupWindow : Window
     {
         ReloadWorlds();
 
-        // Seleccionar automÃƒÂ¡ticamente el primer mundo disponible al iniciar,
-        // si hay alguno y nada estÃƒÂ¡ seleccionado todavÃƒÂ­a.
+        // Seleccionar automáticamente el primer mundo disponible al iniciar,
+        // si hay alguno y nada está seleccionado todavía.
         if (WorldsList.Items.Count > 0 && WorldsList.SelectedIndex < 0)
         {
             WorldsList.SelectedIndex = 0;
@@ -64,7 +64,7 @@ public partial class StartupWindow : Window
 
         private void LlmInfoIcon_MouseLeftButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
-        var message = "Si activas la IA, el juego intentara entender mejor comandos complejos o mal escritos. Ademas, si subes el volumen de voz en las opciones, oiras las descripciones de las salas.\n\nPara usarla debes tener Docker Desktop instalado y funcionando. La primera vez que se use se descargaran algunas cosas y puede tardar unos minutos. Despues funcionara muy rapido.";
+        var message = "Si activas la IA, el juego intentará entender mejor comandos complejos o mal escritos. Además, si subes el volumen de voz en las opciones, oirás las descripciones de las salas.\n\nPara usarla debes tener Docker Desktop instalado y funcionando. La primera vez que se use se descargarán algunos componentes y puede tardar unos minutos. Después funcionará muy rápido.";
 
         var link = new TextBlock
         {
@@ -188,7 +188,7 @@ public partial class StartupWindow : Window
         // Respetar el check de sonido global
         uiSettings.SoundEnabled = SoundCheckBox.IsChecked == true;
 
-        // Respetar tambiÃƒÂ©n el check de IA global de la pantalla inicial
+        // Respetar también el check de IA global de la pantalla inicial
         if (LlmCheckBox.IsChecked == true)
         {
             uiSettings.UseLlmForUnknownCommands = true;
@@ -208,7 +208,7 @@ public partial class StartupWindow : Window
         };
         soundManager.RefreshVolumes();
 
-        // Si la IA estÃƒÂ¡ activada para este mundo, preparar los contenedores Docker (IA + voz)
+        // Si la IA está activada para este mundo, preparar los contenedores Docker (IA + voz)
         if (uiSettings.UseLlmForUnknownCommands)
         {
             var dockerWindow = new DockerProgressWindow
@@ -229,7 +229,7 @@ public partial class StartupWindow : Window
 
                 new AlertWindow(
                     "No se han podido iniciar los servicios de IA y voz.\n\n" +
-                    "Comprueba que Docker Desktop estÃƒÂ¡ instalado y en ejecuciÃƒÂ³n.",
+                    "Comprueba que Docker Desktop está instalado y en ejecución.",
                     "Error")
                 {
                     Owner = this
@@ -238,7 +238,7 @@ public partial class StartupWindow : Window
         }
 
         // Precargar la voz de la sala inicial antes de mostrar la partida,
-        // para que se escuche nada mÃƒÂ¡s entrar.
+        // para que se escuche nada más entrar.
         if (uiSettings.SoundEnabled && uiSettings.VoiceVolume > 0)
         {
             try

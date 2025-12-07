@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Xilo Adventures"
-        Height="800" Width="1200"
+        Height="800" Width="1210"
         WindowStartupLocation="CenterScreen"
         Background="#202020"
         Foreground="White"
@@ -99,24 +99,24 @@
                         <MenuItem Header="Archivo" Style="{StaticResource TopMenuItemStyle}">
                 <MenuItem Header="Guardar partida..." Click="SaveMenu_Click" Style="{StaticResource SubMenuItemStyle}">
                     <MenuItem.Icon>
-                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE105;" FontSize="18" Margin="2"/>
+                        <TextBlock FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Text="&#xE105;" FontSize="18" Margin="2"/>
                     </MenuItem.Icon>
                 </MenuItem>
                 <MenuItem Header="Cargar partida..." Click="LoadMenu_Click" Style="{StaticResource SubMenuItemStyle}">
                     <MenuItem.Icon>
-                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8E5;" FontSize="18" Margin="2"/>
+                        <TextBlock FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Text="&#xE8E5;" FontSize="18" Margin="2"/>
                     </MenuItem.Icon>
                 </MenuItem>
                 <Separator/>
                 <MenuItem Header="Opciones..." Click="OptionsMenu_Click" Style="{StaticResource SubMenuItemStyle}">
                     <MenuItem.Icon>
-                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE115;" FontSize="18" Margin="2"/>
+                        <TextBlock FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Text="&#xE115;" FontSize="18" Margin="2"/>
                     </MenuItem.Icon>
                 </MenuItem>
                 <Separator/>
                 <MenuItem Header="Salir" Click="ExitMenu_Click" Style="{StaticResource SubMenuItemStyle}">
                     <MenuItem.Icon>
-                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE7E8;" FontSize="18" Margin="2"/>
+                        <TextBlock FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Text="&#xE7E8;" FontSize="18" Margin="2"/>
                     </MenuItem.Icon>
                 </MenuItem>
             </MenuItem>
@@ -124,7 +124,7 @@
             <MenuItem Header="Ayuda" Style="{StaticResource TopMenuItemStyle}">
                 <MenuItem Header="Acerca de..." Click="AboutMenu_Click" Style="{StaticResource SubMenuItemStyle}">
                     <MenuItem.Icon>
-                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE11B;" FontSize="18" Margin="2"/>
+                        <TextBlock FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Text="&#xE11B;" FontSize="18" Margin="2"/>
                     </MenuItem.Icon>
                 </MenuItem>
             </MenuItem>
@@ -137,7 +137,7 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <!-- Tï¿½tulo de sala e imagen -->
+            <!-- Título de sala e imagen -->
             <StackPanel Grid.Row="0" Margin="0,0,0,8">
                   <TextBlock x:Name="RoomTitleText" FontSize="18" 
                              FontWeight="Bold"

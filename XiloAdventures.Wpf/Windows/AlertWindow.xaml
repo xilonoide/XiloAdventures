@@ -38,30 +38,28 @@
                 </StackPanel>
             </ScrollViewer>
 
-            <StackPanel Grid.Row="1"
-                        Orientation="Horizontal"
-                        HorizontalAlignment="Right">
+            <Grid Grid.Row="1"
+                  Margin="0,12,0,0"
+                  Grid.IsSharedSizeScope="True">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="PopupButton"/>
+                    <ColumnDefinition Width="8"/>
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="PopupButton"/>
+                </Grid.ColumnDefinitions>
                 <Button x:Name="OkButton"
+                        Grid.Column="0"
+                        Style="{StaticResource CommandButtonStyle}"
                         Content="Aceptar"
-                        Padding="15,5"
-                        Margin="0,0,8,0"
                         IsDefault="True"
-                        MinWidth="80"
-                        Background="#3C3C3C"
-                        Foreground="#F5F5F5"
-                        BorderBrush="#666666"
-                        Click="OkButton_Click" />
+                        Click="OkButton_Click"/>
                 <Button x:Name="CancelButton"
+                        Grid.Column="2"
+                        Style="{StaticResource CommandButtonStyle}"
                         Content="Cancelar"
-                        Padding="15,5"
-                        MinWidth="80"
                         Visibility="Collapsed"
-                        Background="#3C3C3C"
-                        Foreground="#F5F5F5"
-                        BorderBrush="#666666"
                         IsCancel="True"
-                        Click="CancelButton_Click" />
-            </StackPanel>
+                        Click="CancelButton_Click"/>
+            </Grid>
         </Grid>
     </Border>
 </Window>

@@ -43,19 +43,23 @@
                       DisplayMemberPath="Name"/>
         </Grid>
 
-        <StackPanel Grid.Row="1"
-                    Orientation="Horizontal"
-                    HorizontalAlignment="Right"
-                    Margin="0,16,0,0">
-            <Button Content="Aceptar"
-                    Width="80"
-                    Margin="0,0,8,0"
+        <Grid Grid.Row="1"
+              Margin="0,16,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Button Grid.Column="0"
+                    Style="{StaticResource CommandButtonStyle}"
+                    Content="Aceptar"
                     IsDefault="True"
                     Click="OkButton_Click"/>
-            <Button Content="Cancelar"
-                    Width="80"
+            <Button Grid.Column="2"
+                    Style="{StaticResource CommandButtonStyle}"
+                    Content="Cancelar"
                     IsCancel="True"
                     Click="CancelButton_Click"/>
-        </StackPanel>
+        </Grid>
     </Grid>
 </Window>

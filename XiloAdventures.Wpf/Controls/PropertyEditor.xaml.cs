@@ -346,14 +346,12 @@ public partial class PropertyEditor : UserControl
 
                                 if (fileInfo.Length > MaxAudioBytes)
                                 {
-                                    {
-                                    var msg = $"El archivo de mÃƒÂºsica es demasiado grande ({fileInfo.Length / (1024 * 1024)} MB).\n" +
-                                              "El tamaÃƒÂ±o mÃƒÂ¡ximo permitido es de 20MB.";
+                                    var msg = $"El archivo de música es demasiado grande ({fileInfo.Length / (1024 * 1024)} MB).\n" +
+                                              "El tamaño máximo permitido es de 20MB.";
                                     new AlertWindow(msg, "Archivo demasiado grande")
                                     {
                                         Owner = Window.GetWindow(this)
                                     }.ShowDialog();
-                                };
                                     return;
                                 }
 
@@ -381,7 +379,7 @@ public partial class PropertyEditor : UserControl
                 }
 
 
-// ImageId de Room: textbox + botÃƒÂ³n ... para imagen de sala
+                // ImageId de Room: textbox + botón ... para imagen de sala
                 else if (prop.Name == "ImageId" && prop.PropertyType == typeof(string))
                 {
                     var valueObj = prop.GetValue(obj);
@@ -432,13 +430,13 @@ public partial class PropertyEditor : UserControl
 
                             var dlg = new OpenFileDialog
                             {
-                                Filter = "ImÃƒÂ¡genes (*.png;*.jpg;*.jpeg)|*.png;*.jpg;*.jpeg|Todos los archivos (*.*)|*.*",
+                                Filter = "Imágenes (*.png;*.jpg;*.jpeg)|*.png;*.jpg;*.jpeg|Todos los archivos (*.*)|*.*",
                                 InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)
                             };
 
                             if (dlg.ShowDialog() == true)
                             {
-                                // Guardamos el nombre de archivo (con extensiÃƒÂ³n) y la imagen en Base64 dentro del mundo
+                                // Guardamos el nombre de archivo (con extensión) y la imagen en Base64 dentro del mundo
                                 var fileName = Path.GetFileName(dlg.FileName);
                                 var bytes = File.ReadAllBytes(dlg.FileName);
                                 var base64 = Convert.ToBase64String(bytes);
@@ -524,8 +522,8 @@ public partial class PropertyEditor : UserControl
 
                                 if (fileInfo.Length > MaxAudioBytes)
                                 {
-                                    var msg = $"El archivo de musica es demasiado grande ({fileInfo.Length / (1024 * 1024)} MB).\\n" +
-                                              "El tamano maximo permitido es de 20MB.";
+                                    var msg = $"El archivo de música es demasiado grande ({fileInfo.Length / (1024 * 1024)} MB).\n" +
+                                              "El tamaño máximo permitido es de 20MB.";
                                     new AlertWindow(msg, "Archivo demasiado grande")
                                     {
                                         Owner = Window.GetWindow(this)
@@ -582,7 +580,7 @@ public partial class PropertyEditor : UserControl
                                 var length = Encoding.UTF8.GetByteCount(trimmed);
                                 if (length != 8 && length != 32)
                                 {
-                                    new AlertWindow("La clave de cifrado debe ser de 8 caracteres", "Clave invalida")
+                                    new AlertWindow("La clave de cifrado debe ser de 8 caracteres", "Clave inválida")
                                     {
                                         Owner = Window.GetWindow(this)
                                     }.ShowDialog();
@@ -647,7 +645,7 @@ public partial class PropertyEditor : UserControl
                                     var length = Encoding.UTF8.GetByteCount(trimmed);
                                     if (length != 8 && length != 32)
                                     {
-                                        new AlertWindow("La clave de cifrado debe ser de 8 caracteres", "Clave invalida")
+                                        new AlertWindow("La clave de cifrado debe ser de 8 caracteres", "Clave inválida")
                                         {
                                             Owner = Window.GetWindow(this)
                                         }.ShowDialog();
@@ -718,12 +716,12 @@ public partial class PropertyEditor : UserControl
         // Genericos
         ["Id"] = "Id",
         ["Name"] = "Nombre",
-        ["Description"] = "Descripcion",
-        ["Title"] = "Titulo",
-        ["MusicId"] = "Musica",
-        ["MusicBase64"] = "Musica (Base64)",
-        ["WorldMusicId"] = "Musica global (id)",
-        ["WorldMusicBase64"] = "Musica global (Base64)",
+        ["Description"] = "Descripción",
+        ["Title"] = "Título",
+        ["MusicId"] = "Música",
+        ["MusicBase64"] = "Música (Base64)",
+        ["WorldMusicId"] = "Música global (id)",
+        ["WorldMusicBase64"] = "Música global (Base64)",
         ["EncryptionKey"] = "Clave de cifrado",
         ["ImageBase64"] = "Imagen (Base64)",
         ["ImageId"] = "Imagen (id)",
@@ -731,7 +729,7 @@ public partial class PropertyEditor : UserControl
         ["RoomIdA"] = "Sala A",
         ["RoomIdB"] = "Sala B",
         ["TargetRoomId"] = "Sala destino",
-        ["Direction"] = "Direccion",
+        ["Direction"] = "Dirección",
         ["IsIlluminated"] = "Iluminada",
         ["IsInterior"] = "Interior",
         ["KeyId"] = "Llave",
@@ -742,8 +740,8 @@ public partial class PropertyEditor : UserControl
         ["Tags"] = "Etiquetas",
         ["StartHour"] = "Hora inicial",
         ["StartWeather"] = "Clima inicial",
-        ["RequiredQuestId"] = "Mision requerida",
-        ["RequiredQuestStatus"] = "Estado de mision requerido",
+        ["RequiredQuestId"] = "Misión requerida",
+        ["RequiredQuestStatus"] = "Estado de misión requerido",
         ["Visible"] = "Visible",
         ["CanTake"] = "Se puede coger",
         ["IsContainer"] = "Es contenedor",
@@ -751,38 +749,38 @@ public partial class PropertyEditor : UserControl
         ["BaseValue"] = "Valor base",
         ["Quality"] = "Calidad",
         ["InventoryObjectIds"] = "Objetos en inventario",
-        ["Dialogue"] = "Dialogo",
+        ["Dialogue"] = "Diálogo",
         ["Behavior"] = "Comportamiento",
-        ["Stats"] = "Estadisticas",
+        ["Stats"] = "Estadísticas",
         ["Level"] = "Nivel",
         ["Strength"] = "Fuerza",
         ["Dexterity"] = "Destreza",
         ["Intelligence"] = "Inteligencia",
-        ["MaxHealth"] = "Salud maxima",
+        ["MaxHealth"] = "Salud máxima",
         ["CurrentHealth"] = "Salud actual",
         ["Gold"] = "Oro",
         ["Objectives"] = "Objetivos",
 
         // Juego
-        ["GameInfo.Title"] = "Titulo",
+        ["GameInfo.Title"] = "Título",
         ["GameInfo.StartRoomId"] = "Sala inicial",
         ["GameInfo.MinutesPerGameHour"] = "Minutos por hora de juego",
         ["GameInfo.ParserDictionaryJson"] = "Diccionario parser (JSON)",
         ["GameInfo.StartHour"] = "Hora inicial",
         ["GameInfo.StartWeather"] = "Clima inicial",
-        ["GameInfo.WorldMusicId"] = "Musica global",
-        ["GameInfo.WorldMusicBase64"] = "Musica global (Base64)",
+        ["GameInfo.WorldMusicId"] = "Música global",
+        ["GameInfo.WorldMusicBase64"] = "Música global (Base64)",
         ["GameInfo.EncryptionKey"] = "Clave de cifrado",
 
         // Sala
         ["Room.Name"] = "Nombre",
-        ["Room.Description"] = "Descripcion",
+        ["Room.Description"] = "Descripción",
         ["Room.ImageBase64"] = "Imagen (Base64)",
-        ["Room.MusicId"] = "Musica",
-        ["Room.MusicBase64"] = "Musica (Base64)",
+        ["Room.MusicId"] = "Música",
+        ["Room.MusicBase64"] = "Música (Base64)",
         ["Room.ImageId"] = "Imagen (id)",
-        ["Room.RequiredQuestId"] = "Mision requerida",
-        ["Room.RequiredQuestStatus"] = "Estado de mision requerido",
+        ["Room.RequiredQuestId"] = "Misión requerida",
+        ["Room.RequiredQuestStatus"] = "Estado de misión requerido",
         ["Room.Tags"] = "Etiquetas",
 
         // Objeto
@@ -797,25 +795,25 @@ public partial class PropertyEditor : UserControl
 
         // NPC
         ["Npc.RoomId"] = "Sala",
-        ["Npc.Dialogue"] = "Dialogo",
+        ["Npc.Dialogue"] = "Diálogo",
         ["Npc.InventoryObjectIds"] = "Objetos en inventario",
         ["Npc.Behavior"] = "Comportamiento",
         ["Npc.Tags"] = "Etiquetas",
         ["Npc.Visible"] = "Visible",
-        ["Npc.Stats"] = "Estadisticas",
+        ["Npc.Stats"] = "Estadísticas",
 
         // Puerta
         ["Door.RoomIdA"] = "Sala A",
         ["Door.RoomIdB"] = "Sala B",
         ["Door.LockId"] = "Cerradura",
         ["Door.IsLocked"] = "Esta cerrada",
-        ["Door.RequiredQuestId"] = "Mision requerida",
-        ["Door.RequiredQuestStatus"] = "Estado de mision requerido",
+        ["Door.RequiredQuestId"] = "Misión requerida",
+        ["Door.RequiredQuestStatus"] = "Estado de misión requerido",
         ["Door.Tags"] = "Etiquetas",
 
         // Quest
         ["QuestDefinition.Name"] = "Nombre",
-        ["QuestDefinition.Description"] = "Descripcion",
+        ["QuestDefinition.Description"] = "Descripción",
         ["QuestDefinition.StartRoomId"] = "Sala inicial",
         ["QuestDefinition.Objectives"] = "Objetivos",
 
@@ -878,13 +876,13 @@ public partial class PropertyEditor : UserControl
 
         var message =
             "Diccionario del parser (por mundo):\n\n" +
-            "Ã¢â‚¬Â¢ Usa JSON para definir sinÃƒÂ³nimos y palabras que el parser debe reconocer solo en este mundo.\n" +
-            "Ã¢â‚¬Â¢ Secciones habituales:\n" +
-            "   - verbs: verbo base -> lista de sinÃƒÂ³nimos.\n" +
-            "   - nouns: sustantivo base -> lista de sinÃƒÂ³nimos.\n" +
-            "   - adjectives: adjetivo base -> lista de sinÃƒÂ³nimos.\n" +
-            "   - stopwords: palabras a ignorar (artÃƒÂ­culos, preposiciones...).\n" +
-            "Ã¢â‚¬Â¢ El verbo/sustantivo/adjetivo base es el que usas en las reglas y textos; los sinÃƒÂ³nimos se mapearÃƒÂ¡n a ÃƒÂ©l.\n\n" +
+            "• Usa JSON para definir sinónimos y palabras que el parser debe reconocer solo en este mundo.\n" +
+            "• Secciones habituales:\n" +
+            "   - verbs: verbo base -> lista de sinónimos.\n" +
+            "   - nouns: sustantivo base -> lista de sinónimos.\n" +
+            "   - adjectives: adjetivo base -> lista de sinónimos.\n" +
+            "   - stopwords: palabras a ignorar (artículos, preposiciones...).\n" +
+            "• El verbo/sustantivo/adjetivo base es el que usas en las reglas y textos; los sinónimos se mapearán a él.\n\n" +
             "Ejemplo completo:\n" + exampleJson;
 
         var owner = Window.GetWindow(this);
@@ -894,6 +892,7 @@ public partial class PropertyEditor : UserControl
         }.ShowDialog();
     }
 }
+
 
 
 

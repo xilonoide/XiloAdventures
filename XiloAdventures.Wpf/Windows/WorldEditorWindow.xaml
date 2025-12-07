@@ -3,7 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:XiloAdventures.Wpf.Controls"
         Title="Editor de mundos"
-        Height="700" Width="1200"
+        Height="700"
+        Width="1200"
         WindowStartupLocation="CenterOwner"
         WindowState="Maximized"
         Background="#222222"
@@ -13,380 +14,477 @@
     <Window.CommandBindings>
         <CommandBinding Command="ApplicationCommands.Undo"
                         CanExecute="Undo_CanExecute"
-                        Executed="Undo_Executed" />
+                        Executed="Undo_Executed"/>
         <CommandBinding Command="ApplicationCommands.Redo"
                         CanExecute="Redo_CanExecute"
-                        Executed="Redo_Executed" />
+                        Executed="Redo_Executed"/>
         <CommandBinding Command="ApplicationCommands.Cut"
                         CanExecute="CutCopyCommand_CanExecute"
-                        Executed="CutCommand_Executed" />
+                        Executed="CutCommand_Executed"/>
         <CommandBinding Command="ApplicationCommands.Copy"
                         CanExecute="CutCopyCommand_CanExecute"
-                        Executed="CopyCommand_Executed" />
+                        Executed="CopyCommand_Executed"/>
         <CommandBinding Command="ApplicationCommands.Paste"
                         CanExecute="PasteCommand_CanExecute"
-                        Executed="PasteCommand_Executed" />
+                        Executed="PasteCommand_Executed"/>
     </Window.CommandBindings>
 
     <Window.InputBindings>
-        <KeyBinding Command="ApplicationCommands.Undo" Modifiers="Control" Key="Z" />
-        <KeyBinding Command="ApplicationCommands.Redo" Modifiers="Control+Shift" Key="Z" />
-        <KeyBinding Command="ApplicationCommands.Cut" Modifiers="Control" Key="X" />
-        <KeyBinding Command="ApplicationCommands.Copy" Modifiers="Control" Key="C" />
-        <KeyBinding Command="ApplicationCommands.Paste" Modifiers="Control" Key="V" />
+        <KeyBinding Command="ApplicationCommands.Undo"
+                Modifiers="Control"
+                Key="Z"/>
+        <KeyBinding Command="ApplicationCommands.Redo"
+                Modifiers="Control+Shift"
+                Key="Z"/>
+        <KeyBinding Command="ApplicationCommands.Cut"
+                Modifiers="Control"
+                Key="X"/>
+        <KeyBinding Command="ApplicationCommands.Copy"
+                Modifiers="Control"
+                Key="C"/>
+        <KeyBinding Command="ApplicationCommands.Paste"
+                Modifiers="Control"
+                Key="V"/>
     </Window.InputBindings>
 
     <Grid>
         <DockPanel>
-        <DockPanel.Resources>
-            <Style x:Key="CommandButtonStyle" TargetType="Button">
-                <Setter Property="Margin" Value="0,0,8,0"/>
-                <Setter Property="Padding" Value="16,10"/>
-                <Setter Property="Background" Value="#3A3A3A"/>
-                <Setter Property="Foreground" Value="White"/>
-                <Setter Property="BorderBrush" Value="#4A4A4A"/>
-                <Setter Property="BorderThickness" Value="1"/>
-                <Setter Property="Cursor" Value="Hand"/>
-                <Setter Property="HorizontalContentAlignment" Value="Center"/>
-                <Setter Property="VerticalContentAlignment" Value="Center"/>
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="Button">
-                            <Border x:Name="RootBorder"
-                                    Background="{TemplateBinding Background}"
-                                    BorderBrush="{TemplateBinding BorderBrush}"
-                                    BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="4"
-                                    Padding="{TemplateBinding Padding}">
-                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
-                            </Border>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="RootBorder" Property="Background" Value="#4A4A4A"/>
-                                    <Setter TargetName="RootBorder" Property="BorderBrush" Value="#5A5A5A"/>
-                                </Trigger>
-                                <Trigger Property="IsPressed" Value="True">
-                                    <Setter TargetName="RootBorder" Property="Background" Value="#5A5A5A"/>
-                                    <Setter TargetName="RootBorder" Property="BorderBrush" Value="#6A6A6A"/>
-                                </Trigger>
-                                <Trigger Property="IsEnabled" Value="False">
-                                    <Setter TargetName="RootBorder" Property="Background" Value="#2A2A2A"/>
-                                    <Setter Property="Foreground" Value="#777777"/>
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
-        </DockPanel.Resources>
-        <Menu DockPanel.Dock="Top" Background="#303030" Foreground="White">
-            <Menu.Resources>
-                <Style x:Key="TopMenuItemStyle" TargetType="MenuItem">
-                    <Setter Property="Foreground" Value="White"/>
-                    <Setter Property="Background" Value="#303030"/>
-                    <Setter Property="Template">
-                        <Setter.Value>
-                            <ControlTemplate TargetType="MenuItem">
-                                <Grid>
+            <Menu DockPanel.Dock="Top"
+                    Background="#303030"
+                    Foreground="White">
+                <Menu.Resources>
+                    <Style x:Key="TopMenuItemStyle"
+                            TargetType="MenuItem">
+                        <Setter Property="Foreground"
+                                Value="White"/>
+                        <Setter Property="Background"
+                                Value="#303030"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="MenuItem">
+                                    <Grid>
+                                        <Border x:Name="Border"
+                                                Background="{TemplateBinding Background}">
+                                            <ContentPresenter Margin="6,2"
+                                                              ContentSource="Header"
+                                                              RecognizesAccessKey="True"
+                                                              HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center"/>
+                                        </Border>
+                                        <Popup x:Name="Popup"
+                                               Placement="Bottom"
+                                               IsOpen="{TemplateBinding IsSubmenuOpen}"
+                                               AllowsTransparency="True"
+                                               Focusable="False"
+                                               StaysOpen="False">
+                                            <Border Background="#303030"
+                                                    BorderBrush="#303030"
+                                                    BorderThickness="1">
+                                                <StackPanel IsItemsHost="True"/>
+                                            </Border>
+                                        </Popup>
+                                    </Grid>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsHighlighted"
+                                                Value="True">
+                                            <Setter TargetName="Border"
+                                                    Property="Background"
+                                                    Value="#505050"/>
+                                        </Trigger>
+                                        <Trigger Property="IsKeyboardFocused"
+                                                Value="True">
+                                            <Setter TargetName="Border"
+                                                    Property="Background"
+                                                    Value="#505050"/>
+                                        </Trigger>
+                                        <Trigger Property="IsSubmenuOpen"
+                                                Value="True">
+                                            <Setter TargetName="Border"
+                                                    Property="Background"
+                                                    Value="#505050"/>
+                                        </Trigger>
+                                        <Trigger Property="IsEnabled"
+                                                Value="False">
+                                            <Setter Property="Foreground"
+                                                    Value="#888888"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+
+                    <Style x:Key="SubMenuItemStyle"
+                            TargetType="MenuItem">
+                        <Setter Property="Foreground"
+                                Value="White"/>
+                        <Setter Property="Background"
+                                Value="#303030"/>
+                        <Setter Property="Padding"
+                                Value="6,2"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="MenuItem">
                                     <Border x:Name="Border"
                                             Background="{TemplateBinding Background}">
-                                        <ContentPresenter Margin="6,2"
-                                                          ContentSource="Header"
-                                                          RecognizesAccessKey="True"
-                                                          HorizontalAlignment="Center"
-                                                          VerticalAlignment="Center"/>
+                                        <Grid Margin="4,1">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <ContentPresenter Grid.Column="0"
+                                                              ContentSource="Icon"
+                                                              Margin="0,0,6,0"
+                                                              VerticalAlignment="Center"/>
+                                            <ContentPresenter Grid.Column="1"
+                                                              ContentSource="Header"
+                                                              VerticalAlignment="Center"
+                                                              RecognizesAccessKey="True"/>
+                                        </Grid>
                                     </Border>
-                                    <Popup x:Name="Popup"
-                                           Placement="Bottom"
-                                           IsOpen="{TemplateBinding IsSubmenuOpen}"
-                                           AllowsTransparency="True"
-                                           Focusable="False"
-                                           StaysOpen="False">
-                                        <Border Background="#303030"
-                                                BorderBrush="#303030"
-                                                BorderThickness="1">
-                                            <StackPanel IsItemsHost="True" />
-                                        </Border>
-                                    </Popup>
-                                </Grid>
-                                <ControlTemplate.Triggers>
-                                    <Trigger Property="IsHighlighted" Value="True">
-                                        <Setter TargetName="Border" Property="Background" Value="#505050"/>
-                                    </Trigger>
-                                    <Trigger Property="IsKeyboardFocused" Value="True">
-                                        <Setter TargetName="Border" Property="Background" Value="#505050"/>
-                                    </Trigger>
-                                    <Trigger Property="IsSubmenuOpen" Value="True">
-                                        <Setter TargetName="Border" Property="Background" Value="#505050"/>
-                                    </Trigger>
-                                    <Trigger Property="IsEnabled" Value="False">
-                                        <Setter Property="Foreground" Value="#888888"/>
-                                    </Trigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </Setter.Value>
-                    </Setter>
-                </Style>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsHighlighted"
+                                                Value="True">
+                                            <Setter TargetName="Border"
+                                                    Property="Background"
+                                                    Value="#505050"/>
+                                        </Trigger>
+                                        <Trigger Property="IsEnabled"
+                                                Value="False">
+                                            <Setter Property="Foreground"
+                                                    Value="#888888"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Menu.Resources>
 
-                <Style x:Key="SubMenuItemStyle" TargetType="MenuItem">
-                    <Setter Property="Foreground" Value="White"/>
-                    <Setter Property="Background" Value="#303030"/>
-                    <Setter Property="Padding" Value="6,2"/>
-                    <Setter Property="Template">
-                        <Setter.Value>
-                            <ControlTemplate TargetType="MenuItem">
-                                <Border x:Name="Border"
-                                        Background="{TemplateBinding Background}">
-                                    <Grid Margin="4,1">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <ContentPresenter Grid.Column="0"
-                                                          ContentSource="Icon"
-                                                          Margin="0,0,6,0"
-                                                          VerticalAlignment="Center"/>
-                                        <ContentPresenter Grid.Column="1"
-                                                          ContentSource="Header"
-                                                          VerticalAlignment="Center"
-                                                          RecognizesAccessKey="True"/>
-                                    </Grid>
-                                </Border>
-                                <ControlTemplate.Triggers>
-                                    <Trigger Property="IsHighlighted" Value="True">
-                                        <Setter TargetName="Border" Property="Background" Value="#505050"/>
-                                    </Trigger>
-                                    <Trigger Property="IsEnabled" Value="False">
-                                        <Setter Property="Foreground" Value="#888888"/>
-                                    </Trigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </Setter.Value>
-                    </Setter>
-                </Style>
-            </Menu.Resources>
-
-                        <MenuItem Header="Archivo" Style="{StaticResource TopMenuItemStyle}">
-                <MenuItem Header="Nuevo" Click="NewMenu_Click" Style="{StaticResource SubMenuItemStyle}">
-                    <MenuItem.Icon>
-                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE109;" FontSize="18" Margin="2"/>
-                    </MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Header="Abrir..." Click="OpenMenu_Click" Style="{StaticResource SubMenuItemStyle}">
-                    <MenuItem.Icon>
-                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8E5;" FontSize="18" Margin="2"/>
-                    </MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Header="Guardar" Click="SaveMenu_Click" Style="{StaticResource SubMenuItemStyle}">
-                    <MenuItem.Icon>
-                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE105;" FontSize="18" Margin="2"/>
-                    </MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Header="Guardar como..." Click="SaveAsMenu_Click" Style="{StaticResource SubMenuItemStyle}">
-                    <MenuItem.Icon>
-                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE792;" FontSize="18" Margin="2"/>
-                    </MenuItem.Icon>
-                </MenuItem>
-                <Separator/>
-                <MenuItem Header="Cerrar" Click="CloseMenu_Click" Style="{StaticResource SubMenuItemStyle}">
-                    <MenuItem.Icon>
-                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8BB;" FontSize="18" Margin="2"/>
-                    </MenuItem.Icon>
-                </MenuItem>
-            </MenuItem>
-            <MenuItem Header="Editar" Style="{StaticResource TopMenuItemStyle}">
-                <MenuItem Header="Deshacer" Command="ApplicationCommands.Undo" Style="{StaticResource SubMenuItemStyle}">
-                    <MenuItem.Icon>
-                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE10E;" FontSize="18" Margin="2"/>
-                    </MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Header="Rehacer" Command="ApplicationCommands.Redo" Style="{StaticResource SubMenuItemStyle}">
-                    <MenuItem.Icon>
-                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE10D;" FontSize="18" Margin="2"/>
-                    </MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Header="Cortar" Command="ApplicationCommands.Cut" Style="{StaticResource SubMenuItemStyle}">
-                    <MenuItem.Icon>
-                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE16B;" FontSize="18" Margin="2"/>
-                    </MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Header="Copiar" Command="ApplicationCommands.Copy" Style="{StaticResource SubMenuItemStyle}">
-                    <MenuItem.Icon>
-                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE16A;" FontSize="18" Margin="2"/>
-                    </MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Header="Pegar" Command="ApplicationCommands.Paste" Style="{StaticResource SubMenuItemStyle}">
-                    <MenuItem.Icon>
-                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE16D;" FontSize="18" Margin="2"/>
-                    </MenuItem.Icon>
-                </MenuItem>
-            </MenuItem>
-        </Menu>
-
-        <Border DockPanel.Dock="Top"
-                Background="#2B2B2B"
-                Padding="12,8">
-            <WrapPanel VerticalAlignment="Center">
-                <Button x:Name="PlayButton"
-                        Style="{StaticResource CommandButtonStyle}"
-                        Click="PlayButton_Click"
-                        ToolTip="Probar mundo (nueva partida)"
-                        Foreground="LawnGreen">
-                    <TextBlock FontFamily="Segoe MDL2 Assets"
-                                Text="&#xE768;"
-                                Foreground="LawnGreen"
-                                FontSize="18" />
-                </Button>
-
-                <Button Style="{StaticResource CommandButtonStyle}"
-                        Click="AddRoom_Click">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock FontFamily="Segoe MDL2 Assets"
-                                   Text="&#xE80F;"
-                                   Margin="0,0,8,0"/>
-                        <TextBlock Text="Sala"/>
-                    </StackPanel>
-                </Button>
-
-                <Button Style="{StaticResource CommandButtonStyle}"
-                        Click="AddExit_Click">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock FontFamily="Segoe MDL2 Assets"
-                                   Text="&#xE75D;"
-                                   Margin="0,0,8,0"/>
-                        <TextBlock Text="Salida"/>
-                    </StackPanel>
-                </Button>
-
-                <Button Style="{StaticResource CommandButtonStyle}"
-                        Click="AddKey_Click">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock FontFamily="Segoe MDL2 Assets"
-                                   Text="&#xE192;"
-                                   Margin="0,0,8,0"/>
-                        <TextBlock Text="Llave"/>
-                    </StackPanel>
-                </Button>
-
-                <Button Style="{StaticResource CommandButtonStyle}"
-                        Click="AddObject_Click">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock FontFamily="Segoe MDL2 Assets"
-                                   Text="&#xE8B8;"
-                                   Margin="0,0,8,0"/>
-                        <TextBlock Text="Objeto"/>
-                    </StackPanel>
-                </Button>
-
-                <Button Style="{StaticResource CommandButtonStyle}"
-                        Click="AddNpc_Click">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock FontFamily="Segoe MDL2 Assets"
-                                   Text="&#xE77B;"
-                                   Margin="0,0,8,0"/>
-                        <TextBlock Text="NPC"/>
-                    </StackPanel>
-                </Button>
-
-                <Button Style="{StaticResource CommandButtonStyle}"
-                        Click="AddQuest_Click">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock FontFamily="Segoe MDL2 Assets"
-                                   Text="&#xE129;"
-                                   Margin="0,0,8,0"/>
-                        <TextBlock Text="Misi&#xF3;n"/>
-                    </StackPanel>
-                </Button>
-            </WrapPanel>
-        </Border>
-
-        <Grid Margin="4">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="1*"/>
-                <ColumnDefinition Width="5*"/>
-                <ColumnDefinition Width="1*"/>
-            </Grid.ColumnDefinitions>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-
-            <!-- Panel central: mapa (fondo detrás de árbol y propiedades) -->
-            <controls:MapPanel x:Name="MapPanel"
-                               Grid.Column="0" Grid.ColumnSpan="3"
-                               Grid.Row="0" Grid.RowSpan="3"
-                               Margin="0"
-                               Panel.ZIndex="0"
-                               ClipToBounds="True"
-                               Background="#202020"/>
-
-<!-- Panel izquierdo: búsqueda + árbol -->
-            <StackPanel Grid.Column="0" Grid.Row="0" Grid.RowSpan="2" Margin="0,0,4,0" Background="#333333" Panel.ZIndex="1">
-                <DockPanel LastChildFill="True" Margin="0,0,0,4">
-                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
-                        <Button Width="28" Height="28" Margin="0,0,4,0" Click="ExpandAll_Click" ToolTip="Expandir todo">
+                <MenuItem Header="Archivo"
+                        Style="{StaticResource TopMenuItemStyle}">
+                    <MenuItem Header="Nuevo"
+                            Click="NewMenu_Click"
+                            Style="{StaticResource SubMenuItemStyle}">
+                        <MenuItem.Icon>
                             <TextBlock FontFamily="Segoe MDL2 Assets"
-                                       Text="&#xE70D;"
-                                        FontSize="18" 
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"/>
-                        </Button>
-                        <Button Width="28" Height="28" Margin="0,0,4,0" Click="CollapseAll_Click" ToolTip="Contraer todo">
+                                    VerticalAlignment="Center"
+                                    Text="&#xE109;"
+                                    FontSize="18"
+                                    Margin="2"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="Abrir..."
+                            Click="OpenMenu_Click"
+                            Style="{StaticResource SubMenuItemStyle}">
+                        <MenuItem.Icon>
                             <TextBlock FontFamily="Segoe MDL2 Assets"
-                                       Text="&#xE70E;"
-                                        FontSize="18" 
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"/>
-                        </Button>
-                    </StackPanel>
-                    <TextBox x:Name="SearchTextBox"
-                              FontSize="18" 
-                             TextChanged="SearchTextBox_TextChanged"/>
-                </DockPanel>
-                <TreeView x:Name="WorldTree"
-                          SelectedItemChanged="WorldTree_SelectedItemChanged"
-                          KeyDown="WorldTree_KeyDown"
-                          MouseDoubleClick="WorldTree_MouseDoubleClick"
-                          Background="#333333"
-                          BorderBrush="#555555">
-                    <TreeView.ItemContainerStyle>
-                        <Style TargetType="TreeViewItem">
-                            <Setter Property="Foreground" Value="White"/>
-                            <Setter Property="Background" Value="#333333"/>
-                            <Style.Triggers>
-                                <Trigger Property="IsSelected" Value="True">
-                                    <Setter Property="Background" Value="#505050"/>
-                                    <Setter Property="Foreground" Value="White"/>
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TreeView.ItemContainerStyle>
-                </TreeView>
-            </StackPanel>
+                                    VerticalAlignment="Center"
+                                    Text="&#xE8E5;"
+                                    FontSize="18"
+                                    Margin="2"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="Guardar"
+                            Click="SaveMenu_Click"
+                            Style="{StaticResource SubMenuItemStyle}">
+                        <MenuItem.Icon>
+                            <TextBlock FontFamily="Segoe MDL2 Assets"
+                                    VerticalAlignment="Center"
+                                    Text="&#xE105;"
+                                    FontSize="18"
+                                    Margin="2"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="Guardar como..."
+                            Click="SaveAsMenu_Click"
+                            Style="{StaticResource SubMenuItemStyle}">
+                        <MenuItem.Icon>
+                            <TextBlock FontFamily="Segoe MDL2 Assets"
+                                    VerticalAlignment="Center"
+                                    Text="&#xE792;"
+                                    FontSize="18"
+                                    Margin="2"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator/>
+                    <MenuItem Header="Cerrar"
+                            Click="CloseMenu_Click"
+                            Style="{StaticResource SubMenuItemStyle}">
+                        <MenuItem.Icon>
+                            <TextBlock FontFamily="Segoe MDL2 Assets"
+                                    VerticalAlignment="Center"
+                                    Text="&#xE8BB;"
+                                    FontSize="18"
+                                    Margin="2"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                </MenuItem>
+                <MenuItem Header="Editar"
+                        Style="{StaticResource TopMenuItemStyle}">
+                    <MenuItem Header="Deshacer"
+                            Command="ApplicationCommands.Undo"
+                            Style="{StaticResource SubMenuItemStyle}">
+                        <MenuItem.Icon>
+                            <TextBlock FontFamily="Segoe MDL2 Assets"
+                                    VerticalAlignment="Center"
+                                    Text="&#xE10E;"
+                                    FontSize="18"
+                                    Margin="2"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="Rehacer"
+                            Command="ApplicationCommands.Redo"
+                            Style="{StaticResource SubMenuItemStyle}">
+                        <MenuItem.Icon>
+                            <TextBlock FontFamily="Segoe MDL2 Assets"
+                                    VerticalAlignment="Center"
+                                    Text="&#xE10D;"
+                                    FontSize="18"
+                                    Margin="2"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="Cortar"
+                            Command="ApplicationCommands.Cut"
+                            Style="{StaticResource SubMenuItemStyle}">
+                        <MenuItem.Icon>
+                            <TextBlock FontFamily="Segoe MDL2 Assets"
+                                    VerticalAlignment="Center"
+                                    Text="&#xE16B;"
+                                    FontSize="18"
+                                    Margin="2"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="Copiar"
+                            Command="ApplicationCommands.Copy"
+                            Style="{StaticResource SubMenuItemStyle}">
+                        <MenuItem.Icon>
+                            <TextBlock FontFamily="Segoe MDL2 Assets"
+                                    VerticalAlignment="Center"
+                                    Text="&#xE16A;"
+                                    FontSize="18"
+                                    Margin="2"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="Pegar"
+                            Command="ApplicationCommands.Paste"
+                            Style="{StaticResource SubMenuItemStyle}">
+                        <MenuItem.Icon>
+                            <TextBlock FontFamily="Segoe MDL2 Assets"
+                                    VerticalAlignment="Center"
+                                    Text="&#xE16D;"
+                                    FontSize="18"
+                                    Margin="2"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                </MenuItem>
+            </Menu>
 
-<!-- Panel derecho: propiedades -->
-            <StackPanel Grid.Column="2" Grid.Row="0" Grid.RowSpan="2" Margin="4,0,0,0"
+            <Border DockPanel.Dock="Top"
+                    Background="#2B2B2B"
+                    Padding="12,8">
+                <WrapPanel VerticalAlignment="Center">
+                    <Button x:Name="PlayButton"
+                            Style="{StaticResource CommandButtonStyle}"
+                            Click="PlayButton_Click"
+                            ToolTip="Probar mundo (nueva partida)"
+                            Foreground="LawnGreen">
+                        <TextBlock FontFamily="Segoe MDL2 Assets"
+                                VerticalAlignment="Center"
+                                   Text="&#xE768;"
+                                   Foreground="LawnGreen"
+                                   FontSize="18"/>
+                    </Button>
+
+                    <Button Style="{StaticResource CommandButtonStyle}"
+                            Click="AddRoom_Click">
+                        <StackPanel Orientation="Horizontal"
+                                VerticalAlignment="Center">
+                            <TextBlock FontFamily="Segoe MDL2 Assets"
+                                    VerticalAlignment="Center"
+                                       Text="&#xE80F;"
+                                       Margin="0,0,8,0"/>
+                            <TextBlock Text="Sala"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Style="{StaticResource CommandButtonStyle}"
+                            Click="AddExit_Click">
+                        <StackPanel Orientation="Horizontal"
+                                VerticalAlignment="Center">
+                            <TextBlock FontFamily="Segoe MDL2 Assets"
+                                    VerticalAlignment="Center"
+                                       Text="&#xE75D;"
+                                       Margin="0,0,8,0"/>
+                            <TextBlock Text="Salida"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Style="{StaticResource CommandButtonStyle}"
+                            Click="AddKey_Click">
+                        <StackPanel Orientation="Horizontal"
+                                VerticalAlignment="Center">
+                            <TextBlock FontFamily="Segoe MDL2 Assets"
+                                    VerticalAlignment="Center"
+                                       Text="&#xE192;"
+                                       Margin="0,0,8,0"/>
+                            <TextBlock Text="Llave"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Style="{StaticResource CommandButtonStyle}"
+                            Click="AddObject_Click">
+                        <StackPanel Orientation="Horizontal"
+                                VerticalAlignment="Center">
+                            <TextBlock FontFamily="Segoe MDL2 Assets"
+                                    VerticalAlignment="Center"
+                                       Text="&#xE8B8;"
+                                       Margin="0,0,8,0"/>
+                            <TextBlock Text="Objeto"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Style="{StaticResource CommandButtonStyle}"
+                            Click="AddNpc_Click">
+                        <StackPanel Orientation="Horizontal"
+                                VerticalAlignment="Center">
+                            <TextBlock FontFamily="Segoe MDL2 Assets"
+                                    VerticalAlignment="Center"
+                                       Text="&#xE77B;"
+                                       Margin="0,0,8,0"/>
+                            <TextBlock Text="NPC"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Style="{StaticResource CommandButtonStyle}"
+                            Click="AddQuest_Click">
+                        <StackPanel Orientation="Horizontal"
+                                VerticalAlignment="Center">
+                            <TextBlock FontFamily="Segoe MDL2 Assets"
+                                    VerticalAlignment="Center"
+                                       Text="&#xE129;"
+                                       Margin="0,0,8,0"/>
+                            <TextBlock Text="Misi&#xF3;n"/>
+                        </StackPanel>
+                    </Button>
+                </WrapPanel>
+            </Border>
+
+            <Grid Margin="4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1*"/>
+                    <ColumnDefinition Width="5*"/>
+                    <ColumnDefinition Width="1*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Panel central: mapa (fondo detrás de árbol y propiedades) -->
+                <controls:MapPanel x:Name="MapPanel"
+                                   Grid.Column="0"
+                        Grid.ColumnSpan="3"
+                                   Grid.Row="0"
+                        Grid.RowSpan="3"
+                                   Margin="0"
+                                   Panel.ZIndex="0"
+                                   ClipToBounds="True"
+                                   Background="#202020"/>
+
+                <!-- Panel izquierdo: búsqueda + árbol -->
+                <StackPanel Grid.Column="0"
+                        Grid.Row="0"
+                        Grid.RowSpan="2"
+                        Margin="0,0,4,0"
                         Background="#333333"
                         Panel.ZIndex="1">
-                <controls:PropertyEditor x:Name="PropertyEditor" />
-            </StackPanel>
+                    <DockPanel LastChildFill="True"
+                            Margin="0,0,0,4">
+                        <StackPanel Orientation="Horizontal"
+                                DockPanel.Dock="Left">
+                            <Button Width="28"
+                                    Height="28"
+                                    Margin="0,0,4,0"
+                                    Click="ExpandAll_Click"
+                                    ToolTip="Expandir todo">
+                                <TextBlock FontFamily="Segoe MDL2 Assets"
+                                        VerticalAlignment="Center"
+                                           Text="&#xE70D;"
+                                           FontSize="18"
+                                           HorizontalAlignment="Center"/>
+                            </Button>
+                            <Button Width="28"
+                                    Height="28"
+                                    Margin="0,0,4,0"
+                                    Click="CollapseAll_Click"
+                                    ToolTip="Contraer todo">
+                                <TextBlock FontFamily="Segoe MDL2 Assets"
+                                        VerticalAlignment="Center"
+                                           Text="&#xE70E;"
+                                           FontSize="18"
+                                           HorizontalAlignment="Center"/>
+                            </Button>
+                        </StackPanel>
+                        <TextBox x:Name="SearchTextBox"
+                                 FontSize="18"
+                                 TextChanged="SearchTextBox_TextChanged"/>
+                    </DockPanel>
+                    <TreeView x:Name="WorldTree"
+                              SelectedItemChanged="WorldTree_SelectedItemChanged"
+                              KeyDown="WorldTree_KeyDown"
+                              MouseDoubleClick="WorldTree_MouseDoubleClick"
+                              Background="#333333"
+                              BorderBrush="#555555">
+                        <TreeView.ItemContainerStyle>
+                            <Style TargetType="TreeViewItem">
+                                <Setter Property="Foreground"
+                                        Value="White"/>
+                                <Setter Property="Background"
+                                        Value="#333333"/>
+                                <Style.Triggers>
+                                    <Trigger Property="IsSelected"
+                                            Value="True">
+                                        <Setter Property="Background"
+                                                Value="#505050"/>
+                                        <Setter Property="Foreground"
+                                                Value="White"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TreeView.ItemContainerStyle>
+                    </TreeView>
+                </StackPanel>
 
-            <StackPanel Grid.Column="2" Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="4,4,0,0">
-                <Button x:Name="RoomImageButton"
-                        Content="Imagen..."
-                        Width="120"
-                        Margin="0,0,8,0"
-                        Click="RoomImageButton_Click"
-                        Visibility="Collapsed" />
-                <Button x:Name="RoomMusicButton"
-                        Content="Música..."
-                        Width="120"
-                        Click="RoomMusicButton_Click"
-                        Visibility="Collapsed" />
-            </StackPanel>
-        </Grid>
+                <!-- Panel derecho: propiedades -->
+                <StackPanel Grid.Column="2"
+                        Grid.Row="0"
+                        Grid.RowSpan="2"
+                        Margin="4,0,0,0"
+                            Background="#333333"
+                            Panel.ZIndex="1">
+                    <controls:PropertyEditor x:Name="PropertyEditor"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2"
+                        Grid.Row="2"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Margin="4,4,0,0">
+                    <Button x:Name="RoomImageButton"
+                            Content="Imagen..."
+                            Width="120"
+                            Margin="0,0,8,0"
+                            Click="RoomImageButton_Click"
+                            Visibility="Collapsed"/>
+                    <Button x:Name="RoomMusicButton"
+                            Content="Música..."
+                            Width="120"
+                            Click="RoomMusicButton_Click"
+                            Visibility="Collapsed"/>
+                </StackPanel>
+            </Grid>
         </DockPanel>
 
         <Border x:Name="PlayLoadingOverlay"
@@ -403,7 +501,8 @@
                                Text="Preparando partida..."
                                HorizontalAlignment="Center"
                                Margin="0,0,0,12"/>
-                    <ProgressBar IsIndeterminate="True" Height="12"/>
+                    <ProgressBar IsIndeterminate="True"
+                            Height="12"/>
                 </StackPanel>
             </Border>
         </Border>

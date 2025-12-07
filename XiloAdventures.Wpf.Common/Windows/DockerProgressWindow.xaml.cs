@@ -1,4 +1,6 @@
 using System;
+using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using XiloAdventures.Wpf.Common.Services;
@@ -23,8 +25,15 @@ public sealed class DockerProgressResult
 
 public partial class DockerProgressWindow : Window
 {
+    private const string OllamaContainerName = "xilo-ollama";
+    private readonly TimeSpan _logPollingInterval = TimeSpan.FromSeconds(2);
+
     private bool _closingFromCode;
     private CancellationTokenSource? _cts;
+    private CancellationTokenSource? _logCts;
+    private Task? _logTask;
+    private string _lastDockerLogs = string.Empty;
+    private int _logStepCounter = 1;
     private TaskCompletionSource<DockerProgressResult>? _tcs;
 
     public DockerProgressWindow()
@@ -50,6 +59,9 @@ public partial class DockerProgressWindow : Window
                 DetailText.Text = msg;
             });
 
+            _logCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+            _logTask = MonitorOllamaLogsAsync(_logCts.Token);
+
             try
             {
                 await DockerService.EnsureAllAsync(progress, _cts.Token).ConfigureAwait(true);
@@ -71,6 +83,21 @@ public partial class DockerProgressWindow : Window
                 _closingFromCode = true;
                 _tcs.TrySetResult(DockerProgressResult.Failed());
                 Close();
+            }
+            finally
+            {
+                _logCts?.Cancel();
+                if (_logTask is { } logTask)
+                {
+                    try
+                    {
+                        await logTask.ConfigureAwait(true);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // expected when the watcher is cancelled.
+                    }
+                }
             }
         };
 
@@ -95,6 +122,10 @@ public partial class DockerProgressWindow : Window
         {
             _cts.Cancel();
         }
+        if (_logCts is { IsCancellationRequested: false })
+        {
+            _logCts.Cancel();
+        }
 
         _ = Task.Run(async () =>
         {
@@ -115,6 +146,107 @@ public partial class DockerProgressWindow : Window
         if (!initiatedByClosing && IsVisible)
         {
             Close();
+        }
+    }
+
+    private async Task MonitorOllamaLogsAsync(CancellationToken cancellationToken)
+    {
+        await Dispatcher.InvokeAsync(() =>
+        {
+            StepText.Visibility = Visibility.Visible;
+            StepText.Text = "Paso 1";
+        }).Task.ConfigureAwait(true);
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            string? logs = null;
+            try
+            {
+                logs = await TryReadDockerLogsAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+
+            if (!string.IsNullOrWhiteSpace(logs) && logs != _lastDockerLogs)
+            {
+                _lastDockerLogs = logs;
+                _logStepCounter++;
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    StepText.Text = $"Paso {_logStepCounter}";
+                }).Task.ConfigureAwait(true);
+            }
+
+            try
+            {
+                await Task.Delay(_logPollingInterval, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+        }
+    }
+
+    private static async Task<string?> TryReadDockerLogsAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = "docker",
+                Arguments = $"logs --tail 20 {OllamaContainerName}",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            using var process = new Process { StartInfo = psi };
+            if (!process.Start())
+            {
+                return null;
+            }
+
+            using var reg = cancellationToken.Register(() =>
+            {
+                try
+                {
+                    if (!process.HasExited)
+                    {
+                        process.Kill(true);
+                    }
+                }
+                catch
+                {
+                    // ignore kill failures
+                }
+            });
+
+            Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync();
+            Task<string> stderrTask = process.StandardError.ReadToEndAsync();
+
+            await Task.WhenAll(process.WaitForExitAsync(cancellationToken), stdoutTask, stderrTask).ConfigureAwait(false);
+
+            if (process.ExitCode != 0)
+            {
+                return null;
+            }
+
+            var logs = stdoutTask.Result.Trim();
+            return string.IsNullOrWhiteSpace(logs) ? null : logs;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            return null;
         }
     }
 }

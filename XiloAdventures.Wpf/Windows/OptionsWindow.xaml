@@ -19,7 +19,7 @@
                               Foreground="White"/>
 
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,4" VerticalAlignment="Center">
-                        <TextBlock Text="MÃƒÂºsica:" Width="180" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="Música:" Width="180" VerticalAlignment="Center" Margin="0,0,8,0"/>
                         <Slider x:Name="MusicVolumeSlider"
                                 Minimum="0" Maximum="10"
                                 Width="180"
@@ -90,7 +90,7 @@
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <TextBlock Text="Tamano de fuente:" Width="180" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="Tamaño de fuente:" Width="180" VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <Slider x:Name="FontSizeSlider"
                         Minimum="8" Maximum="26"
                         Width="180"
@@ -106,6 +106,3 @@
         
     </Grid>
 </Window>
-
-
-
