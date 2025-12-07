@@ -1,7 +1,7 @@
 using System.Windows;
-using XiloAdventures.Wpf.Ui;
+using XiloAdventures.Wpf.Common.Ui;
 using XiloAdventures.Wpf.Windows;
-using XiloAdventures.Wpf.Services;
+using XiloAdventures.Wpf.Common.Services;
 
 namespace XiloAdventures.Wpf;
 

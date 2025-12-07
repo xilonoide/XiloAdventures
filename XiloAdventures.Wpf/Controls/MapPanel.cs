@@ -7,6 +7,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using XiloAdventures.Engine.Models;
 using XiloAdventures.Wpf.Windows;
+using XiloAdventures.Wpf.Common.Windows;
 
 namespace XiloAdventures.Wpf.Controls;
 

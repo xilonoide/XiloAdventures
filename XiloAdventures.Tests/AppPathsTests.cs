@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-using XiloAdventures.Wpf;
+using XiloAdventures.Wpf.Common.Ui;
 using Xunit;
 
 public class AppPathsTests

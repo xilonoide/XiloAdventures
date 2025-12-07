@@ -25,27 +25,40 @@
                           HorizontalScrollBarVisibility="Disabled"
                           Margin="0,0,0,20"
                           MaxHeight="400">
-                <TextBlock x:Name="MessageTextBlock"
-                           TextWrapping="Wrap"
-                           TextTrimming="None"
-                           FontSize="14"
-                           Foreground="#F5F5F5"
-                           Text="Mensaje" />
+                <StackPanel>
+                    <TextBlock x:Name="MessageTextBlock"
+                               TextWrapping="Wrap"
+                               TextTrimming="None"
+                               FontSize="16"
+                               Foreground="#F5F5F5"
+                               Text="Mensaje" />
+                    <ContentPresenter x:Name="CustomContentPresenter"
+                                      Margin="0,12,0,0"
+                                      Visibility="Collapsed"/>
+                </StackPanel>
             </ScrollViewer>
 
-            <StackPanel Grid.Row="1"
-                        Orientation="Horizontal"
-                        HorizontalAlignment="Right">
-                <Button Content="Aceptar"
-                        Padding="15,5"
-                        Margin="0,0,0,0"
+            <Grid Grid.Row="1"
+                  Margin="0,12,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="8"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Button x:Name="OkButton"
+                        Grid.Column="0"
+                        Style="{StaticResource CommandButtonStyle}"
+                        Content="Aceptar"
                         IsDefault="True"
-                        MinWidth="80"
-                        Background="#3C3C3C"
-                        Foreground="#F5F5F5"
-                        BorderBrush="#666666"
-                        Click="OkButton_Click" />
-            </StackPanel>
+                        Click="OkButton_Click"/>
+                <Button x:Name="CancelButton"
+                        Grid.Column="2"
+                        Style="{StaticResource CommandButtonStyle}"
+                        Content="Cancelar"
+                        Visibility="Collapsed"
+                        IsCancel="True"
+                        Click="CancelButton_Click"/>
+            </Grid>
         </Grid>
     </Border>
 </Window>

@@ -341,6 +341,11 @@ public class GameEngine
         return sb.ToString().TrimEnd();
     }
 
+    /// <summary>
+    /// Maneja el comando de movimiento del jugador en una dirección especificada.
+    /// Soporta movimiento bidireccional: busca salidas directas y también permite
+    /// regresar por salidas inversas (si hay una sala con salida hacia aquí, se puede volver).
+    /// </summary>
     private string HandleGo(ParsedCommand parsed)
     {
         var room = CurrentRoom;
@@ -363,14 +368,17 @@ public class GameEngine
 
         if (exit != null)
         {
+            // Salida directa encontrada
             targetRoom = _state.Rooms.FirstOrDefault(r =>
                 r.Id.Equals(exit.TargetRoomId, StringComparison.OrdinalIgnoreCase));
         }
         else
         {
             // Si no hay salida directa, intentamos una conexión inversa:
-            // buscamos alguna otra sala que tenga una salida hacia la sala actual
+            // Buscamos alguna otra sala que tenga una salida hacia la sala actual,
             // cuya dirección opuesta coincida con la dirección que el jugador ha pedido.
+            // Ejemplo: Si estamos en B y A tiene salida "este" hacia B,
+            // el jugador puede ir "oeste" desde B hacia A sin que B defina esa salida.
             Exit? reverseExit = null;
             Room? sourceRoom = null;
 
@@ -381,6 +389,8 @@ public class GameEngine
                     var normCandidate = NormalizeDirection(candidateExit.Direction);
                     var opposite = GetOppositeDirectionCode(normCandidate);
 
+                    // Si la dirección opuesta de esta salida coincide con lo pedido
+                    // y apunta a nuestra sala actual, entonces podemos usarla
                     if (string.Equals(opposite, normalizedRequested, StringComparison.OrdinalIgnoreCase) &&
                         candidateExit.TargetRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
                     {
@@ -629,7 +639,7 @@ private string HandleTake(ParsedCommand parsed)
 
         obj.RoomId = room.Id;
 
-        return $"Sueltes {obj.Name}.";
+        return $"Sueltas {obj.Name}.";
     }
 
     private string HandleTalk(ParsedCommand parsed)

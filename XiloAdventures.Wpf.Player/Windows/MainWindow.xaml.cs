@@ -16,6 +16,7 @@ using XiloAdventures.Engine;
 using XiloAdventures.Engine.Models;
 using XiloAdventures.Wpf.Common.Ui;
 using XiloAdventures.Wpf.Common.Services;
+using XiloAdventures.Wpf.Common.Windows;
 
 namespace XiloAdventures.Wpf.Player.Windows;
 
@@ -338,9 +339,6 @@ public partial class MainWindow : Window
 
         return false;
     }
-
-    private static bool _IsSaveOrLoadCommand(string cmd)
-        => cmd.StartsWith("guardar") || cmd.StartsWith("cargar");
 
     private void UpdateStatusPanel()
     {

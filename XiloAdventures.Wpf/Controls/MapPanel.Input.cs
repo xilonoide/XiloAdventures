@@ -10,6 +10,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using XiloAdventures.Engine.Models;
 using XiloAdventures.Wpf.Windows;
+using XiloAdventures.Wpf.Common.Windows;
 
 namespace XiloAdventures.Wpf.Controls;
 
@@ -1635,24 +1636,42 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
             default: return centerScreen;
         }
     }
+
+    /// <summary>
+    /// Calcula la distancia mínima entre un punto y un segmento de línea.
+    /// Utiliza proyección vectorial para determinar el punto más cercano en el segmento.
+    /// </summary>
+    /// <param name="p">El punto desde el cual medir la distancia</param>
+    /// <param name="a">Punto inicial del segmento</param>
+    /// <param name="b">Punto final del segmento</param>
+    /// <returns>La distancia euclidiana mínima entre el punto y el segmento</returns>
     private static double DistancePointToSegment(Point p, Point a, Point b)
     {
+        // Vector del segmento (de a hacia b)
         double vx = b.X - a.X;
         double vy = b.Y - a.Y;
+
+        // Vector del punto a hacia p
         double wx = p.X - a.X;
         double wy = p.Y - a.Y;
 
+        // Producto escalar de w y v: indica qué tan "adelante" está p respecto a a
         double c1 = vx * wx + vy * wy;
         if (c1 <= 0)
+            // El punto está antes de a, devolver distancia a 'a'
             return Math.Sqrt((p.X - a.X) * (p.X - a.X) + (p.Y - a.Y) * (p.Y - a.Y));
 
+        // Longitud al cuadrado del segmento
         double c2 = vx * vx + vy * vy;
         if (c2 <= c1)
+            // El punto está después de b, devolver distancia a 'b'
             return Math.Sqrt((p.X - b.X) * (p.X - b.X) + (p.Y - b.Y) * (p.Y - b.Y));
 
+        // El punto proyectado está entre a y b
         double t = c1 / c2;
         Point proj = new Point(a.X + t * vx, a.Y + t * vy);
 
+        // Devolver distancia al punto proyectado
         return Math.Sqrt((p.X - proj.X) * (p.X - proj.X) + (p.Y - proj.Y) * (p.Y - proj.Y));
     }
 

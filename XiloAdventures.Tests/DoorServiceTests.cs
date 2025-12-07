@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using XiloAdventures.Engine.Models;
-using EngineDoorService = XiloAdventures.Engine.DoorService;
-using LogicDoorService = XiloAdventures.Engine.Logic.DoorService;
+using DoorService = XiloAdventures.Engine.DoorService;
 using Xunit;
 
 namespace XiloAdventures.Tests;
@@ -9,7 +8,7 @@ namespace XiloAdventures.Tests;
 public class DoorServiceTests
 {
     [Fact]
-    public void EngineDoorService_TryOpen_WithKeyFromAllowedSide_Succeeds()
+    public void DoorService_TryOpen_WithKeyFromAllowedSide_Succeeds()
     {
         var door = new Door
         {
@@ -27,7 +26,7 @@ public class DoorServiceTests
             LockIds = new List<string> { "lock1" }
         };
 
-        var service = new EngineDoorService(new List<Door> { door }, new List<KeyDefinition> { key });
+        var service = new DoorService(new List<Door> { door }, new List<KeyDefinition> { key });
 
         var result = service.TryOpenDoor("d1", "a", new[] { "KEY-1" });
 
@@ -37,7 +36,7 @@ public class DoorServiceTests
     }
 
     [Fact]
-    public void EngineDoorService_TryOpen_WrongSide_Fails()
+    public void DoorService_TryOpen_WrongSide_Fails()
     {
         var door = new Door
         {
@@ -47,7 +46,7 @@ public class DoorServiceTests
             OpenFromSide = DoorOpenSide.FromAOnly
         };
 
-        var service = new EngineDoorService(new List<Door> { door }, new List<KeyDefinition>());
+        var service = new DoorService(new List<Door> { door }, new List<KeyDefinition>());
 
         var result = service.TryOpenDoor("d2", "b", new[] { "anything" });
 
@@ -57,7 +56,7 @@ public class DoorServiceTests
     }
 
     [Fact]
-    public void EngineDoorService_TryOpen_MissingKey_Fails()
+    public void DoorService_TryOpen_MissingKey_Fails()
     {
         var door = new Door
         {
@@ -74,7 +73,7 @@ public class DoorServiceTests
             LockIds = new List<string> { "lock-3" }
         };
 
-        var service = new EngineDoorService(new List<Door> { door }, new List<KeyDefinition> { key });
+        var service = new DoorService(new List<Door> { door }, new List<KeyDefinition> { key });
 
         var result = service.TryOpenDoor("d3", "a", new string[0]);
 
@@ -84,7 +83,7 @@ public class DoorServiceTests
     }
 
     [Fact]
-    public void EngineDoorService_TryOpen_AlreadyOpen_ReportsDesiredState()
+    public void DoorService_TryOpen_AlreadyOpen_ReportsDesiredState()
     {
         var door = new Door
         {
@@ -94,7 +93,7 @@ public class DoorServiceTests
             IsOpen = true
         };
 
-        var service = new EngineDoorService(new List<Door> { door }, new List<KeyDefinition>());
+        var service = new DoorService(new List<Door> { door }, new List<KeyDefinition>());
 
         var result = service.TryOpenDoor("d4", "a", new[] { "any" });
 
@@ -103,7 +102,7 @@ public class DoorServiceTests
     }
 
     [Fact]
-    public void EngineDoorService_TryClose_WhenClosed_ReportsDesiredState()
+    public void DoorService_TryClose_WhenClosed_ReportsDesiredState()
     {
         var door = new Door
         {
@@ -113,7 +112,7 @@ public class DoorServiceTests
             IsOpen = false
         };
 
-        var service = new EngineDoorService(new List<Door> { door }, new List<KeyDefinition>());
+        var service = new DoorService(new List<Door> { door }, new List<KeyDefinition>());
 
         var result = service.TryCloseDoor("d5", "a", new[] { "any" });
 
@@ -122,39 +121,13 @@ public class DoorServiceTests
     }
 
     [Fact]
-    public void EngineDoorService_TryOpen_NotFound_ReturnsNotFound()
+    public void DoorService_TryOpen_NotFound_ReturnsNotFound()
     {
-        var service = new EngineDoorService(new List<Door>(), new List<KeyDefinition>());
+        var service = new DoorService(new List<Door>(), new List<KeyDefinition>());
 
         var result = service.TryOpenDoor("missing", "a", new[] { "any" });
 
         Assert.False(result.Success);
         Assert.True(result.NotFoundDoor);
-    }
-
-    [Fact]
-    public void LogicDoorService_HasRequiredKey_IsCaseSensitive()
-    {
-        var door = new Door
-        {
-            Id = "logic-1",
-            RoomIdA = "a",
-            RoomIdB = "b",
-            HasLock = true,
-            LockId = "L1"
-        };
-
-        var key = new KeyDefinition
-        {
-            ObjectId = "key-lower",
-            LockIds = new List<string> { "L1" }
-        };
-
-        var service = new LogicDoorService(new List<Door> { door }, new List<KeyDefinition> { key });
-
-        var hasKey = service.HasRequiredKey(door, new[] { "KEY-LOWER" });
-
-        Assert.False(hasKey);
-        Assert.True(service.HasRequiredKey(door, new[] { "key-lower" }));
     }
 }

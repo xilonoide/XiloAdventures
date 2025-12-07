@@ -1,17 +1,18 @@
-﻿using System;
+using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using System.Diagnostics;
-using System.Windows.Navigation;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Navigation;
 using Microsoft.Win32;
 using XiloAdventures.Engine;
 using XiloAdventures.Engine.Models;
-using XiloAdventures.Wpf.Ui;
+using XiloAdventures.Wpf.Common.Ui;
+using XiloAdventures.Wpf.Common.Windows;
 
 namespace XiloAdventures.Wpf.Windows;
 

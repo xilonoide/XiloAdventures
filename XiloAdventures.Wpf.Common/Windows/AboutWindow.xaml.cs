@@ -1,7 +1,7 @@
 
 using System.Windows;
 
-namespace XiloAdventures.Wpf.Windows;
+namespace XiloAdventures.Wpf.Common.Windows;
 
 public partial class AboutWindow : Window
 {

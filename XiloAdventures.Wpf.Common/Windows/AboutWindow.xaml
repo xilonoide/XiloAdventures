@@ -1,4 +1,4 @@
-<Window x:Class="XiloAdventures.Wpf.Windows.AboutWindow"
+<Window x:Class="XiloAdventures.Wpf.Common.Windows.AboutWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Acerca de"
@@ -12,7 +12,7 @@
         FontSize="18"
         ShowInTaskbar="False">
     <Grid Margin="16">
-        
+
 
         <StackPanel>
             <TextBlock Text="Xilo Adventures"
@@ -25,7 +25,6 @@
                        Margin="0,0,0,4"/>
         </StackPanel>
 
-        
+
     </Grid>
 </Window>
-

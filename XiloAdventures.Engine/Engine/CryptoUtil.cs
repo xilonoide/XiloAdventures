@@ -5,13 +5,26 @@ using System.Text;
 
 namespace XiloAdventures.Engine;
 
+/// <summary>
+/// Utilidad para cifrado/descifrado de archivos usando AES.
+/// NOTA DE SEGURIDAD: Las claves están embebidas en el código para simplificar el uso.
+/// Para aplicaciones en producción, considerar usar el sistema de protección de datos
+/// de Windows (DPAPI) o Azure Key Vault para mayor seguridad.
+/// </summary>
 public static class CryptoUtil
 {
-    // Clave/IV por defecto. En una app real deberían protegerse mejor.
+    /// <summary>
+    /// Clave por defecto para cifrado AES (32 caracteres = 256 bits).
+    /// Expuesta públicamente para permitir cifrado personalizado de mundos.
+    /// </summary>
     public const string DefaultKeyString = "XiloAdv-Key-1234XiloAdv-Key-1234"; // 32 chars
+
     private static readonly byte[] DefaultKey = Encoding.UTF8.GetBytes(DefaultKeyString); // 32 bytes
-    private static readonly byte[] Iv =
-        Encoding.UTF8.GetBytes("XiloAdv-IV-12345"); // 16 bytes
+
+    /// <summary>
+    /// Vector de inicialización (IV) para AES (16 bytes = 128 bits).
+    /// </summary>
+    private static readonly byte[] Iv = Encoding.UTF8.GetBytes("XiloAdv-IV-12345"); // 16 bytes
 
     public static void EncryptToFile(string path, string plainText, string extension, string? customKey = null, bool encryptIfEmpty = true)
     {

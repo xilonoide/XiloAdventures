@@ -1,20 +1,21 @@
-﻿using System;
-using System.IO;
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Win32;
-using System.Text.Json;
-using System.Security.Cryptography;
 using XiloAdventures.Engine;
 using XiloAdventures.Engine.Models;
+using XiloAdventures.Wpf.Common.Services;
+using XiloAdventures.Wpf.Common.Ui;
+using XiloAdventures.Wpf.Common.Windows;
 using XiloAdventures.Wpf.Controls;
-using XiloAdventures.Wpf.Ui;
-using XiloAdventures.Wpf.Services;
 
 namespace XiloAdventures.Wpf.Windows;
 

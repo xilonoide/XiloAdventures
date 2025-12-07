@@ -14,8 +14,9 @@ using System.Windows.Media;
 using Microsoft.Win32;
 using XiloAdventures.Engine;
 using XiloAdventures.Engine.Models;
-using XiloAdventures.Wpf.Ui;
-using XiloAdventures.Wpf.Services;
+using XiloAdventures.Wpf.Common.Ui;
+using XiloAdventures.Wpf.Common.Services;
+using XiloAdventures.Wpf.Common.Windows;
 
 namespace XiloAdventures.Wpf.Windows;
 
@@ -362,9 +363,6 @@ public partial class MainWindow : Window
         LastCommandText.Text = string.Empty;
         LlmStatusText.Visibility = Visibility.Collapsed;
     }
-
-    private static bool _IsSaveOrLoadCommand(string cmd)
-        => cmd.StartsWith("guardar") || cmd.StartsWith("cargar");
 
     private void UpdateStatusPanel()
     {
