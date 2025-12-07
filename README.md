@@ -1,5 +1,3 @@
-# XiloAdventures
-
 <p align="center">
   <img src="Resources/logo.png" alt="XiloAdventures logo" width="360">
 </p>
@@ -31,6 +29,13 @@ XiloAdventures es un ecosistema completo para crear y jugar aventuras conversaci
 
 ---
 
+## Wiki
+- Pagina principal: [Home](https://github.com/xilonoide/XiloAdventures/wiki/general)
+- Editor: [Editor.md](https://github.com/xilonoide/XiloAdventures/wiki/editor)
+- Cliente/Player: [Player.md](https://github.com/xilonoide/XiloAdventures/wiki/player)
+
+---
+
 ## Estructura rapida
 
 - `XiloAdventures.Engine/`
@@ -43,6 +48,13 @@ XiloAdventures es un ecosistema completo para crear y jugar aventuras conversaci
   - `Ui/UiSettings.cs` (preferencias por mundo)
 - `XiloAdventures.Wpf.Player/` cliente standalone de juego
 - `resources/logo.png` logo usado en el README
+
+---
+
+## Formato y carpetas
+- Mundos `.xaw`: JSON comprimido en ZIP (`world.json`), Base64 y cifrado AES CBC (clave vacia = sin cifrar, 8 chars o 32 chars).
+- Partidas `.xas`: estado del juego cifrado (`GameState`), incluye salas/objetos/NPCs, progreso de misiones, tiempo/clima, inventario.
+- Carpetas de ejecucion: `worlds/` para mundos y `saves/` para partidas (se crean al arrancar la app, ver `AppPaths`).
 
 ---
 
