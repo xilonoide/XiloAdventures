@@ -24,15 +24,15 @@ XiloAdventures es un ecosistema completo para crear y jugar aventuras conversaci
   - Pantalla inicial con selector de mundos, checks de sonido/IA e overlay de progreso al cargar/iniciar.
   - Ventana de partida con historial, inventario, estados, imagen de sala, musica integrada.
   - Al cerrar la partida pregunta si guardar y confirma la salida (popups oscuros).
-- **LLM opcional**: si el parser no entiende un comando y la opcion esta activa, consulta un modelo local (requiere Docker Desktop y `docker-compose.yml` incluido).
-- **TTS (voz)**: generacion y precarga de voz de las descripciones de sala cuando hay volumen de voz > 0.
+- **LLM opcional**: si el parser no entiende un comando y la opcion esta activa, consulta un modelo local (requiere Docker Desktop).
+- **TTS (voz)**: generacion y precarga de voz de las descripciones de salas.
 
 ---
 
 ## Wiki
-- Pagina principal: [Home](https://github.com/xilonoide/XiloAdventures/wiki/general)
-- Editor: [Editor.md](https://github.com/xilonoide/XiloAdventures/wiki/editor)
-- Cliente/Player: [Player.md](https://github.com/xilonoide/XiloAdventures/wiki/player)
+- Pagina principal: [General](https://github.com/xilonoide/XiloAdventures/wiki/general)
+- Editor: [Editor](https://github.com/xilonoide/XiloAdventures/wiki/editor)
+- Cliente/Player: [Player](https://github.com/xilonoide/XiloAdventures/wiki/player)
 
 ---
 
@@ -47,12 +47,11 @@ XiloAdventures es un ecosistema completo para crear y jugar aventuras conversaci
   - `Controls/MapPanel.*`, `Controls/PropertyEditor.*`
   - `Ui/UiSettings.cs` (preferencias por mundo)
 - `XiloAdventures.Wpf.Player/` cliente standalone de juego
-- `resources/logo.png` logo usado en el README
 
 ---
 
 ## Formato y carpetas
-- Mundos `.xaw`: JSON comprimido en ZIP (`world.json`), Base64 y cifrado AES CBC (clave vacia = sin cifrar, 8 chars o 32 chars).
+- Mundos `.xaw`: JSON comprimido en ZIP (`world.json`), Base64 y cifrado AES CBC (clave vacia = sin cifrar, 8 chars).
 - Partidas `.xas`: estado del juego cifrado (`GameState`), incluye salas/objetos/NPCs, progreso de misiones, tiempo/clima, inventario.
 - Carpetas de ejecucion: `worlds/` para mundos y `saves/` para partidas (se crean al arrancar la app, ver `AppPaths`).
 
@@ -82,12 +81,6 @@ Solo cliente player:
 
 ```bash
 dotnet run --project XiloAdventures.Wpf.Player
-```
-
-LLM local:
-
-```bash
-docker compose up -d   # en la carpeta con docker-compose.yml
 ```
 
 Tests (proyecto `XiloAdventures.Tests`, xUnit):
