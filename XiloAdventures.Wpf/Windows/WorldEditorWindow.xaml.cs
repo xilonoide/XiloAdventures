@@ -20,6 +20,7 @@ namespace XiloAdventures.Wpf.Windows;
 
 public partial class WorldEditorWindow : Window
 {
+
     private WorldModel _world = new();
     private string? _currentPath;
     private List<Room>? _roomsClipboard;
@@ -1054,20 +1055,22 @@ public partial class WorldEditorWindow : Window
             var length = System.Text.Encoding.UTF8.GetByteCount(trimmed);
             if (length != 8 && length != 32)
             {
-                new AlertWindow("La clave de cifrado debe ser de 8 caracteres", "Clave inválida")
-                {
-                    Owner = this
-                }.ShowDialog();
-                return false;
-            }
+            new AlertWindow("La clave de cifrado debe ser de 8 caracteres", "Clave inválida")
+            {
+                Owner = this
+            }.ShowDialog();
+            return false;
         }
+    }
 
         var current = _world.Game.EncryptionKey ?? string.Empty;
         if (!string.IsNullOrEmpty(trimmed) &&
             !string.Equals(trimmed, _loadedEncryptionKey, StringComparison.Ordinal))
         {
             if (!ConfirmEncryptionKey(trimmed))
+            {
                 return false;
+            }
         }
 
         if (!string.Equals(current, trimmed, StringComparison.Ordinal))
@@ -1080,6 +1083,7 @@ public partial class WorldEditorWindow : Window
         {
             _loadedEncryptionKey = trimmed;
         }
+
         return true;
     }
 
@@ -2055,6 +2059,11 @@ public partial class WorldEditorWindow : Window
 
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
+        if (!SyncEncryptionKeyFromEditor())
+        {
+            e.Cancel = true;
+            return;
+        }
         if (_isDirty)
         {
             var dlg = new ConfirmWindow("¿Seguro que quieres cerrar el editor de mundos?", "Cerrar editor")

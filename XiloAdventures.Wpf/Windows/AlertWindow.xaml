@@ -39,12 +39,11 @@
             </ScrollViewer>
 
             <Grid Grid.Row="1"
-                  Margin="0,12,0,0"
-                  Grid.IsSharedSizeScope="True">
+                  Margin="0,12,0,0">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" SharedSizeGroup="PopupButton"/>
+                    <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="8"/>
-                    <ColumnDefinition Width="Auto" SharedSizeGroup="PopupButton"/>
+                    <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <Button x:Name="OkButton"
                         Grid.Column="0"

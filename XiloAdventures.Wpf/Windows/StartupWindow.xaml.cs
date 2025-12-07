@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Diagnostics;
 using System.Windows.Navigation;
 using System.Windows.Documents;
+using System.Windows.Input;
 using System.Windows.Media;
 using Microsoft.Win32;
 using XiloAdventures.Engine;
@@ -177,9 +178,9 @@ public partial class StartupWindow : Window
             Parser.SetWorldDictionary(world.Game.ParserDictionaryJson);
             state = WorldLoader.CreateInitialState(world);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            new AlertWindow($"Error al cargar el mundo:\n{ex.Message}", "Error") { Owner = this }.ShowDialog();
+            new AlertWindow("Clave incorrecta", "Error") { Owner = this }.ShowDialog();
             return;
         }
 
@@ -296,9 +297,9 @@ public partial class StartupWindow : Window
                 var json = CryptoUtil.DecryptFromFile(dlg.FileName);
                 save = System.Text.Json.JsonSerializer.Deserialize<SaveData>(json);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                new AlertWindow($"Error al leer la partida:\n{ex.Message}", "Error") { Owner = this }.ShowDialog();
+                new AlertWindow("Clave incorrecta", "Error") { Owner = this }.ShowDialog();
                 return;
             }
 
@@ -341,9 +342,9 @@ public partial class StartupWindow : Window
                 Parser.SetWorldDictionary(world.Game.ParserDictionaryJson);
                 state = SaveManager.LoadFromPath(dlg.FileName, world);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                new AlertWindow($"Error al cargar la partida:\n{ex.Message}", "Error") { Owner = this }.ShowDialog();
+                new AlertWindow("Clave incorrecta", "Error") { Owner = this }.ShowDialog();
                 return;
             }
 
@@ -420,6 +421,21 @@ public partial class StartupWindow : Window
         }
     }
     private void EditorButton_Click(object sender, RoutedEventArgs e)
+    {
+        OpenSelectedWorldInEditor();
+    }
+
+    private void WorldsList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (WorldsList.SelectedItem is null)
+        {
+            return;
+        }
+
+        OpenSelectedWorldInEditor();
+    }
+
+    private void OpenSelectedWorldInEditor()
     {
         string? worldPath = null;
 
@@ -523,61 +539,24 @@ public partial class StartupWindow : Window
 
     private string? PromptForEncryptionKey(string message)
     {
-        var dialog = new Window
+        var passwordBox = new PasswordBox
         {
-            Title = "Clave de cifrado",
-            Owner = this,
-            Width = 420,
-            Height = 180,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            ResizeMode = ResizeMode.NoResize,
-            Background = new SolidColorBrush(Color.FromRgb(34, 34, 34)),
-            Foreground = Brushes.White,
-            WindowStyle = WindowStyle.ToolWindow,
-            ShowInTaskbar = false
+            Margin = new Thickness(0, 12, 0, 0),
+            MinWidth = 320
         };
 
-        var grid = new Grid { Margin = new Thickness(16) };
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-
-        var msg = new TextBlock
+        var dialog = new AlertWindow(message, "Clave de cifrado")
         {
-            Text = message,
-            TextWrapping = TextWrapping.Wrap
+            Owner = this
         };
-        Grid.SetRow(msg, 0);
+        dialog.SetCustomContent(passwordBox);
+        dialog.ShowCancelButton();
+        dialog.Loaded += (_, _) => passwordBox.Focus();
 
-        var pb = new PasswordBox
-        {
-            Margin = new Thickness(0, 8, 0, 0)
-        };
-        Grid.SetRow(pb, 1);
-
-        var btnPanel = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            Margin = new Thickness(0, 12, 0, 0)
-        };
-        var ok = new Button { Content = "Aceptar", Width = 90, Margin = new Thickness(0, 0, 8, 0) };
-        var cancel = new Button { Content = "Cancelar", Width = 90 };
-        ok.Click += (_, _) => { dialog.DialogResult = true; dialog.Close(); };
-        cancel.Click += (_, _) => { dialog.DialogResult = false; dialog.Close(); };
-        btnPanel.Children.Add(ok);
-        btnPanel.Children.Add(cancel);
-        Grid.SetRow(btnPanel, 2);
-
-        grid.Children.Add(msg);
-        grid.Children.Add(pb);
-        grid.Children.Add(btnPanel);
-
-        dialog.Content = grid;
         var result = dialog.ShowDialog();
         if (result == true)
         {
-            return pb.Password.Trim();
+            return passwordBox.Password.Trim();
         }
 
         return null;

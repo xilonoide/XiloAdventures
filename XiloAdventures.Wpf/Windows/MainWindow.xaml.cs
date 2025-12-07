@@ -102,6 +102,7 @@ public partial class MainWindow : Window
             }
 
             AppendText($"> {cmd}");
+            InputTextBox.Clear();
 
             // Guardar en historial
             _commandHistory.Add(cmd);
@@ -116,7 +117,15 @@ public partial class MainWindow : Window
                 var trimmed = (result ?? string.Empty).Trim();
                 if (string.Equals(trimmed, "No entiendo ese comando.", StringComparison.OrdinalIgnoreCase))
                 {
-                    llmAnswer = await TryAskLlmForUnknownCommandAsync(cmd);
+                    ShowLlmProgress(cmd);
+                    try
+                    {
+                        llmAnswer = await TryAskLlmForUnknownCommandAsync(cmd);
+                    }
+                    finally
+                    {
+                        HideLlmProgress();
+                    }
                 }
             }
 
@@ -138,7 +147,6 @@ public partial class MainWindow : Window
                 // Ignoramos errores de autosave
             }
 
-            InputTextBox.Clear();
             e.Handled = true;
         }
         else if (e.Key == Key.Up)
@@ -337,6 +345,22 @@ public partial class MainWindow : Window
         }
 
         return false;
+    }
+
+    private void ShowLlmProgress(string command)
+    {
+        LastCommandText.Text = $"> {command}";
+        LastCommandText.Visibility = Visibility.Visible;
+        LlmProgressBar.Visibility = Visibility.Visible;
+        LlmStatusText.Visibility = Visibility.Visible;
+    }
+
+    private void HideLlmProgress()
+    {
+        LlmProgressBar.Visibility = Visibility.Collapsed;
+        LastCommandText.Visibility = Visibility.Collapsed;
+        LastCommandText.Text = string.Empty;
+        LlmStatusText.Visibility = Visibility.Collapsed;
     }
 
     private static bool _IsSaveOrLoadCommand(string cmd)
