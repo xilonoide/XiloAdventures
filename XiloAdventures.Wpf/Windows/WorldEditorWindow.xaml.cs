@@ -2064,18 +2064,29 @@ public partial class WorldEditorWindow : Window
             e.Cancel = true;
             return;
         }
+
         if (_isDirty)
         {
-            var dlg = new ConfirmWindow("¿Seguro que quieres cerrar el editor de mundos?", "Cerrar editor")
+            var dlg = new SaveChangesWindow("Hay cambios sin guardar. ¿Quieres guardarlos antes de cerrar el editor?")
             {
                 Owner = this
             };
+            dlg.ShowDialog();
 
-            var result = dlg.ShowDialog() == true;
-            if (!result)
+            if (dlg.Result == SaveChangesResult.Cancel)
             {
                 e.Cancel = true;
                 return;
+            }
+
+            if (dlg.Result == SaveChangesResult.Save)
+            {
+                SaveMenu_Click(this, new RoutedEventArgs());
+                if (_isDirty)
+                {
+                    e.Cancel = true;
+                    return;
+                }
             }
         }
 
