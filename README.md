@@ -1,7 +1,7 @@
 # XiloAdventures
 
 <p align="center">
-  <img src="resources/logo.png" alt="XiloAdventures logo" width="360">
+  <img src="Resources/logo.png" alt="XiloAdventures logo" width="360">
 </p>
 
 ![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)
