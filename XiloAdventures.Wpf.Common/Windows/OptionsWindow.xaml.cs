@@ -121,6 +121,46 @@ public partial class OptionsWindow : Window
         }
         else
         {
+            if (_settings.UseLlmForUnknownCommands)
+            {
+                // El usuario está desactivando la IA.
+                // Preguntar si quiere hacer limpieza profunda de Docker.
+                var dlg = new ConfirmWindow(
+                    "Estás desactivando la IA. ¿Quieres desinstalar y limpiar completamente Docker Desktop y los modelos descargados?\n\n" +
+                    "Esto liberará mucho espacio en disco, pero tendrás que volver a instalar Docker si quieres usar la IA en el futuro.",
+                    "Limpiar Docker Desktop")
+                {
+                    Owner = this
+                };
+
+                if (dlg.ShowDialog() == true)
+                {
+                    // Mostramos un 'loading' improvisado bloqueando la ventana o similar, 
+                    // aunque en OptionsWindow no tenemos un overlay de carga tan directo como en StartupWindow.
+                    // Usaremos un AlertWindow informativo antes/después o un wait cursor.
+                    
+                    Mouse.OverrideCursor = Cursors.Wait;
+                    try
+                    {
+                        var result = await XiloAdventures.Wpf.Common.Utilities.DockerDesktopCleaner.CleanDockerDesktopHardAsync(true);
+
+                        Mouse.OverrideCursor = null;
+                        var msg = "Limpieza completada con éxito.";
+
+                        new AlertWindow(msg, "Resultado limpieza") { Owner = this }.ShowDialog();
+                    }
+                    catch (Exception ex)
+                    {
+                        Mouse.OverrideCursor = null;
+                        new AlertWindow($"Error durante la limpieza:\n{ex.Message}", "Error") { Owner = this }.ShowDialog();
+                    }
+                    finally
+                    {
+                         Mouse.OverrideCursor = null;
+                    }
+                }
+            }
+
             _settings.UseLlmForUnknownCommands = false;
         }
 

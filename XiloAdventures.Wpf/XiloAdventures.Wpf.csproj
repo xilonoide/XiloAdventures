@@ -23,5 +23,6 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Resource Include="logo.png" />
+    <Resource Include="appicon.ico" />
   </ItemGroup>
 </Project>

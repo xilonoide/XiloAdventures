@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:XiloAdventures.Wpf.Controls"
         Title="Editor de mundos"
+        Icon="/appicon.ico"
         Height="700"
         Width="1200"
         WindowStartupLocation="CenterOwner"

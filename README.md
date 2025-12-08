@@ -20,7 +20,7 @@ XiloAdventures es un ecosistema completo para crear y jugar aventuras conversaci
   - Panel de propiedades en español, con textboxes multilínea, checkboxes y radio centrados.
   - Botón *Play* para probar el mundo; muestra overlay de progreso mientras prepara la partida.
   - Guardado/carga de mundos `.xaw`, undo/redo, búsqueda.
-- **Cliente de juego WPF (`MainWindow`, `StartupWindow`, `XiloAdventures.Wpf.Player`)**:
+- **Cliente de juego WPF (`MainWindow`, `StartupWindow`)**:
   - Pantalla inicial con selector de mundos, checks de sonido/IA e overlay de progreso al cargar/iniciar.
   - Ventana de partida con historial, inventario, estados, imagen de sala, música integrada.
   - Al cerrar la partida pregunta si guardar y confirma la salida (pop-ups oscuros).
@@ -46,7 +46,7 @@ XiloAdventures es un ecosistema completo para crear y jugar aventuras conversaci
   - `Windows/WorldEditorWindow.xaml` (editor visual con overlay de play)
   - `Controls/MapPanel.*`, `Controls/PropertyEditor.*`
   - `Ui/UiSettings.cs` (preferencias por mundo)
-- `XiloAdventures.Wpf.Player/` cliente standalone de juego
+
 
 ---
 
@@ -77,11 +77,7 @@ Editor + juego (proyecto WPF principal):
 dotnet run --project XiloAdventures.Wpf
 ```
 
-Solo cliente player:
 
-```bash
-dotnet run --project XiloAdventures.Wpf.Player
-```
 
 Tests (proyecto `XiloAdventures.Tests`, xUnit):
 

@@ -52,6 +52,10 @@ public partial class WorldEditorWindow : Window
         MapPanel.KeyDoubleClicked += MapPanel_KeyDoubleClicked;
         MapPanel.DoorClicked += MapPanel_DoorClicked;
         MapPanel.SelectionCleared += MapPanel_SelectionCleared;
+
+        MapPanel.AddObjectToRoomRequested += MapPanel_AddObjectToRoomRequested;
+        MapPanel.AddNpcToRoomRequested += MapPanel_AddNpcToRoomRequested;
+        MapPanel.EmptyMapDoubleClicked += MapPanel_EmptyMapDoubleClicked;
         BuildTree();
         MapPanel.SetWorld(_world);
         ResetUndoRedo();
@@ -2104,6 +2108,70 @@ public partial class WorldEditorWindow : Window
         base.OnClosing(e);
     }
 
+
+
+
+
+    private void MapPanel_AddObjectToRoomRequested(Room room)
+    {
+        var index = _world.Objects.Count + 1;
+        var obj = new GameObject
+        {
+            Id = $"obj_{index}",
+            Name = $"Objeto {index}",
+            Description = "Nuevo objeto.",
+            CanTake = true,
+            Visible = true,
+            RoomId = room.Id
+        };
+
+        _world.Objects.Add(obj);
+        BuildTree();
+        MapPanel.SetWorld(_world);
+        PushUndoSnapshot();
+        SetDirty(true);
+    }
+
+    private void MapPanel_AddNpcToRoomRequested(Room room)
+    {
+        var index = _world.Npcs.Count + 1;
+        var npc = new Npc
+        {
+            Id = $"npc_{index}",
+            Name = $"PNJ {index}",
+            Description = "Nuevo personaje.",
+            Visible = true,
+            RoomId = room.Id
+        };
+
+        _world.Npcs.Add(npc);
+        BuildTree();
+        MapPanel.SetWorld(_world);
+        PushUndoSnapshot();
+        SetDirty(true);
+    }
+
+    private void MapPanel_EmptyMapDoubleClicked(Point logicalPos)
+    {
+        var index = _world.Rooms.Count + 1;
+        var room = new Room
+        {
+            Id = $"sala_{index}",
+            Name = $"Sala {index}",
+            Description = "Nueva sala."
+        };
+        _world.Rooms.Add(room);
+
+        // Establecer la posición de la sala en el mapa
+        MapPanel.SetRoomPosition(room.Id, logicalPos);
+
+        MapPanel.SetWorld(_world);
+        BuildTree();
+        SelectRoomInTree(room);
+
+        PushUndoSnapshot();
+        SetDirty(true);
+    }
 
     public class SelectRoomWindow : Window
     {

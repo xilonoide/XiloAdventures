@@ -56,9 +56,45 @@ public partial class StartupWindow : Window
         UiSettingsManager.SaveGlobal();
     }
 
-    private void LlmCheckBox_Changed(object sender, RoutedEventArgs e)
+    private async void LlmCheckBox_Changed(object sender, RoutedEventArgs e)
     {
-        UiSettingsManager.GlobalSettings.UseLlmForUnknownCommands = LlmCheckBox.IsChecked == true;
+        var isChecked = LlmCheckBox.IsChecked == true;
+
+        if (!isChecked && UiSettingsManager.GlobalSettings.UseLlmForUnknownCommands)
+        {
+            // El usuario está desactivando la IA.
+            // Preguntar si quiere hacer limpieza profunda de Docker.
+            var dlg = new ConfirmWindow(
+                "Estás desactivando la IA. ¿Quieres desinstalar y limpiar completamente Docker Desktop y los modelos descargados?\n\n" +
+                "Esto liberará mucho espacio en disco, pero tendrás que volver a instalar Docker si quieres usar la IA en el futuro.",
+                "Limpiar Docker Desktop")
+            {
+                Owner = this
+            };
+
+            if (dlg.ShowDialog() == true)
+            {
+                ShowLoading("Limpiando Docker Desktop...");
+                try
+                {
+                    var result = await XiloAdventures.Wpf.Common.Utilities.DockerDesktopCleaner.CleanDockerDesktopHardAsync(true);
+                    
+                    var msg = "Limpieza completada con éxito.";
+                        
+                     new AlertWindow(msg, "Resultado limpieza") { Owner = this }.ShowDialog();
+                }
+                catch (Exception ex)
+                {
+                     new AlertWindow($"Error durante la limpieza:\n{ex.Message}", "Error") { Owner = this }.ShowDialog();
+                }
+                finally
+                {
+                    HideLoading();
+                }
+            }
+        }
+
+        UiSettingsManager.GlobalSettings.UseLlmForUnknownCommands = isChecked;
         UiSettingsManager.SaveGlobal();
     }
 

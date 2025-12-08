@@ -177,7 +177,7 @@ public partial class DockerProgressWindow : Window
                 _logStepCounter++;
                 await Dispatcher.InvokeAsync(() =>
                 {
-                    StepText.Text = $"Paso {_logStepCounter}";
+                    StepText.Text = $"Paso {_logStepCounter} /4";
                 }).Task.ConfigureAwait(true);
             }
 

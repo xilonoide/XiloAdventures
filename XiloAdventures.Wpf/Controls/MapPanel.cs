@@ -89,6 +89,9 @@ public partial class MapPanel : Control
     public event Action? SelectionCleared;
     public event Action? MapEdited;
 
+    public event Action<Room>? AddObjectToRoomRequested;
+    public event Action<Room>? AddNpcToRoomRequested;
+
     static MapPanel()
     {
         DefaultStyleKeyProperty.OverrideMetadata(
@@ -243,6 +246,19 @@ public partial class MapPanel : Control
             }
         }
         return result;
+    }
+
+    /// <summary>
+    /// Establece la posición lógica de una sala específica.
+    /// </summary>
+    public void SetRoomPosition(string roomId, Point position)
+    {
+        if (_world == null)
+            return;
+
+        _roomPositions[roomId] = position;
+        UpdateRoomRects();
+        InvalidateVisual();
     }
 
     /// <summary>

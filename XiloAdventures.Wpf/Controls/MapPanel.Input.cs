@@ -107,6 +107,19 @@ public partial class MapPanel : Control
                 e.Handled = true;
                 return;
             }
+
+            var roomHit = HitTestRoom(pos);
+            if (roomHit != null)
+            {
+                ShowRoomContextMenu(roomHit, pos);
+                e.Handled = true;
+                return;
+            }
+
+            // Click derecho en zona vacía: no hacemos nada.
+            // ShowEmptyMapContextMenu(pos);
+            // e.Handled = true;
+            // return;
         }
 
         if (e.ChangedButton == MouseButton.Left)
@@ -1973,6 +1986,59 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
         return new Point(
             (a.X + b.X) / 2.0,
             (a.Y + b.Y) / 2.0);
+    }
+
+    private void ShowRoomContextMenu(Room room, Point screenPoint)
+    {
+        if (_world == null)
+            return;
+
+        var menu = new ContextMenu
+        {
+            Background = new SolidColorBrush(Color.FromRgb(48, 48, 48)),
+            Foreground = Brushes.White
+        };
+
+        var addObjectItem = CreateContextMenuItem("Añadir objeto", "\uE8B8");
+        addObjectItem.Click += (_, _) => AddObjectToRoomRequested?.Invoke(room);
+
+        var addNpcItem = CreateContextMenuItem("Añadir NPC", "\uE77B");
+        addNpcItem.Click += (_, _) => AddNpcToRoomRequested?.Invoke(room);
+
+        menu.Items.Add(addObjectItem);
+        menu.Items.Add(addNpcItem);
+
+        menu.PlacementTarget = this;
+        menu.Placement = PlacementMode.MousePoint;
+        menu.IsOpen = true;
+    }
+
+
+
+    private MenuItem CreateContextMenuItem(string header, string iconGlyph)
+    {
+        var menuItem = new MenuItem
+        {
+            Header = header,
+            Background = new SolidColorBrush(Color.FromRgb(48, 48, 48)),
+            Foreground = Brushes.White
+        };
+
+        if (!string.IsNullOrEmpty(iconGlyph))
+        {
+            var icon = new TextBlock
+            {
+                FontFamily = new FontFamily("Segoe MDL2 Assets"),
+                Text = iconGlyph,
+                FontSize = 18,
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground = Brushes.White
+            };
+
+            menuItem.Icon = icon;
+        }
+
+        return menuItem;
     }
 
 }

@@ -181,6 +181,16 @@ public partial class MapPanel : Control
             }
 
             bool hasNpcs = room.NpcIds != null && room.NpcIds.Count > 0;
+
+            // Además, comprobamos si hay NPCs cuyo RoomId apunta a esta sala,
+            // por si el JSON sólo ha rellenado RoomId y no la lista Room.NpcIds.
+            if (!hasNpcs && _world?.Npcs != null)
+            {
+                hasNpcs = _world.Npcs.Any(n =>
+                    !string.IsNullOrWhiteSpace(n.RoomId) &&
+                    string.Equals(n.RoomId, room.Id, StringComparison.OrdinalIgnoreCase));
+            }
+
             bool isStartRoom = _world?.Game != null &&
                                string.Equals(_world.Game.StartRoomId, room.Id, StringComparison.OrdinalIgnoreCase);
 
