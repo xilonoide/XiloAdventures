@@ -19,6 +19,7 @@
     <Resource Include="appicon.ico" />
     <Resource Include="Styles\CommonStyles.xaml" />
     <Resource Include="Assets\default_room.png" />
+    <Resource Include="Assets\logo.png" />
   </ItemGroup>
 
 </Project>

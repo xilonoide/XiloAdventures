@@ -1,6 +1,6 @@
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
-using System.Text.Json;
 using System.Windows;
 using XiloAdventures.Engine;
 using XiloAdventures.Engine.Models;
@@ -12,7 +12,7 @@ namespace XiloAdventures.Wpf.Player;
 
 public partial class App : Application
 {
-    protected override void OnStartup(StartupEventArgs e)
+    protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
@@ -45,14 +45,25 @@ public partial class App : Application
             args.SetObserved();
         };
 
+        // Mostrar splash screen
+        var splash = new SplashWindow();
+        splash.Show();
+
+        var stopwatch = Stopwatch.StartNew();
+
         try
         {
-            // Cargar el mundo embebido
-            var world = LoadEmbeddedWorld();
+            // Cargar el mundo embebido en background
+            WorldModel? world = null;
+            await System.Threading.Tasks.Task.Run(() =>
+            {
+                world = LoadEmbeddedWorld();
+            });
 
             if (world == null)
             {
                 LogError("El mundo es null después de LoadEmbeddedWorld");
+                splash.Close();
                 MessageBox.Show(
                     "No se pudo cargar el mundo del juego.",
                     "Error",
@@ -61,9 +72,6 @@ public partial class App : Application
                 Shutdown();
                 return;
             }
-
-            // Iniciar el juego
-            LogError("Creando ventana de juego...");
 
             // Configurar el parser
             Parser.SetWorldDictionary(world.Game.ParserDictionaryJson);
@@ -84,15 +92,25 @@ public partial class App : Application
                 UseLlmForUnknownCommands = false
             };
 
-            // Crear y mostrar la ventana de juego (isRunningFromEditor = false)
+            // Crear la ventana de juego
             var window = new MainWindow(world, state, soundManager, uiSettings, isRunningFromEditor: false);
-            LogError("Ventana creada, mostrando...");
+
+            // Asegurar mínimo 2 segundos de splash
+            var elapsed = stopwatch.ElapsedMilliseconds;
+            if (elapsed < 2000)
+            {
+                await System.Threading.Tasks.Task.Delay((int)(2000 - elapsed));
+            }
+
+            // Cerrar splash y mostrar ventana principal
+            splash.Close();
             window.Show();
             LogError("Ventana mostrada exitosamente");
         }
         catch (Exception ex)
         {
             LogError($"Error en OnStartup: {ex}");
+            splash.Close();
             MessageBox.Show(
                 $"Error al iniciar el juego: {ex.Message}\n\nStack Trace:\n{ex.StackTrace}\n\nSe ha guardado un log en el escritorio.",
                 "Error",
@@ -131,11 +149,6 @@ public partial class App : Application
             if (stream == null)
             {
                 LogError("Stream del recurso es null");
-                MessageBox.Show(
-                    "No se encontró el mundo embebido en el ejecutable.",
-                    "Error",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
                 return null;
             }
 
@@ -169,11 +182,6 @@ public partial class App : Application
         catch (Exception ex)
         {
             LogError($"Error en LoadEmbeddedWorld: {ex}");
-            MessageBox.Show(
-                $"Error al cargar el mundo: {ex.Message}\n\nDetalles: {ex.GetType().Name}\n\nSe ha guardado un log en el escritorio.",
-                "Error",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
             return null;
         }
     }

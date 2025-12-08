@@ -35,7 +35,7 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
 
-    <Resource Include="..\XiloAdventures.Wpf\logo.png" Link="logo.png" />
+    <Resource Include="..\XiloAdventures.Wpf.Common\Assets\logo.png" Link="logo.png" />
     <Resource Include="..\XiloAdventures.Wpf.Common\appicon.ico" Link="appicon.ico" />
     <!-- Include shared styles directly so single-file EXE can resolve them -->
     <Resource Include="..\XiloAdventures.Wpf.Common\Styles\CommonStyles.xaml" Link="Styles\CommonStyles.xaml" />
