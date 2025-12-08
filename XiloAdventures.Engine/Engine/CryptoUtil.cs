@@ -19,6 +19,12 @@ public static class CryptoUtil
     /// </summary>
     public const string DefaultKeyString = "XiloAdv-Key-1234XiloAdv-Key-1234"; // 32 chars
 
+    /// <summary>
+    /// Clave por defecto para cifrado de partidas guardadas (32 caracteres = 256 bits).
+    /// Se usa cuando el mundo no especifica una clave de encriptación personalizada.
+    /// </summary>
+    public const string DefaultSaveKeyString = "XiloAdventuresXiloAdventuresXilo"; // 32 chars
+
     private static readonly byte[] DefaultKey = Encoding.UTF8.GetBytes(DefaultKeyString); // 32 bytes
 
     /// <summary>
@@ -78,21 +84,59 @@ public static class CryptoUtil
         }
     }
 
+    /// <summary>
+    /// Obtiene la clave efectiva para cifrado/descifrado de partidas guardadas.
+    /// Si la clave está vacía, usa la clave por defecto para partidas.
+    /// </summary>
+    public static string GetEffectiveSaveKey(string? userKey)
+    {
+        return string.IsNullOrWhiteSpace(userKey) ? DefaultSaveKeyString : userKey.Trim();
+    }
+
     private static byte[] GetKey(string? customKey)
     {
+        // Si no hay clave, usamos la por defecto (aunque para guardar partida
+        // debería haber una obligatoria, esto mantiene compatibilidad si se usa para otras cosas).
         if (string.IsNullOrWhiteSpace(customKey))
             return DefaultKey;
 
-        var trimmed = customKey.Trim();
-        if (trimmed.Length == 8)
+        var userKey = customKey.Trim();
+        
+        // Si tiene más de 8 caracteres, cortamos
+        if (userKey.Length > 8)
+            userKey = userKey.Substring(0, 8);
+
+        // Padding específico solicitado
+        const string padding = "XiloAdventuresXiloAdvent"; 
+        
+        // Concatenamos: clave_usuario + padding
+        // Ejemplo: "12345678" + "XiloAdventuresXiloAdvent" = 32 chars
+        // Si la clave es más corta, se rellenará con el principio del padding
+        var combined = userKey;
+        
+        // Rellenar hasta 32 bytes con el string de padding
+        int needed = 32 - combined.Length;
+        if (needed > 0)
         {
-            trimmed = trimmed + new string('X', 24);
+            if (needed > padding.Length)
+            {
+                // Por seguridad/robustez, si faltaran más de lo que mide el padding (caso raro si key es vacía)
+                // repetimos el padding.
+                while (combined.Length < 32)
+                {
+                    combined += padding;
+                }
+            }
+            else
+            {
+                combined += padding.Substring(0, needed);
+            }
         }
+        
+        // Aseguramos longitud exacta de 32
+        if (combined.Length > 32)
+            combined = combined.Substring(0, 32);
 
-        var keyBytes = Encoding.UTF8.GetBytes(trimmed);
-        if (keyBytes.Length != 32)
-            throw new ArgumentException("La clave de cifrado debe ser de 8 caracteres.");
-
-        return keyBytes;
+        return Encoding.UTF8.GetBytes(combined);
     }
 }

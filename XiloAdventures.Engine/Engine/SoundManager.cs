@@ -69,7 +69,7 @@ public class SoundManager : IDisposable
     {
         if (!SoundEnabled)
         {
-            StopWorldMusic();
+            // No intentar hacer nada si el sonido está desactivado
             return;
         }
 
@@ -130,7 +130,7 @@ public class SoundManager : IDisposable
     {
         if (!SoundEnabled)
         {
-            StopRoomMusic();
+            // No intentar hacer nada si el sonido está desactivado
             return;
         }
 
@@ -224,17 +224,25 @@ public class SoundManager : IDisposable
 
     private async Task<byte[]?> FetchVoiceBytesAsync(string text)
     {
-        var encodedText = Uri.EscapeDataString(text);
-        using var response = await TtsHttpClient
-            .GetAsync($"api/tts?text={encodedText}", HttpCompletionOption.ResponseHeadersRead)
-            .ConfigureAwait(false);
+        try
+        {
+            var encodedText = Uri.EscapeDataString(text);
+            using var response = await TtsHttpClient
+                .GetAsync($"api/tts?text={encodedText}", HttpCompletionOption.ResponseHeadersRead)
+                .ConfigureAwait(false);
 
-        response.EnsureSuccessStatusCode();
+            response.EnsureSuccessStatusCode();
 
-        await using var networkStream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
-        using var ms = new MemoryStream();
-        await networkStream.CopyToAsync(ms).ConfigureAwait(false);
-        return ms.ToArray();
+            await using var networkStream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+            using var ms = new MemoryStream();
+            await networkStream.CopyToAsync(ms).ConfigureAwait(false);
+            return ms.ToArray();
+        }
+        catch
+        {
+            // Si el servicio TTS no está disponible, retornamos null para que el juego continúe sin voz
+            return null;
+        }
     }
 
     public async Task PreloadRoomVoiceAsync(string roomId, string? text)
@@ -286,13 +294,19 @@ public class SoundManager : IDisposable
 
     public async Task PlayRoomDescriptionAsync(string roomId, string? text)
     {
+        // Si el sonido está desactivado, no hacer nada
+        if (!SoundEnabled)
+        {
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(text))
         {
             StopVoice();
             return;
         }
 
-        if (!SoundEnabled || MasterVolume <= 0f || VoiceVolume <= 0f)
+        if (MasterVolume <= 0f || VoiceVolume <= 0f)
         {
             StopVoice();
             return;

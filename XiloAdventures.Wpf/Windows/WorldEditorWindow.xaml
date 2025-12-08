@@ -209,6 +209,18 @@
                         </MenuItem.Icon>
                     </MenuItem>
                     <Separator/>
+                    <MenuItem Header="Exportar como ejecutable..."
+                            Click="ExportMenu_Click"
+                            Style="{StaticResource SubMenuItemStyle}">
+                        <MenuItem.Icon>
+                            <TextBlock FontFamily="Segoe MDL2 Assets"
+                                    VerticalAlignment="Center"
+                                    Text="&#xE74D;"
+                                    FontSize="18"
+                                    Margin="2"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator/>
                     <MenuItem Header="Cerrar"
                             Click="CloseMenu_Click"
                             Style="{StaticResource SubMenuItemStyle}">

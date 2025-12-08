@@ -28,7 +28,6 @@ public partial class WorldEditorWindow : Window
     private bool _roomsClipboardIsCut;
     private IReadOnlyDictionary<string, Point>? _roomsClipboardPositions;
     private Dictionary<string, string>? _lastClipboardIdMap;
-    private string _loadedEncryptionKey = string.Empty;
 
     private readonly UndoRedoManager _undoRedo = new();
 
@@ -36,7 +35,6 @@ public partial class WorldEditorWindow : Window
     private bool _isDirty;
     private readonly string _baseTitle;
     private TreeViewItem? _gameTreeNode;
-    private bool _lastKeyPromptCanceled;
     public bool IsCanceled { get; private set; }
 
     public WorldEditorWindow()
@@ -60,7 +58,6 @@ public partial class WorldEditorWindow : Window
         MapPanel.SetWorld(_world);
         ResetUndoRedo();
         SetDirty(false);
-        UpdateLoadedEncryptionKey();
     }
 
     public WorldEditorWindow(string? worldPath) : this()
@@ -69,11 +66,8 @@ public partial class WorldEditorWindow : Window
         if (!string.IsNullOrWhiteSpace(worldPath) && System.IO.File.Exists(worldPath))
         {
             TryLoadWorldWithPrompt(worldPath);
-            if (_lastKeyPromptCanceled)
-            {
-                IsCanceled = true;
+            if (IsCanceled)
                 return;
-            }
         }
         else
         {
@@ -97,284 +91,26 @@ public partial class WorldEditorWindow : Window
         MapPanel.SetWorld(_world);
         BuildTree();
         ResetUndoRedo();
-        UpdateLoadedEncryptionKey();
     }
 
     private void TryLoadWorldWithPrompt(string worldPath)
     {
-        _lastKeyPromptCanceled = false;
-        while (true)
+        try
         {
-            try
-            {
-                _world = WorldLoader.LoadWorldModel(worldPath, null, () => PromptForEncryptionKey("Introduce la clave usada para cifrar este mundo:"));
-                _currentPath = worldPath;
-                UpdateLoadedEncryptionKey();
-                break;
-            }
-            catch (CryptographicException)
-            {
-                if (HandleCanceled()) return;
-                ShowKeyError();
-            }
-            catch (InvalidDataException)
-            {
-                if (HandleCanceled()) return;
-                ShowKeyError();
-            }
-            catch (JsonException)
-            {
-                if (HandleCanceled()) return;
-                ShowKeyError();
-            }
-            catch (Exception)
-            {
-                if (HandleCanceled()) return;
-                ShowKeyError();
-            }
+            _world = WorldLoader.LoadWorldModel(worldPath);
+            _currentPath = worldPath;
         }
-    }
-
-    private void UpdateLoadedEncryptionKey()
-    {
-        _loadedEncryptionKey = (_world?.Game?.EncryptionKey ?? string.Empty).Trim();
-    }
-
-    private bool HandleCanceled()
-    {
-        if (_lastKeyPromptCanceled)
+        catch (Exception ex)
         {
+            MessageBox.Show(
+                $"Error al cargar el mundo:\n{ex.Message}",
+                "Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
             IsCanceled = true;
-            return true;
         }
-        return false;
     }
 
-    private void ShowKeyError()
-    {
-        var alert = new AlertWindow("Clave incorrecta", "Error");
-        if (IsLoaded && IsVisible)
-            alert.Owner = this;
-        else if (Application.Current?.MainWindow is { IsVisible: true } mainOwner)
-            alert.Owner = mainOwner;
-        alert.ShowDialog();
-    }
-
-    private void ShowGenericLoadError(string message)
-    {
-        var alert = new AlertWindow($"Error al abrir mundo:\n{message}", "Error");
-        if (IsLoaded && IsVisible)
-            alert.Owner = this;
-        else if (Application.Current?.MainWindow is { IsVisible: true } mainOwner)
-            alert.Owner = mainOwner;
-        alert.ShowDialog();
-    }
-
-    private string? PromptForEncryptionKey(string message)
-    {
-        var ownerWindow = (IsLoaded && IsVisible) ? this : Application.Current.MainWindow;
-
-        var dialog = new Window
-        {
-            Title = "Clave de cifrado",
-            Width = 420,
-            SizeToContent = SizeToContent.Height,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            ResizeMode = ResizeMode.NoResize,
-            Background = new SolidColorBrush(Color.FromRgb(34, 34, 34)),
-            Foreground = Brushes.White,
-            WindowStyle = WindowStyle.ToolWindow,
-            ShowInTaskbar = false
-        };
-        if (ownerWindow != null)
-            dialog.Owner = ownerWindow;
-
-        var grid = new Grid { Margin = new Thickness(16) };
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-
-        var msg = new TextBlock
-        {
-            Text = message,
-            TextWrapping = TextWrapping.Wrap
-        };
-        Grid.SetRow(msg, 0);
-
-        var pb = new PasswordBox
-        {
-            Margin = new Thickness(0, 8, 0, 0)
-        };
-        pb.KeyDown += (s, e) =>
-        {
-            if (e.Key == Key.Enter)
-            {
-                dialog.DialogResult = true;
-                dialog.Close();
-                e.Handled = true;
-            }
-        };
-        Grid.SetRow(pb, 1);
-
-        var btnPanel = new Grid
-        {
-            Margin = new Thickness(0, 16, 0, 0)
-        };
-        btnPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        btnPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) });
-        btnPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-
-        var ok = new Button
-        {
-            Style = ResolveCommandButtonStyle(),
-            Content = "Aceptar",
-            IsDefault = true
-        };
-        ok.Click += (_, _) =>
-        {
-            dialog.DialogResult = true;
-            dialog.Close();
-        };
-
-        var cancel = new Button
-        {
-            Style = ResolveCommandButtonStyle(),
-            Content = "Cancelar",
-            IsCancel = true
-        };
-        cancel.Click += (_, _) =>
-        {
-            dialog.DialogResult = false;
-            dialog.Close();
-        };
-
-        Grid.SetColumn(ok, 0);
-        Grid.SetColumn(cancel, 2);
-        btnPanel.Children.Add(ok);
-        btnPanel.Children.Add(cancel);
-        Grid.SetRow(btnPanel, 2);
-
-        grid.Children.Add(msg);
-        grid.Children.Add(pb);
-        grid.Children.Add(btnPanel);
-
-        dialog.Content = grid;
-        dialog.Loaded += (_, _) => pb.Focus();
-
-        var result = dialog.ShowDialog();
-        if (result == true)
-        {
-            return pb.Password.Trim();
-        }
-
-        _lastKeyPromptCanceled = true;
-        return null;
-    }
-
-    private bool ConfirmEncryptionKey(string newKey)
-    {
-        var ownerWindow = (IsLoaded && IsVisible) ? this : Application.Current?.MainWindow;
-
-        var dialog = new Window
-        {
-            Title = "Confirmar clave",
-            Width = 420,
-            SizeToContent = SizeToContent.Height,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            ResizeMode = ResizeMode.NoResize,
-            Background = new SolidColorBrush(Color.FromRgb(34, 34, 34)),
-            Foreground = Brushes.White,
-            WindowStyle = WindowStyle.ToolWindow,
-            ShowInTaskbar = false,
-            Owner = ownerWindow
-        };
-
-        var grid = new Grid { Margin = new Thickness(16) };
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-
-        var msg = new TextBlock
-        {
-            Text = "Repite la clave de cifrado:",
-            TextWrapping = TextWrapping.Wrap
-        };
-        Grid.SetRow(msg, 0);
-
-        var pb = new PasswordBox
-        {
-            Margin = new Thickness(0, 8, 0, 0)
-        };
-        Grid.SetRow(pb, 1);
-
-        var btnPanel = new Grid
-        {
-            Margin = new Thickness(0, 16, 0, 0)
-        };
-        btnPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        btnPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) });
-        btnPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-
-        var ok = new Button
-        {
-            Style = ResolveCommandButtonStyle(),
-            Content = "Aceptar",
-            IsDefault = true
-        };
-        pb.KeyDown += (_, e) =>
-        {
-            if (e.Key == Key.Enter)
-            {
-                ok.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                e.Handled = true;
-            }
-        };
-        ok.Click += (_, _) =>
-        {
-            var confirm = (pb.Password ?? string.Empty).Trim();
-            if (!string.Equals(confirm, newKey, StringComparison.Ordinal))
-            {
-                new AlertWindow("Las claves no coinciden", "Clave inválida")
-                {
-                    Owner = dialog
-                }.ShowDialog();
-                dialog.DialogResult = false;
-                dialog.Close();
-                return;
-            }
-
-            dialog.DialogResult = true;
-            dialog.Close();
-        };
-
-        var cancel = new Button
-        {
-            Style = ResolveCommandButtonStyle(),
-            Content = "Cancelar",
-            IsCancel = true
-        };
-        cancel.Click += (_, _) =>
-        {
-            dialog.DialogResult = false;
-            dialog.Close();
-        };
-
-        Grid.SetColumn(ok, 0);
-        Grid.SetColumn(cancel, 2);
-        btnPanel.Children.Add(ok);
-        btnPanel.Children.Add(cancel);
-        Grid.SetRow(btnPanel, 2);
-
-        grid.Children.Add(msg);
-        grid.Children.Add(pb);
-        grid.Children.Add(btnPanel);
-
-        dialog.Content = grid;
-        dialog.Loaded += (_, _) => pb.Focus();
-
-        var result = dialog.ShowDialog();
-        return result == true;
-    }
     private void PropertyEditor_PropertyEdited(object? obj, string propertyName)
     {
         if (obj is null) return;
@@ -806,7 +542,6 @@ public partial class WorldEditorWindow : Window
         MapPanel.SetWorld(_world);
         BuildTree();
         ResetUndoRedo();
-        UpdateLoadedEncryptionKey();
     }
 
     private void OpenMenu_Click(object sender, RoutedEventArgs e)
@@ -821,7 +556,7 @@ public partial class WorldEditorWindow : Window
         if (dlg.ShowDialog(this) == true)
         {
             TryLoadWorldWithPrompt(dlg.FileName);
-            if (_lastKeyPromptCanceled)
+            if (IsCanceled)
                 return;
 
             MapPanel.SetWorld(_world);
@@ -844,8 +579,13 @@ public partial class WorldEditorWindow : Window
         ShowPlayLoading("Preparando partida...");
         await Dispatcher.Yield();
 
-        // Guardar antes de lanzar la partida de prueba
-        SaveMenu_Click(sender, new RoutedEventArgs());
+        // Guardar antes de lanzar la partida de prueba (y validar clave de encriptación)
+        if (!PerformSave())
+        {
+            // Si el save falla (por clave incorrecta u otro error), no continuar
+            HidePlayLoading();
+            return;
+        }
 
         _isPlayRunning = true;
         if (PlayButton != null)
@@ -975,7 +715,7 @@ public partial class WorldEditorWindow : Window
                 }
             }
 
-            var main = new MainWindow(world, state, soundManager, uiSettings)
+            var main = new Common.Windows.MainWindow(world, state, soundManager, uiSettings, isRunningFromEditor: true)
             {
                 Owner = this
             };
@@ -1003,19 +743,57 @@ public partial class WorldEditorWindow : Window
         PlayLoadingOverlay.Visibility = Visibility.Collapsed;
     }
 
+    /// <summary>
+    /// Valida que la clave de encriptación tenga el formato correcto.
+    /// Retorna true si es válida, false si no lo es.
+    /// </summary>
+    private bool ValidateEncryptionKey()
+    {
+        if (_world == null)
+            return true;
+
+        var key = _world.Game.EncryptionKey;
+        if (!string.IsNullOrWhiteSpace(key) && key.Trim().Length != 8)
+        {
+            new AlertWindow("La 'Clave de cifrado' debe tener exactamente 8 caracteres o dejarse vacía para usar la clave por defecto.",
+                            "Clave incorrecta")
+            {
+                Owner = this
+            }.ShowDialog();
+
+            // Intentar seleccionar el nodo juego para facilitar al usuario corregirlo
+            SelectGameTreeNode();
+            return false;
+        }
+
+        return true;
+    }
+
     private void SaveMenu_Click(object sender, RoutedEventArgs e)
     {
+        PerformSave();
+    }
+
+    private bool PerformSave()
+    {
+        // Simulamos sender/e para reaprovechar lógica existente si fuera necesario, 
+        // aunque idealmente SaveAsMenu_Click debería refactorizarse también.
+        // Por ahora mantenemos la compatibilidad con el resto del código.
+        var sender = this; 
+        var e = new RoutedEventArgs();
+
         if (string.IsNullOrEmpty(_currentPath))
         {
             SaveAsMenu_Click(sender, e);
-            return;
+            return false; // No sabemos si el usuario guardó o canceló
         }
+
+        // Validar clave de encriptación
+        if (!ValidateEncryptionKey())
+            return false;
 
         try
         {
-            if (!SyncEncryptionKeyFromEditor())
-                return;
-
             // Antes de guardar, sincronizamos las posiciones actuales del mapa con el modelo.
             if (_world != null)
             {
@@ -1038,58 +816,13 @@ public partial class WorldEditorWindow : Window
             Directory.CreateDirectory(AppPaths.WorldsFolder);
             WorldLoader.SaveWorldModel(_world!, _currentPath);
             SetDirty(false);
+            return true;
         }
         catch (Exception ex)
         {
             new AlertWindow($"Error al guardar mundo:\n{ex.Message}", "Error") { Owner = this }.ShowDialog();
-        }
-    }
-
-    private bool SyncEncryptionKeyFromEditor()
-    {
-        if (_world?.Game == null)
-            return true;
-
-        var pb = PropertyEditor?.EncryptionPasswordBox;
-        var trimmed = pb != null
-            ? (pb.Password ?? string.Empty).Trim()
-            : (_world.Game.EncryptionKey ?? string.Empty).Trim();
-
-        if (!string.IsNullOrEmpty(trimmed))
-        {
-            var length = System.Text.Encoding.UTF8.GetByteCount(trimmed);
-            if (length != 8 && length != 32)
-            {
-            new AlertWindow("La clave de cifrado debe ser de 8 caracteres", "Clave inválida")
-            {
-                Owner = this
-            }.ShowDialog();
             return false;
         }
-    }
-
-        var current = _world.Game.EncryptionKey ?? string.Empty;
-        if (!string.IsNullOrEmpty(trimmed) &&
-            !string.Equals(trimmed, _loadedEncryptionKey, StringComparison.Ordinal))
-        {
-            if (!ConfirmEncryptionKey(trimmed))
-            {
-                return false;
-            }
-        }
-
-        if (!string.Equals(current, trimmed, StringComparison.Ordinal))
-        {
-            _world.Game.EncryptionKey = trimmed;
-            _loadedEncryptionKey = trimmed;
-            PushUndoSnapshot();
-        }
-        else
-        {
-            _loadedEncryptionKey = trimmed;
-        }
-
-        return true;
     }
 
     private void SaveAsMenu_Click(object sender, RoutedEventArgs e)
@@ -2064,12 +1797,6 @@ public partial class WorldEditorWindow : Window
 
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
-        if (!SyncEncryptionKeyFromEditor())
-        {
-            e.Cancel = true;
-            return;
-        }
-
         if (_isDirty)
         {
             var dlg = new SaveChangesWindow("Hay cambios sin guardar. ¿Quieres guardarlos antes de cerrar el editor?")
@@ -2171,6 +1898,184 @@ public partial class WorldEditorWindow : Window
 
         PushUndoSnapshot();
         SetDirty(true);
+    }
+
+    private async void ExportMenu_Click(object sender, RoutedEventArgs e)
+    {
+        // Verificar que el mundo esté guardado
+        if (_isDirty)
+        {
+            var result = MessageBox.Show(
+                "Debes guardar el mundo antes de exportar. ¿Quieres guardarlo ahora?",
+                "Guardar antes de exportar",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                SaveMenu_Click(sender, e);
+                if (_isDirty) // Si sigue dirty, es que el usuario canceló o hubo error
+                    return;
+            }
+            else
+            {
+                return;
+            }
+        }
+
+        if (string.IsNullOrEmpty(_currentPath))
+        {
+            MessageBox.Show(
+                "Debes guardar el mundo en un archivo antes de exportar.",
+                "Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        // Seleccionar ubicación de salida
+        var saveDialog = new Microsoft.Win32.SaveFileDialog
+        {
+            Filter = "Ejecutable (*.exe)|*.exe",
+            DefaultExt = ".exe",
+            FileName = $"{_world.Game.Title}.exe"
+        };
+
+        if (saveDialog.ShowDialog() != true)
+            return;
+
+        var outputPath = saveDialog.FileName;
+
+        // Mostrar indicador de progreso
+        ShowPlayLoading("Exportando ejecutable...");
+
+        try
+        {
+            await System.Threading.Tasks.Task.Run(() => ExportStandaloneExecutable(_currentPath, outputPath));
+
+            HidePlayLoading();
+
+            MessageBox.Show(
+                $"Ejecutable creado exitosamente en:\n{outputPath}\n\nTamaño aproximado: ~80-100 MB\n\nEl jugador no necesitará .NET instalado para ejecutarlo.",
+                "Exportación completada",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+
+            // Preguntar si quiere abrir la carpeta
+            var openFolder = MessageBox.Show(
+                "¿Deseas abrir la carpeta donde se guardó el ejecutable?",
+                "Abrir carpeta",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (openFolder == MessageBoxResult.Yes)
+            {
+                var folderPath = System.IO.Path.GetDirectoryName(outputPath);
+                if (!string.IsNullOrEmpty(folderPath))
+                {
+                    System.Diagnostics.Process.Start("explorer.exe", folderPath);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            HidePlayLoading();
+            MessageBox.Show(
+                $"Error al exportar el ejecutable:\n\n{ex.Message}",
+                "Error de exportación",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private void ExportStandaloneExecutable(string worldPath, string outputPath)
+    {
+        // Buscar el proyecto player desde la carpeta de la solución
+        var baseDir = AppContext.BaseDirectory;
+
+        // Navegar hacia arriba para encontrar la raíz de la solución
+        // Desde bin\Debug\net8.0-windows -> volver 3 niveles arriba, luego entrar a XiloAdventures.Wpf.Player
+        var currentDir = new System.IO.DirectoryInfo(baseDir);
+
+        // Subir hasta encontrar la carpeta que contiene el .sln
+        while (currentDir != null && !System.IO.File.Exists(System.IO.Path.Combine(currentDir.FullName, "XiloAdventures.sln")))
+        {
+            currentDir = currentDir.Parent;
+        }
+
+        if (currentDir == null)
+        {
+            throw new InvalidOperationException(
+                "No se pudo encontrar la raíz del proyecto (carpeta con XiloAdventures.sln).");
+        }
+
+        var playerProjectPath = System.IO.Path.Combine(currentDir.FullName, "XiloAdventures.Wpf.Player");
+
+        // Verificar que existe el proyecto player
+        var playerCsproj = System.IO.Path.Combine(playerProjectPath, "XiloAdventures.Wpf.Player.csproj");
+        if (!System.IO.File.Exists(playerCsproj))
+        {
+            throw new InvalidOperationException(
+                $"No se encontró el proyecto del player en:\n{playerProjectPath}\n\n" +
+                "Asegúrate de que el proyecto XiloAdventures.Wpf.Player existe en la solución.");
+        }
+
+        // Copiar el mundo al proyecto player
+        var worldDestPath = System.IO.Path.Combine(playerProjectPath, "world.xaw");
+        System.IO.File.Copy(worldPath, worldDestPath, true);
+
+        try
+        {
+            // Compilar con dotnet publish
+            var publishDir = System.IO.Path.Combine(playerProjectPath, "bin", "publish");
+            if (System.IO.Directory.Exists(publishDir))
+            {
+                System.IO.Directory.Delete(publishDir, true);
+            }
+
+            var startInfo = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "dotnet",
+                Arguments = $"publish \"{playerCsproj}\" -c Release -r win-x64 --self-contained true -o \"{publishDir}\"",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            using var process = System.Diagnostics.Process.Start(startInfo);
+            if (process == null)
+            {
+                throw new InvalidOperationException("No se pudo iniciar el proceso de compilación.");
+            }
+
+            process.WaitForExit();
+
+            if (process.ExitCode != 0)
+            {
+                var error = process.StandardError.ReadToEnd();
+                throw new InvalidOperationException(
+                    $"Error al compilar el ejecutable (código {process.ExitCode}):\n\n{error}");
+            }
+
+            // Copiar el ejecutable resultante a la ubicación final
+            var compiledExePath = System.IO.Path.Combine(publishDir, "XiloAdventures.Wpf.Player.exe");
+            if (!System.IO.File.Exists(compiledExePath))
+            {
+                throw new InvalidOperationException(
+                    $"No se encontró el ejecutable compilado en:\n{compiledExePath}");
+            }
+
+            System.IO.File.Copy(compiledExePath, outputPath, true);
+        }
+        finally
+        {
+            // Limpiar el archivo temporal del mundo
+            if (System.IO.File.Exists(worldDestPath))
+            {
+                try { System.IO.File.Delete(worldDestPath); } catch { }
+            }
+        }
     }
 
     public class SelectRoomWindow : Window

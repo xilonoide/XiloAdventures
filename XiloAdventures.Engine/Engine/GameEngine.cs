@@ -10,9 +10,20 @@ public class GameEngine
 {
     private readonly WorldModel _world;
     private readonly SoundManager _sound;
-    private readonly GameState _state;
-    private readonly DoorService _doorService;
+    private GameState _state;
+
+    private DoorService _doorService;
     private DateTime _lastRealTime;
+
+    public void LoadState(GameState newState)
+    {
+        _state = newState;
+        _doorService = new DoorService(_state.Doors, _state.Keys);
+        _lastRealTime = DateTime.Now;
+        
+        WorldLoader.RebuildRoomIndexes(_state);
+        OnRoomChanged();
+    }
 
     public GameState State => _state;
 

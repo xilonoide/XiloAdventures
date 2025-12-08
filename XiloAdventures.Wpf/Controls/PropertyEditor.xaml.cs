@@ -581,11 +581,35 @@ public partial class PropertyEditor : UserControl
                                 var length = Encoding.UTF8.GetByteCount(trimmed);
                                 if (length != 8 && length != 32)
                                 {
-                                    new AlertWindow("La clave de cifrado debe ser de 8 caracteres", "Clave inválida")
+                                    new AlertWindow("La clave de cifrado debe tener exactamente 8 caracteres", "Clave inválida")
                                     {
                                         Owner = Window.GetWindow(this)
                                     }.ShowDialog();
                                     return;
+                                }
+                                
+                                // Pedir confirmación si la contraseña ha cambiado
+                                var currentVal = prop.GetValue(target) as string ?? string.Empty;
+                                if (trimmed != currentVal) 
+                                {
+                                    // Usamos InputWindow para pedir confirmación
+                                    // Nota: InputWindow es un cuadro de texto normal, no password, 
+                                    // pero servirá para que el usuario escriba la clave otra vez y verifique.
+                                    var confirmDlg = new XiloAdventures.Wpf.Common.Windows.InputWindow(
+                                        "Por seguridad, confirme la nueva clave de cifrado:", 
+                                        "Confirmar clave");
+                                        
+                                    if (confirmDlg.ShowDialog() != true || confirmDlg.InputText != trimmed)
+                                    {
+                                        new AlertWindow("La confirmación de la clave no coincide.", "Error")
+                                        {
+                                            Owner = Window.GetWindow(this)
+                                        }.ShowDialog();
+                                        
+                                        // Restaurar valor anterior en el UI
+                                        pb.Password = currentVal; 
+                                        return;
+                                    }
                                 }
                             }
 

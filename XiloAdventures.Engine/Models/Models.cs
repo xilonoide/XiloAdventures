@@ -46,6 +46,12 @@ public class GameInfo
     [Browsable(false)]
     public string? WorldMusicBase64 { get; set; }
 
+    /// <summary>
+    /// Clave de cifrado para las partidas guardadas de los jugadores.
+    /// Debe tener 8 caracteres.
+    /// </summary>
+    public string? EncryptionKey { get; set; }
+
     /// <summary>Hora inicial de la partida (0-23).</summary>
     public int StartHour { get; set; } = 9;
 
@@ -57,9 +63,6 @@ public class GameInfo
 
     /// <summary>Diccionario de sinónimos por mundo para el parser (JSON).</summary>
     public string? ParserDictionaryJson { get; set; }
-
-    /// <summary>Clave de cifrado personalizada (8 o 32 caracteres). Null = clave por defecto. Cadena vacía = sin cifrar.</summary>
-    public string? EncryptionKey { get; set; }
 }
 
 public class Room
@@ -263,6 +266,10 @@ public class GameState
 {
     public string WorldId { get; set; } = string.Empty;
     public string? WorldMusicId { get; set; }
+    
+    // Clave copiada del GameInfo para persistir en la sesión de juego
+    public string? WorldEncryptionKey { get; set; }
+    
     public string CurrentRoomId { get; set; } = string.Empty;
 
     public PlayerStats Player { get; set; } = new();

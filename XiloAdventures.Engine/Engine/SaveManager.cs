@@ -46,7 +46,7 @@ public static class SaveManager
         WriteIndented = true
     };
 
-    public static void SaveToPath(GameState state, string path)
+    public static void SaveToPath(GameState state, string path, string? encryptionKey = null)
     {
         var data = new SaveData
         {
@@ -76,12 +76,14 @@ public static class SaveManager
         };
 
         var json = JsonSerializer.Serialize(data, Options);
-        CryptoUtil.EncryptToFile(path, json, "xas");
+        var effectiveKey = CryptoUtil.GetEffectiveSaveKey(encryptionKey);
+        CryptoUtil.EncryptToFile(path, json, "xas", effectiveKey);
     }
 
     public static GameState LoadFromPath(string path, WorldModel world)
     {
-        var json = CryptoUtil.DecryptFromFile(path);
+        var effectiveKey = CryptoUtil.GetEffectiveSaveKey(world.Game.EncryptionKey);
+        var json = CryptoUtil.DecryptFromFile(path, effectiveKey);
         var data = JsonSerializer.Deserialize<SaveData>(json, Options) ?? new SaveData();
 
         // Compatibilidad: si la partida es antigua y no tiene algunos campos, usamos los del mundo original.
@@ -127,11 +129,11 @@ public static class SaveManager
         return state;
     }
 
-    public static void AutoSave(GameState state, string savesFolder)
+    public static void AutoSave(GameState state, string savesFolder, string? encryptionKey = null)
     {
         Directory.CreateDirectory(savesFolder);
         var fileName = $"autosave_{state.WorldId}.xas";
         var path = Path.Combine(savesFolder, fileName);
-        SaveToPath(state, path);
+        SaveToPath(state, path, encryptionKey);
     }
 }

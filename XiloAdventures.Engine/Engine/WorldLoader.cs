@@ -43,44 +43,12 @@ public static class WorldLoader
 
     public static WorldModel LoadWorldModel(string path, string? encryptionKey = null, Func<string?>? promptForKey = null)
     {
-        // 1) Probar lectura directa (mundo sin cifrar)
+        // Leer archivo directamente sin cifrado
         var rawText = File.ReadAllText(path, Encoding.UTF8);
         if (TryParseWorldFromText(rawText, out var parsedWorld))
             return NormalizeWorld(parsedWorld);
 
-        // 2) Probar con la clave proporcionada (o por defecto si es null)
-        try
-        {
-            var decrypted = CryptoUtil.DecryptFromFile(path, encryptionKey, throwOnError: true);
-            if (TryParseWorldFromText(decrypted, out parsedWorld))
-                return NormalizeWorld(parsedWorld);
-        }
-        catch
-        {
-            // seguir abajo para pedir clave si procede
-        }
-
-        // 3) Pedir clave al usuario si hay callback
-        if (promptForKey != null)
-        {
-            var key = promptForKey();
-            if (key is null)
-                throw new InvalidDataException("No se proporciono ninguna clave.");
-
-            key = key.Trim();
-
-            if (key.Length == 0)
-            {
-                // sin cifrar: ya probamos lectura directa; si estamos aqui es que fallo
-                throw new InvalidDataException("Contenido del mundo no valido.");
-            }
-
-            var retry = CryptoUtil.DecryptFromFile(path, key, throwOnError: true);
-            if (TryParseWorldFromText(retry, out parsedWorld))
-                return NormalizeWorld(parsedWorld);
-        }
-
-        throw new InvalidDataException("No se pudo leer el mundo (clave incorrecta o fichero corrupto).");
+        throw new InvalidDataException("No se pudo leer el mundo. El archivo puede estar corrupto.");
     }
 
     private static WorldModel NormalizeWorld(WorldModel? world)
@@ -140,6 +108,10 @@ public static class WorldLoader
                 CurrentObjectiveIndex = 0
             };
         }
+
+        // Copiamos la clave de cifrado del mundo al estado para que el motor
+        // pueda usarla al guardar la partida del jugador.
+        state.WorldEncryptionKey = world.Game.EncryptionKey;
 
         RebuildRoomIndexes(state);
         return state;
@@ -218,7 +190,6 @@ public static class WorldLoader
         var json = JsonSerializer.Serialize(world, Options);
 
         // Comprimir el JSON en un ZIP (entrada world.json) y codificarlo en Base64
-        // antes de encriptarlo. De este modo los mundos ocupan menos espacio.
         var jsonBytes = Encoding.UTF8.GetBytes(json);
         using var ms = new MemoryStream();
         using (var zip = new ZipArchive(ms, ZipArchiveMode.Create, true))
@@ -231,15 +202,8 @@ public static class WorldLoader
         var compressedBytes = ms.ToArray();
         var base64 = Convert.ToBase64String(compressedBytes);
 
-        var key = world.Game?.EncryptionKey?.Trim();
-        if (!string.IsNullOrEmpty(key))
-        {
-            var length = Encoding.UTF8.GetByteCount(key);
-            if (length != 8 && length != 32)
-                throw new ArgumentException("La clave de cifrado debe ser de 8 caracteres.");
-        }
-        var encrypt = !(key != null && key.Length == 0);
-        CryptoUtil.EncryptToFile(path, base64, "xaw", key, encryptIfEmpty: encrypt);
+        // Guardar directamente sin cifrado
+        File.WriteAllText(path, base64, Encoding.UTF8);
     }
 
 
