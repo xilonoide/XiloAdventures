@@ -6,6 +6,10 @@ using XiloAdventures.Engine.Models;
 
 namespace XiloAdventures.Engine;
 
+/// <summary>
+/// Data transfer object for saved game state.
+/// Contains all serializable game data for persistence.
+/// </summary>
 public class SaveData
 {
     public string WorldId { get; set; } = string.Empty;
@@ -39,6 +43,10 @@ public class SaveData
 }
 
 
+/// <summary>
+/// Handles saving and loading game state to/from .xas files.
+/// Supports encrypted saves and automatic autosave functionality.
+/// </summary>
 public static class SaveManager
 {
     private static readonly JsonSerializerOptions Options = new()
@@ -46,6 +54,12 @@ public static class SaveManager
         WriteIndented = true
     };
 
+    /// <summary>
+    /// Saves the current game state to a file.
+    /// </summary>
+    /// <param name="state">The game state to save.</param>
+    /// <param name="path">The file path to save to.</param>
+    /// <param name="encryptionKey">Optional encryption key for the save file.</param>
     public static void SaveToPath(GameState state, string path, string? encryptionKey = null)
     {
         var data = new SaveData
@@ -80,6 +94,12 @@ public static class SaveManager
         CryptoUtil.EncryptToFile(path, json, "xas", effectiveKey);
     }
 
+    /// <summary>
+    /// Loads a game state from a saved file.
+    /// </summary>
+    /// <param name="path">The path to the save file.</param>
+    /// <param name="world">The world model to use for missing data.</param>
+    /// <returns>The loaded game state.</returns>
     public static GameState LoadFromPath(string path, WorldModel world)
     {
         var effectiveKey = CryptoUtil.GetEffectiveSaveKey(world.Game.EncryptionKey);
@@ -129,6 +149,12 @@ public static class SaveManager
         return state;
     }
 
+    /// <summary>
+    /// Automatically saves the game state to a standard autosave file.
+    /// </summary>
+    /// <param name="state">The game state to save.</param>
+    /// <param name="savesFolder">The folder to save to.</param>
+    /// <param name="encryptionKey">Optional encryption key.</param>
     public static void AutoSave(GameState state, string savesFolder, string? encryptionKey = null)
     {
         Directory.CreateDirectory(savesFolder);

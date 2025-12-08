@@ -6,6 +6,15 @@ using XiloAdventures.Engine.Models;
 
 namespace XiloAdventures.Engine;
 
+/// <summary>
+/// Core game engine that processes player commands and manages game state.
+/// Handles movement, inventory, doors, NPCs, quests, and room descriptions.
+/// </summary>
+/// <remarks>
+/// The engine uses a command parser to interpret player input and updates
+/// the game state accordingly. It also manages audio playback for room
+/// transitions and integrates with the door/key system for locked passages.
+/// </remarks>
 public class GameEngine
 {
     private readonly WorldModel _world;
@@ -15,20 +24,38 @@ public class GameEngine
     private DoorService _doorService;
     private DateTime _lastRealTime;
 
+    /// <summary>
+    /// Loads a new game state into the engine, replacing the current state.
+    /// Rebuilds room indexes and triggers room change events.
+    /// </summary>
+    /// <param name="newState">The new game state to load.</param>
     public void LoadState(GameState newState)
     {
         _state = newState;
         _doorService = new DoorService(_state.Doors, _state.Keys);
         _lastRealTime = DateTime.Now;
-        
+
         WorldLoader.RebuildRoomIndexes(_state);
         OnRoomChanged();
     }
 
+    /// <summary>
+    /// Gets the current game state containing all runtime data.
+    /// </summary>
     public GameState State => _state;
 
+    /// <summary>
+    /// Event raised when the player moves to a different room.
+    /// Used by UI to update room visuals and trigger audio changes.
+    /// </summary>
     public event Action<Room>? RoomChanged;
 
+    /// <summary>
+    /// Creates a new game engine instance.
+    /// </summary>
+    /// <param name="world">The world model containing static game definitions.</param>
+    /// <param name="state">The initial game state (can be new or loaded from save).</param>
+    /// <param name="soundManager">Sound manager for music and voice playback.</param>
     public GameEngine(WorldModel world, GameState state, SoundManager soundManager)
     {
         _world = world;
@@ -62,11 +89,18 @@ public class GameEngine
         OnRoomChanged();
     }
 
+    /// <summary>
+    /// Gets the room where the player is currently located.
+    /// </summary>
     public Room? CurrentRoom =>
         _state.Rooms.FirstOrDefault(r => r.Id.Equals(_state.CurrentRoomId, StringComparison.OrdinalIgnoreCase));
 
 
+    /// <summary>
+    /// Gets the ID of the world's background music track.
+    /// </summary>
     public string? WorldMusicId => _state.WorldMusicId;
+
 
 
 
@@ -159,6 +193,15 @@ public class GameEngine
         }
     }
 
+    /// <summary>
+    /// Processes a player command and returns the result text.
+    /// </summary>
+    /// <param name="input">The raw command string entered by the player.</param>
+    /// <returns>The response text to display to the player.</returns>
+    /// <remarks>
+    /// Supported commands: look, go, open, close, take, drop, talk, use, give,
+    /// quests, save, load, help, and inventory.
+    /// </remarks>
     public string ProcessCommand(string input)
     {
         _state.TurnCounter++;
@@ -256,6 +299,11 @@ public class GameEngine
         }
     }
 
+    /// <summary>
+    /// Generates a text description of the current room.
+    /// Includes visible objects, NPCs, and available exits.
+    /// </summary>
+    /// <returns>The room description text.</returns>
     public string DescribeCurrentRoom()
     {
         var room = CurrentRoom;
@@ -317,7 +365,11 @@ public class GameEngine
         return sb.ToString().TrimEnd();
     }
 
-    
+
+    /// <summary>
+    /// Lists the items currently in the player's inventory.
+    /// </summary>
+    /// <returns>A formatted list of inventory items, or a message if empty.</returns>
     public string DescribeInventory()
     {
         var sb = new StringBuilder();
@@ -339,6 +391,11 @@ public class GameEngine
         return sb.ToString().TrimEnd();
     }
 
+    /// <summary>
+    /// Generates a text summary of the player's stats.
+    /// Includes class, level, attributes, health, and gold.
+    /// </summary>
+    /// <returns>The player stats text.</returns>
     public string DescribePlayerStats()
     {
         var p = _state.Player;
@@ -554,7 +611,7 @@ public class GameEngine
                 return "Aquí no hay ninguna puerta así.";
         }
     }
-private string HandleTake(ParsedCommand parsed)
+    private string HandleTake(ParsedCommand parsed)
     {
         var room = CurrentRoom;
         if (room == null)
@@ -755,7 +812,7 @@ private string HandleTake(ParsedCommand parsed)
             .FirstOrDefault(o => o.Name.Contains(namePart, StringComparison.OrdinalIgnoreCase));
     }
 
-        private bool HasDistinctRoomMusic(Room room)
+    private bool HasDistinctRoomMusic(Room room)
     {
         var roomMusicId = room.MusicId;
         var roomMusicBase64 = room.MusicBase64;
@@ -780,7 +837,7 @@ private string HandleTake(ParsedCommand parsed)
         return true;
     }
 
-    
+
     private void OnRoomChanged()
     {
         var room = CurrentRoom;
@@ -812,7 +869,7 @@ private string HandleTake(ParsedCommand parsed)
         }
     }
 
-private void EnsurePlayerRoom()
+    private void EnsurePlayerRoom()
     {
         if (_state.Rooms.All(r => !r.Id.Equals(_state.CurrentRoomId, StringComparison.OrdinalIgnoreCase)))
         {

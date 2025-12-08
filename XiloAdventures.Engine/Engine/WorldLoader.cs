@@ -9,6 +9,10 @@ using XiloAdventures.Engine.Models;
 
 namespace XiloAdventures.Engine;
 
+/// <summary>
+/// Handles loading and saving world models (.xaw files).
+/// Supports both compressed (ZIP+Base64) and raw JSON formats.
+/// </summary>
 public static class WorldLoader
 {
     private static readonly JsonSerializerOptions Options = new()
@@ -41,6 +45,14 @@ public static class WorldLoader
         }
     }
 
+    /// <summary>
+    /// Loads a world model from a .xaw file.
+    /// </summary>
+    /// <param name="path">Path to the .xaw file.</param>
+    /// <param name="encryptionKey">Optional encryption key (currently unused).</param>
+    /// <param name="promptForKey">Optional callback to prompt user for encryption key.</param>
+    /// <returns>The loaded and normalized world model.</returns>
+    /// <exception cref="InvalidDataException">Thrown if the file cannot be parsed.</exception>
     public static WorldModel LoadWorldModel(string path, string? encryptionKey = null, Func<string?>? promptForKey = null)
     {
         // Leer archivo directamente sin cifrado
@@ -70,7 +82,12 @@ public static class WorldLoader
         return world;
     }
 
-
+    /// <summary>
+    /// Creates a new game state from a world model.
+    /// Clones all mutable data to allow independent game sessions.
+    /// </summary>
+    /// <param name="world">The world model to create state from.</param>
+    /// <returns>A new game state initialized with world data.</returns>
     public static GameState CreateInitialState(WorldModel world)
     {
         var state = new GameState
@@ -117,6 +134,12 @@ public static class WorldLoader
         return state;
     }
 
+    /// <summary>
+    /// Rebuilds the room indexes for objects and NPCs.
+    /// Updates each room's ObjectIds and NpcIds lists based on
+    /// the RoomId property of each object and NPC.
+    /// </summary>
+    /// <param name="state">The game state to rebuild indexes for.</param>
     public static void RebuildRoomIndexes(GameState state)
     {
         var roomsById = state.Rooms.ToDictionary(r => r.Id, r => r, StringComparer.OrdinalIgnoreCase);
@@ -146,6 +169,14 @@ public static class WorldLoader
         }
     }
 
+
+    /// <summary>
+    /// Saves a world model to a .xaw file.
+    /// Compresses the JSON as Base64-encoded ZIP.
+    /// </summary>
+    /// <param name="world">The world model to save.</param>
+    /// <param name="path">The file path to save to.</param>
+    /// <exception cref="ArgumentNullException">Thrown if world is null.</exception>
     public static void SaveWorldModel(WorldModel world, string path)
     {
         if (world is null)

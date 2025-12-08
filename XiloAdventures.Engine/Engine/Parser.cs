@@ -9,6 +9,9 @@ using XiloAdventures.Engine.Models;
 
 namespace XiloAdventures.Engine;
 
+/// <summary>
+/// Types of prepositions recognized by the parser.
+/// </summary>
 public enum PrepositionKind
 {
     None,
@@ -18,11 +21,21 @@ public enum PrepositionKind
     In
 }
 
+/// <summary>
+/// Represents a parsed player command with verb, objects, and preposition.
+/// </summary>
 public readonly struct ParsedCommand
 {
+    /// <summary>The canonical verb (e.g., "go", "take", "look").</summary>
     public string Verb { get; }
+
+    /// <summary>The direct object of the command (e.g., "sword", "north").</summary>
     public string? DirectObject { get; }
+
+    /// <summary>The indirect object (e.g., "with key" -> "key").</summary>
     public string? IndirectObject { get; }
+
+    /// <summary>The preposition used in the command.</summary>
     public PrepositionKind Preposition { get; }
 
     public ParsedCommand(string verb, string? directObject, string? indirectObject, PrepositionKind preposition)
@@ -40,6 +53,17 @@ internal sealed class ParserDictionaryDto
     public Dictionary<string, string[]?>? nouns { get; set; }
 }
 
+/// <summary>
+/// Natural language parser for adventure game commands.
+/// Supports Spanish input with verb/noun aliases and direction shortcuts.
+/// </summary>
+/// <remarks>
+/// The parser normalizes player input by:
+/// - Converting verb synonyms to canonical forms (e.g., "mirar" -> "look")
+/// - Handling prepositions (a, con, de, en)
+/// - Recognizing direction shortcuts (n, s, e, o, etc.)
+/// - Supporting per-world custom dictionaries
+/// </remarks>
 public static class Parser
 {
     // Diccionarios globales (base + recursos embebidos)
@@ -209,6 +233,10 @@ public static class Parser
         }
     }
 
+    /// <summary>
+    /// Sets a world-specific dictionary for verb and noun aliases.
+    /// </summary>
+    /// <param name="json">JSON string containing verb/noun mappings, or null to clear.</param>
     public static void SetWorldDictionary(string? json)
     {
         WorldVerbAliases.Clear();
@@ -228,6 +256,11 @@ public static class Parser
         }
     }
 
+    /// <summary>
+    /// Parses a player command string into structured components.
+    /// </summary>
+    /// <param name="input">The raw command string from the player.</param>
+    /// <returns>A ParsedCommand with verb, direct/indirect objects, and preposition.</returns>
     public static ParsedCommand Parse(string input)
     {
         if (string.IsNullOrWhiteSpace(input))

@@ -6,6 +6,7 @@
 ![WPF](https://img.shields.io/badge/UI-WPF-0d5a8f?logo=windows&logoColor=white)
 ![C#](https://img.shields.io/badge/Language-C%23-239120?logo=csharp&logoColor=white)
 ![Estado](https://img.shields.io/badge/Estado-Activo-success)
+![Tests](https://img.shields.io/badge/Tests-45%20passing-brightgreen)
 
 XiloAdventures es un ecosistema completo para crear y jugar aventuras conversacionales en C# (.NET 8) con editor visual WPF y cliente de juego. Todo el contenido (salas, objetos, música, imágenes) viaja dentro de un único archivo `.xaw` cifrado y comprimido.
 
@@ -13,47 +14,61 @@ XiloAdventures es un ecosistema completo para crear y jugar aventuras conversaci
 
 ## Qué incluye
 
-- **Engine (`XiloAdventures.Engine`)**: modelos de mundo, guardado/carga `.xaw` (zip + cifrado), lógica de puertas/llaves, audio con NAudio (música de mundo y de sala, volmenes master/música/efectos/voz).
+- **Engine (`XiloAdventures.Engine`)**: modelos de mundo, guardado/carga `.xaw` (zip + cifrado), lógica de puertas/llaves, audio con NAudio (música de mundo y de sala, volúmenes master/música/efectos/voz).
 - **Editor WPF (`XiloAdventures.Wpf`)**:
   - Mapa visual con zoom, drag, selección múltiple, iconos de puertas/llaves, tooltip de imagen de sala.
   - Árbol de contenido (salas, salidas, puertas, llaves, objetos, NPCs, misiones).
   - Panel de propiedades en español, con textboxes multilínea, checkboxes y radio centrados.
   - Botón *Play* para probar el mundo; muestra overlay de progreso mientras prepara la partida.
   - Guardado/carga de mundos `.xaw`, undo/redo, búsqueda.
+  - **"¡Crea tu aventura!"**: opción especial en la lista de mundos para empezar desde cero.
 - **Cliente de juego WPF (`MainWindow`, `StartupWindow`)**:
   - Pantalla inicial con selector de mundos, checks de sonido/IA e overlay de progreso al cargar/iniciar.
   - Ventana de partida con historial, inventario, estados, imagen de sala, música integrada.
   - Al cerrar la partida pregunta si guardar y confirma la salida (pop-ups oscuros).
-- **LLM opcional**: si el parser no entiende un comando y la opción esta activa, consulta un modelo local (requiere Docker Desktop).
+  - **Autoguardado** automático después de cada comando.
+- **LLM opcional**: si el parser no entiende un comando y la opción está activa, consulta un modelo local (requiere Docker Desktop).
+  - Confirmación antes de activar la IA con información sobre Docker y descarga de modelos.
 - **TTS (voz)**: generación y precarga de voz de las descripciones de salas.
+- **Player independiente (`XiloAdventures.Wpf.Player`)**: ejecutable standalone para distribuir juegos sin el editor.
 
 ---
 
 ## Wiki
+
 - Página principal: [General](https://github.com/xilonoide/XiloAdventures/wiki/general)
 - Editor: [Editor](https://github.com/xilonoide/XiloAdventures/wiki/editor)
 - Cliente/Player: [Player](https://github.com/xilonoide/XiloAdventures/wiki/player)
 
 ---
 
-## Estructura rápida
+## Estructura del proyecto
 
-- `XiloAdventures.Engine/`
-  - `Models/Models.cs`, `Engine/WorldLoader.cs`, `Engine/SoundManager.cs`, `Engine/CryptoUtil.cs`, `Engine/SaveManager.cs`
-- `XiloAdventures.Wpf/`
-  - `Windows/StartupWindow.xaml` (inicio con overlay de carga)
-  - `Windows/MainWindow.xaml` (cliente de juego, salida con confirmación/guardar)
-  - `Windows/WorldEditorWindow.xaml` (editor visual con overlay de play)
-  - `Controls/MapPanel.*`, `Controls/PropertyEditor.*`
-  - `Ui/UiSettings.cs` (preferencias por mundo)
+| Proyecto | Descripción |
+|----------|-------------|
+| `XiloAdventures.Engine` | Core del motor: modelos, parser, guardado/carga, audio |
+| `XiloAdventures.Wpf` | Editor visual y pantalla de inicio |
+| `XiloAdventures.Wpf.Common` | Componentes UI compartidos (ventanas, estilos) |
+| `XiloAdventures.Wpf.Player` | Player standalone para distribución |
+| `XiloAdventures.Tests` | Tests unitarios (xUnit) |
 
+### Archivos principales
+
+- `Engine/GameEngine.cs` - Motor de juego principal
+- `Engine/Parser.cs` - Parser de comandos del jugador
+- `Engine/WorldLoader.cs` - Carga/guardado de mundos `.xaw`
+- `Engine/SaveManager.cs` - Guardado/carga de partidas `.xas`
+- `Engine/DoorService.cs` - Lógica de puertas y llaves
+- `Models/Models.cs` - Modelos de datos (Room, GameObject, Npc, etc.)
 
 ---
 
-## Formato y carpetas
-- Mundos `.xaw`: JSON comprimido en ZIP (`world.json`), Base64 y cifrado AES CBC (clave vacia = sin cifrar, 8 chars).
-- Partidas `.xas`: estado del juego cifrado (`GameState`), incluye salas/objetos/NPCs, progreso de misiones, tiempo/clima, inventario.
-- Carpetas de ejecución: `worlds/` para mundos y `saves/` para partidas (se crean al arrancar la app, ver `AppPaths`).
+## Formato de archivos
+
+- **Mundos `.xaw`**: JSON comprimido en ZIP (`world.json`), Base64 y cifrado AES CBC.
+  - Clave vacía = sin cifrar; clave de 8 caracteres = cifrado.
+- **Partidas `.xas`**: estado del juego cifrado (`GameState`), incluye salas/objetos/NPCs, progreso de misiones, tiempo/clima, inventario.
+- **Carpetas de ejecución**: `worlds/` para mundos y `saves/` para partidas.
 
 ---
 
@@ -68,21 +83,37 @@ XiloAdventures es un ecosistema completo para crear y jugar aventuras conversaci
 ## Uso básico
 
 ```bash
+# Compilar todo
 dotnet build XiloAdventures.sln
-```
 
-Editor + juego (proyecto WPF principal):
-
-```bash
+# Ejecutar editor + juego
 dotnet run --project XiloAdventures.Wpf
+
+# Ejecutar tests
+dotnet test
 ```
 
+---
 
+## Tests
 
-Tests (proyecto `XiloAdventures.Tests`, xUnit):
+El proyecto incluye **45 tests unitarios** cubriendo:
+
+| Componente | Tests |
+|------------|-------|
+| GameEngine | 18 |
+| Parser | 6 |
+| DoorService | 6 |
+| CryptoUtil | 2 |
+| SaveManager | 2 |
+| WorldLoader | 2 |
+| UiSettingsManager | 2 |
+| SoundManager | 3 |
+| AppPaths | 2 |
+| WorldEditorHelpers | 2 |
 
 ```bash
-dotnet test
+dotnet test --verbosity normal
 ```
 
 ---
@@ -90,14 +121,13 @@ dotnet test
 ## Flujo de trabajo
 
 1. Abre `XiloAdventures.sln` (VS 2022 recomendado).
-2. En la pantalla inicial: crea/carga mundo, configura sonido/IA.
-3. Usa el editor para colocar salas, salidas, puertas, objetos, NPCs. Las propiedades están en español y la música/imágenes se embeben en el `.xaw`.
+2. En la pantalla inicial: selecciona "¡Crea tu aventura!" para un mundo nuevo o elige uno existente.
+3. Usa el editor para colocar salas, salidas, puertas, objetos, NPCs.
 4. Pulsa **Play** en el editor para probar; verás un overlay de progreso mientras se prepara.
-5. En el juego, cierra con confirmación y opción de guardar desde el propio pop-up.
+5. En el juego, cierra con confirmación y opción de guardar.
 
 ---
 
 ## Licencia
 
 Consulta el archivo `LICENSE` para términos y condiciones.
-
