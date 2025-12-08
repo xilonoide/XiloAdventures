@@ -18,6 +18,7 @@ namespace XiloAdventures.Wpf.Windows;
 
 public partial class StartupWindow : Window
 {
+    private const string CreateNewWorldItem = "¡Crea tu aventura!";
     private bool _isStartingNewGame;
     private bool _isLoadingVisible;
 
@@ -60,7 +61,26 @@ public partial class StartupWindow : Window
     {
         var isChecked = LlmCheckBox.IsChecked == true;
 
-        if (!isChecked && UiSettingsManager.GlobalSettings.UseLlmForUnknownCommands)
+        if (isChecked && !UiSettingsManager.GlobalSettings.UseLlmForUnknownCommands)
+        {
+            // El usuario está activando la IA: pedir confirmación
+            var confirmDlg = new ConfirmWindow(
+                "Al activar la IA se iniciará Docker Desktop automáticamente.\n\n" +
+                "Si es la primera vez que la usas, se descargarán los modelos necesarios (puede tardar varios minutos dependiendo de tu conexión).\n\n" +
+                "¿Deseas continuar?",
+                "Activar IA")
+            {
+                Owner = this
+            };
+
+            if (confirmDlg.ShowDialog() != true)
+            {
+                // Usuario canceló: desmarcar el checkbox
+                LlmCheckBox.IsChecked = false;
+                return;
+            }
+        }
+        else if (!isChecked && UiSettingsManager.GlobalSettings.UseLlmForUnknownCommands)
         {
             // El usuario está desactivando la IA.
             // Preguntar si quiere hacer limpieza profunda de Docker.
@@ -78,14 +98,14 @@ public partial class StartupWindow : Window
                 try
                 {
                     var result = await XiloAdventures.Wpf.Common.Utilities.DockerDesktopCleaner.CleanDockerDesktopHardAsync(true);
-                    
+
                     var msg = "Limpieza completada con éxito.";
-                        
-                     new AlertWindow(msg, "Resultado limpieza") { Owner = this }.ShowDialog();
+
+                    new AlertWindow(msg, "Resultado limpieza") { Owner = this }.ShowDialog();
                 }
                 catch (Exception ex)
                 {
-                     new AlertWindow($"Error durante la limpieza:\n{ex.Message}", "Error") { Owner = this }.ShowDialog();
+                    new AlertWindow($"Error durante la limpieza:\n{ex.Message}", "Error") { Owner = this }.ShowDialog();
                 }
                 finally
                 {
@@ -100,7 +120,7 @@ public partial class StartupWindow : Window
 
 
 
-        private void LlmInfoIcon_MouseLeftButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    private void LlmInfoIcon_MouseLeftButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         var message = "Si activas la IA, el juego intentará entender mejor comandos complejos o mal escritos. Además, si subes el volumen de voz en las opciones, oirás las descripciones de las salas.\n\nPara usarla debes tener Docker Desktop instalado y funcionando. La primera vez que se use se descargarán algunos componentes y puede tardar unos minutos. Después funcionará muy rápido.";
 
@@ -147,17 +167,17 @@ public partial class StartupWindow : Window
     {
         WorldsList.Items.Clear();
 
-        if (!Directory.Exists(AppPaths.WorldsFolder))
-        {
-            UpdateDeleteWorldButtonEnabled();
-            return;
-        }
+        // Añadir siempre el elemento especial para crear un mundo nuevo
+        WorldsList.Items.Add(CreateNewWorldItem);
 
-        var files = Directory.GetFiles(AppPaths.WorldsFolder, "*.xaw");
-        foreach (var file in files.OrderBy(f => f))
+        if (Directory.Exists(AppPaths.WorldsFolder))
         {
-            var name = Path.GetFileNameWithoutExtension(file);
-            WorldsList.Items.Add(name);
+            var files = Directory.GetFiles(AppPaths.WorldsFolder, "*.xaw");
+            foreach (var file in files.OrderBy(f => f))
+            {
+                var name = Path.GetFileNameWithoutExtension(file);
+                WorldsList.Items.Add(name);
+            }
         }
 
         if (WorldsList.Items.Count > 0 && WorldsList.SelectedIndex < 0)
@@ -178,12 +198,14 @@ public partial class StartupWindow : Window
         if (DeleteWorldButton == null)
             return;
 
-        DeleteWorldButton.IsEnabled = WorldsList.SelectedItem != null;
+        // No permitir eliminar el elemento especial '¡Crea tu aventura!'
+        var selected = WorldsList.SelectedItem as string;
+        DeleteWorldButton.IsEnabled = selected != null && selected != CreateNewWorldItem;
     }
 
     private string? GetSelectedWorldFile()
     {
-        if (WorldsList.SelectedItem is string name)
+        if (WorldsList.SelectedItem is string name && name != CreateNewWorldItem)
         {
             return Path.Combine(AppPaths.WorldsFolder, name + ".xaw");
         }
@@ -203,107 +225,107 @@ public partial class StartupWindow : Window
 
         try
         {
-        var worldPath = GetSelectedWorldFile();
-        if (worldPath is null)
-            return;
+            var worldPath = GetSelectedWorldFile();
+            if (worldPath is null)
+                return;
 
-        WorldModel world;
-        GameState state;
-        try
-        {
-            world = WorldLoader.LoadWorldModel(worldPath, null, () => PromptForEncryptionKey("Introduce la clave usada para cifrar este mundo:"));
-            Parser.SetWorldDictionary(world.Game.ParserDictionaryJson);
-            state = WorldLoader.CreateInitialState(world);
-        }
-        catch (Exception)
-        {
-            new AlertWindow("Clave incorrecta", "Error") { Owner = this }.ShowDialog();
-            return;
-        }
-
-        
-        var uiSettings = UiSettingsManager.LoadForWorld(world.Game.Id);
-        // Respetar el check de sonido global
-        uiSettings.SoundEnabled = SoundCheckBox.IsChecked == true;
-
-        // Respetar también el check de IA global de la pantalla inicial
-        if (LlmCheckBox.IsChecked == true)
-        {
-            uiSettings.UseLlmForUnknownCommands = true;
-        }
-        else
-        {
-            uiSettings.UseLlmForUnknownCommands = false;
-        }
-
-        var soundManager = new SoundManager()
-        {
-            SoundEnabled = uiSettings.SoundEnabled,
-            MusicVolume = (float)(uiSettings.MusicVolume / 10.0),
-            EffectsVolume = (float)(uiSettings.EffectsVolume / 10.0),
-            MasterVolume = (float)(uiSettings.MasterVolume / 10.0),
-            VoiceVolume = (float)(uiSettings.VoiceVolume / 10.0)
-        };
-        soundManager.RefreshVolumes();
-
-        // Si la IA está activada para este mundo, preparar los contenedores Docker (IA + voz)
-        if (uiSettings.UseLlmForUnknownCommands)
-        {
-            var dockerWindow = new DockerProgressWindow
+            WorldModel world;
+            GameState state;
+            try
             {
-                Owner = this
-            };
-
-            var dockerResult = await dockerWindow.RunAsync();
-            if (dockerResult.Canceled)
+                world = WorldLoader.LoadWorldModel(worldPath, null, () => PromptForEncryptionKey("Introduce la clave usada para cifrar este mundo:"));
+                Parser.SetWorldDictionary(world.Game.ParserDictionaryJson);
+                state = WorldLoader.CreateInitialState(world);
+            }
+            catch (Exception)
             {
-                uiSettings.UseLlmForUnknownCommands = false;
+                new AlertWindow("Clave incorrecta", "Error") { Owner = this }.ShowDialog();
                 return;
             }
 
-            if (!dockerResult.Success)
+
+            var uiSettings = UiSettingsManager.LoadForWorld(world.Game.Id);
+            // Respetar el check de sonido global
+            uiSettings.SoundEnabled = SoundCheckBox.IsChecked == true;
+
+            // Respetar también el check de IA global de la pantalla inicial
+            if (LlmCheckBox.IsChecked == true)
+            {
+                uiSettings.UseLlmForUnknownCommands = true;
+            }
+            else
             {
                 uiSettings.UseLlmForUnknownCommands = false;
+            }
 
-                new AlertWindow(
-                    "No se han podido iniciar los servicios de IA y voz.\n\n" +
-                    "Comprueba que Docker Desktop está instalado y en ejecución.",
-                    "Error")
+            var soundManager = new SoundManager()
+            {
+                SoundEnabled = uiSettings.SoundEnabled,
+                MusicVolume = (float)(uiSettings.MusicVolume / 10.0),
+                EffectsVolume = (float)(uiSettings.EffectsVolume / 10.0),
+                MasterVolume = (float)(uiSettings.MasterVolume / 10.0),
+                VoiceVolume = (float)(uiSettings.VoiceVolume / 10.0)
+            };
+            soundManager.RefreshVolumes();
+
+            // Si la IA está activada para este mundo, preparar los contenedores Docker (IA + voz)
+            if (uiSettings.UseLlmForUnknownCommands)
+            {
+                var dockerWindow = new DockerProgressWindow
                 {
                     Owner = this
-                }.ShowDialog();
-            }
-        }
+                };
 
-        // Precargar la voz de la sala inicial antes de mostrar la partida,
-        // para que se escuche nada más entrar.
-        if (uiSettings.SoundEnabled && uiSettings.VoiceVolume > 0)
-        {
-            try
-            {
-                var startRoom = state.Rooms
-                    .FirstOrDefault(r => r.Id.Equals(state.CurrentRoomId, StringComparison.OrdinalIgnoreCase));
-                if (startRoom != null && !string.IsNullOrWhiteSpace(startRoom.Description))
+                var dockerResult = await dockerWindow.RunAsync();
+                if (dockerResult.Canceled)
                 {
-                    await soundManager.PreloadRoomVoiceAsync(startRoom.Id, startRoom.Description);
+                    uiSettings.UseLlmForUnknownCommands = false;
+                    return;
+                }
+
+                if (!dockerResult.Success)
+                {
+                    uiSettings.UseLlmForUnknownCommands = false;
+
+                    new AlertWindow(
+                        "No se han podido iniciar los servicios de IA y voz.\n\n" +
+                        "Comprueba que Docker Desktop está instalado y en ejecución.",
+                        "Error")
+                    {
+                        Owner = this
+                    }.ShowDialog();
                 }
             }
-            catch
+
+            // Precargar la voz de la sala inicial antes de mostrar la partida,
+            // para que se escuche nada más entrar.
+            if (uiSettings.SoundEnabled && uiSettings.VoiceVolume > 0)
             {
-                // Si algo falla al precargar la voz, continuamos sin interrumpir el inicio de la partida.
+                try
+                {
+                    var startRoom = state.Rooms
+                        .FirstOrDefault(r => r.Id.Equals(state.CurrentRoomId, StringComparison.OrdinalIgnoreCase));
+                    if (startRoom != null && !string.IsNullOrWhiteSpace(startRoom.Description))
+                    {
+                        await soundManager.PreloadRoomVoiceAsync(startRoom.Id, startRoom.Description);
+                    }
+                }
+                catch
+                {
+                    // Si algo falla al precargar la voz, continuamos sin interrumpir el inicio de la partida.
+                }
             }
-        }
 
-        var main = new MainWindow(world, state, soundManager, uiSettings);
+            var main = new MainWindow(world, state, soundManager, uiSettings);
 
-        main.Owner = this;
-        Hide();
-        main.ShowDialog();
+            main.Owner = this;
+            Hide();
+            main.ShowDialog();
 
-        // Al cerrar la partida, volvemos a mostrar el inicio
-        Show();
-        ReloadWorlds();
-    
+            // Al cerrar la partida, volvemos a mostrar el inicio
+            Show();
+            ReloadWorlds();
+
         }
         finally
         {
@@ -476,8 +498,8 @@ public partial class StartupWindow : Window
     {
         string? worldPath = null;
 
-        // Si hay un mundo seleccionado en la lista, intentamos abrir su fichero .json
-        if (WorldsList.SelectedItem is string name)
+        // Si hay un mundo seleccionado en la lista (y no es el elemento especial), intentamos abrir su fichero
+        if (WorldsList.SelectedItem is string name && name != CreateNewWorldItem)
         {
             var candidate = System.IO.Path.Combine(AppPaths.WorldsFolder, name + ".xaw");
             if (System.IO.File.Exists(candidate))
@@ -486,7 +508,7 @@ public partial class StartupWindow : Window
             }
         }
 
-        // Si worldPath es null o el fichero no existe, el editor creará un mundo nuevo
+        // Si worldPath es null (elemento especial o fichero no existe), el editor creará un mundo nuevo
         var editor = new WorldEditorWindow(worldPath);
         if (editor.IsCanceled)
             return;
@@ -497,7 +519,7 @@ public partial class StartupWindow : Window
         ReloadWorlds();
     }
 
-    
+
     private void DeleteWorldButton_Click(object sender, RoutedEventArgs e)
     {
         var worldPath = GetSelectedWorldFile();
@@ -541,7 +563,7 @@ public partial class StartupWindow : Window
         Close();
     }
 
-    
+
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
         var dlg = new ConfirmWindow("\u00bfSeguro que quieres salir de Xilo Adventures?", "Confirmar salida")

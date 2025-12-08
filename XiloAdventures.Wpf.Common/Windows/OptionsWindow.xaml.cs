@@ -39,7 +39,7 @@ public partial class OptionsWindow : Window
     private void OptionsWindow_Loaded(object sender, RoutedEventArgs e)
     {
         SoundCheckBox.IsChecked = _settings.SoundEnabled;
-        UseLlmCheckBox.IsChecked = _settings.UseLlmForUnknownCommands;
+
         FontSizeSlider.Value = _settings.FontSize;
         FontSizeLabel.Text = _settings.FontSize.ToString("0");
 
@@ -62,8 +62,7 @@ public partial class OptionsWindow : Window
         SoundCheckBox.Checked += SoundCheckBox_Changed;
         SoundCheckBox.Unchecked += SoundCheckBox_Changed;
 
-        UseLlmCheckBox.Checked += UseLlmCheckBox_Changed;
-        UseLlmCheckBox.Unchecked += UseLlmCheckBox_Changed;
+
     }
 
     private void SoundCheckBox_Changed(object sender, RoutedEventArgs e)
@@ -75,94 +74,6 @@ public partial class OptionsWindow : Window
         EffectsVolumeSlider.IsEnabled = enabled;
         MasterVolumeSlider.IsEnabled = enabled;
         VoiceVolumeSlider.IsEnabled = enabled;
-
-        ApplyChanges();
-    }
-
-
-    private async void UseLlmCheckBox_Changed(object sender, RoutedEventArgs e)
-    {
-        if (UseLlmCheckBox.IsChecked == true)
-        {
-            var progressWindow = new DockerProgressWindow
-            {
-                Owner = this
-            };
-
-            var result = await progressWindow.RunAsync().ConfigureAwait(true);
-
-            if (result.Canceled)
-            {
-                UseLlmCheckBox.IsChecked = false;
-                _settings.UseLlmForUnknownCommands = false;
-
-                UiSettingsManager.SaveForWorld(_worldId, _settings);
-                return;
-            }
-
-            if (!result.Success)
-            {
-                UseLlmCheckBox.IsChecked = false;
-                _settings.UseLlmForUnknownCommands = false;
-
-                UiSettingsManager.SaveForWorld(_worldId, _settings);
-
-                new AlertWindow(
-                    "No se han podido iniciar los servicios de IA y voz. Comprueba que Docker Desktop está instalado y en ejecución.",
-                    "Error")
-                {
-                    Owner = this
-                }.ShowDialog();
-
-                return;
-            }
-
-            _settings.UseLlmForUnknownCommands = true;
-        }
-        else
-        {
-            if (_settings.UseLlmForUnknownCommands)
-            {
-                // El usuario está desactivando la IA.
-                // Preguntar si quiere hacer limpieza profunda de Docker.
-                var dlg = new ConfirmWindow(
-                    "Estás desactivando la IA. ¿Quieres desinstalar y limpiar completamente Docker Desktop y los modelos descargados?\n\n" +
-                    "Esto liberará mucho espacio en disco, pero tendrás que volver a instalar Docker si quieres usar la IA en el futuro.",
-                    "Limpiar Docker Desktop")
-                {
-                    Owner = this
-                };
-
-                if (dlg.ShowDialog() == true)
-                {
-                    // Mostramos un 'loading' improvisado bloqueando la ventana o similar, 
-                    // aunque en OptionsWindow no tenemos un overlay de carga tan directo como en StartupWindow.
-                    // Usaremos un AlertWindow informativo antes/después o un wait cursor.
-                    
-                    Mouse.OverrideCursor = Cursors.Wait;
-                    try
-                    {
-                        var result = await XiloAdventures.Wpf.Common.Utilities.DockerDesktopCleaner.CleanDockerDesktopHardAsync(true);
-
-                        Mouse.OverrideCursor = null;
-                        var msg = "Limpieza completada con éxito.";
-
-                        new AlertWindow(msg, "Resultado limpieza") { Owner = this }.ShowDialog();
-                    }
-                    catch (Exception ex)
-                    {
-                        Mouse.OverrideCursor = null;
-                        new AlertWindow($"Error durante la limpieza:\n{ex.Message}", "Error") { Owner = this }.ShowDialog();
-                    }
-                    finally
-                    {
-                         Mouse.OverrideCursor = null;
-                    }
-                }
-            }
-
-            _settings.UseLlmForUnknownCommands = false;
-        }
 
         ApplyChanges();
     }
@@ -223,45 +134,6 @@ public partial class OptionsWindow : Window
         _onChanged?.Invoke(_settings);
     }
 
-    private void LlmInfoIcon_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-    {
-        var message = "Si activas la IA, el juego intentará entender mejor comandos complejos o mal escritos. Además, si subes el volumen de voz en las opciones, oirás las descripciones de las salas.\n\nPara usarla debes tener Docker Desktop instalado y funcionando. La primera vez que se use se descargarán algunos componentes y puede tardar unos minutos. Después funcionará muy rápido.";
 
-        var link = new TextBlock
-        {
-            Margin = new Thickness(0, 12, 0, 0)
-        };
-        var hyperlink = new Hyperlink
-        {
-            NavigateUri = new Uri("https://docs.docker.com/desktop/setup/install/windows-install/")
-        };
-        hyperlink.Inlines.Add("Instala Docker Desktop");
-        hyperlink.RequestNavigate += LlmHelpLink_RequestNavigate;
-        link.Inlines.Add(hyperlink);
 
-        var dlg = new AlertWindow(message, "IA y voz")
-        {
-            Owner = this
-        };
-        dlg.SetCustomContent(link);
-        dlg.HideOkButton();
-        dlg.ShowDialog();
-    }
-
-    private void LlmHelpLink_RequestNavigate(object sender, RequestNavigateEventArgs e)
-    {
-        try
-        {
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = e.Uri.AbsoluteUri,
-                UseShellExecute = true
-            });
-            e.Handled = true;
-        }
-        catch
-        {
-            // Ignorar errores al abrir el navegador
-        }
-    }
 }

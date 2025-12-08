@@ -28,6 +28,8 @@
         <CommandBinding Command="ApplicationCommands.Paste"
                         CanExecute="PasteCommand_CanExecute"
                         Executed="PasteCommand_Executed"/>
+        <CommandBinding Command="ApplicationCommands.Save"
+                        Executed="SaveCommand_Executed"/>
     </Window.CommandBindings>
 
     <Window.InputBindings>
@@ -46,6 +48,9 @@
         <KeyBinding Command="ApplicationCommands.Paste"
                 Modifiers="Control"
                 Key="V"/>
+        <KeyBinding Command="ApplicationCommands.Save"
+                Modifiers="Control"
+                Key="S"/>
     </Window.InputBindings>
 
     <Grid>
@@ -500,6 +505,7 @@
             </Grid>
         </DockPanel>
 
+        <!-- Loading overlay for Play button -->
         <Border x:Name="PlayLoadingOverlay"
                 Background="#AA000000"
                 Visibility="Collapsed">
@@ -512,6 +518,27 @@
                 <StackPanel>
                     <TextBlock x:Name="PlayLoadingText"
                                Text="Preparando partida..."
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,12"/>
+                    <ProgressBar IsIndeterminate="True"
+                            Height="12"/>
+                </StackPanel>
+            </Border>
+        </Border>
+
+        <!-- Loading overlay for Editor startup -->
+        <Border x:Name="LoadingOverlay"
+                Background="#AA000000"
+                Visibility="Visible">
+            <Border HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Width="260"
+                    Background="#222222"
+                    Padding="16"
+                    CornerRadius="6">
+                <StackPanel>
+                    <TextBlock x:Name="LoadingText"
+                               Text="Preparando todo..."
                                HorizontalAlignment="Center"
                                Margin="0,0,0,12"/>
                     <ProgressBar IsIndeterminate="True"

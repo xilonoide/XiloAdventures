@@ -73,22 +73,7 @@
                 </StackPanel>
             </GroupBox>
 
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center">
-                <CheckBox x:Name="UseLlmCheckBox"
-                          Content="Usar IA"
-                          Foreground="White"/>
-                <TextBlock Text="?"
-                           Margin="6,0,0,0"
-                           Foreground="Yellow"
-                           FontWeight="Bold"
-                           Cursor="Hand"
-                           VerticalAlignment="Center"
-                           MouseLeftButtonUp="LlmInfoIcon_MouseLeftButtonUp">
-                    <TextBlock.ToolTip>
-                        <TextBlock Text="Ayuda sobre IA y voz. Haz clic para más detalles." />
-                    </TextBlock.ToolTip>
-                </TextBlock>
-            </StackPanel>
+
 
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock Text="Tamaño de fuente:" Width="180" VerticalAlignment="Center" Margin="0,0,8,0"/>

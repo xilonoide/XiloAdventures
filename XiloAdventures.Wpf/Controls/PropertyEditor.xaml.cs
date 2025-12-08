@@ -285,8 +285,8 @@ public partial class PropertyEditor : UserControl
 
                     editor = tbJson;
                 }
-                
-                
+
+
                 else if (prop.Name == "WorldMusicId" && prop.PropertyType == typeof(string))
                 {
                     var valueObj = prop.GetValue(obj);
@@ -461,7 +461,7 @@ public partial class PropertyEditor : UserControl
                     editor = panel;
                 }
 
-                
+
                 // MusicId de Room: textbox + botón ... para música de sala
                 else if (prop.Name == "MusicId" && prop.PropertyType == typeof(string))
                 {
@@ -576,38 +576,29 @@ public partial class PropertyEditor : UserControl
                             if (_currentObject is not { } target) return;
 
                             var trimmed = (pb.Password ?? string.Empty).Trim();
-                            if (!string.IsNullOrEmpty(trimmed))
+
+                            // Pedir confirmación si la contraseña ha cambiado y es válida
+                            if (!string.IsNullOrEmpty(trimmed) && trimmed.Length == 8)
                             {
-                                var length = Encoding.UTF8.GetByteCount(trimmed);
-                                if (length != 8 && length != 32)
-                                {
-                                    new AlertWindow("La clave de cifrado debe tener exactamente 8 caracteres", "Clave inválida")
-                                    {
-                                        Owner = Window.GetWindow(this)
-                                    }.ShowDialog();
-                                    return;
-                                }
-                                
-                                // Pedir confirmación si la contraseña ha cambiado
                                 var currentVal = prop.GetValue(target) as string ?? string.Empty;
-                                if (trimmed != currentVal) 
+                                if (trimmed != currentVal)
                                 {
                                     // Usamos InputWindow para pedir confirmación
                                     // Nota: InputWindow es un cuadro de texto normal, no password, 
                                     // pero servirá para que el usuario escriba la clave otra vez y verifique.
                                     var confirmDlg = new XiloAdventures.Wpf.Common.Windows.InputWindow(
-                                        "Por seguridad, confirme la nueva clave de cifrado:", 
+                                        "Por seguridad, confirme la nueva clave de cifrado:",
                                         "Confirmar clave");
-                                        
+
                                     if (confirmDlg.ShowDialog() != true || confirmDlg.InputText != trimmed)
                                     {
                                         new AlertWindow("La confirmación de la clave no coincide.", "Error")
                                         {
                                             Owner = Window.GetWindow(this)
                                         }.ShowDialog();
-                                        
+
                                         // Restaurar valor anterior en el UI
-                                        pb.Password = currentVal; 
+                                        pb.Password = currentVal;
                                         return;
                                     }
                                 }
@@ -731,9 +722,9 @@ public partial class PropertyEditor : UserControl
                     editor = tb;
                 }
 
-            RootPanel.Children.Add(editor);
+                RootPanel.Children.Add(editor);
+            }
         }
-    }
     }
 
     private static readonly Dictionary<string, string> DisplayNameMap = new(StringComparer.OrdinalIgnoreCase)
@@ -915,6 +906,42 @@ public partial class PropertyEditor : UserControl
         {
             Owner = owner
         }.ShowDialog();
+    }
+
+    /// <summary>
+    /// Fuerza la actualización de los bindings pendientes del control con foco.
+    /// Necesario para que los TextBox y PasswordBox actualicen su valor antes de validar.
+    /// </summary>
+    public void UpdateBindings()
+    {
+        // Para el PasswordBox de clave de encriptación, actualizamos directamente el valor
+        // ya que no usa bindings sino eventos LostFocus que pueden no haberse disparado aún
+        if (_encryptionPasswordBox != null && _currentObject is GameInfo gameInfo)
+        {
+            var trimmed = (_encryptionPasswordBox.Password ?? string.Empty).Trim();
+            gameInfo.EncryptionKey = trimmed;
+        }
+
+        // Obtener el elemento con foco actual para TextBox
+        var focusedElement = FocusManager.GetFocusedElement(this);
+        if (focusedElement is TextBox textBox)
+        {
+            var binding = textBox.GetBindingExpression(TextBox.TextProperty);
+            binding?.UpdateSource();
+        }
+    }
+
+    /// <summary>
+    /// Actualiza el valor de la clave de encriptación desde el PasswordBox al GameInfo proporcionado.
+    /// Útil cuando el usuario puede tener otro objeto seleccionado pero se está validando la clave.
+    /// </summary>
+    public void UpdateEncryptionKey(GameInfo gameInfo)
+    {
+        if (_encryptionPasswordBox != null && gameInfo != null)
+        {
+            var trimmed = (_encryptionPasswordBox.Password ?? string.Empty).Trim();
+            gameInfo.EncryptionKey = trimmed;
+        }
     }
 }
 

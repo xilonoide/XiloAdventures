@@ -35,6 +35,7 @@ public partial class WorldEditorWindow : Window
     private bool _isDirty;
     private readonly string _baseTitle;
     private TreeViewItem? _gameTreeNode;
+    private string? _initialWorldPath;
     public bool IsCanceled { get; private set; }
 
     public WorldEditorWindow()
@@ -54,43 +55,58 @@ public partial class WorldEditorWindow : Window
         MapPanel.AddObjectToRoomRequested += MapPanel_AddObjectToRoomRequested;
         MapPanel.AddNpcToRoomRequested += MapPanel_AddNpcToRoomRequested;
         MapPanel.EmptyMapDoubleClicked += MapPanel_EmptyMapDoubleClicked;
-        BuildTree();
-        MapPanel.SetWorld(_world);
-        ResetUndoRedo();
-        SetDirty(false);
+
+        Loaded += Window_Loaded;
     }
 
     public WorldEditorWindow(string? worldPath) : this()
     {
-        // Si nos pasan una ruta válida, intentamos cargar ese mundo.
-        if (!string.IsNullOrWhiteSpace(worldPath) && System.IO.File.Exists(worldPath))
-        {
-            TryLoadWorldWithPrompt(worldPath);
-            if (IsCanceled)
-                return;
-        }
-        else
-        {
-            // Si no hay mundo seleccionado, creamos uno nuevo sencillo por defecto.
-            _world = new WorldModel();
-            _world.Game.Id = "nuevo_mundo";
-            _world.Game.Title = "Nuevo mundo";
-            _world.Game.StartRoomId = "sala_inicio";
+        _initialWorldPath = worldPath;
+    }
 
-            _world.Rooms.Clear();
-            var startRoom = new Room
+    private async void Window_Loaded(object sender, RoutedEventArgs e)
+    {
+        LoadingOverlay.Visibility = Visibility.Visible;
+        await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Render);
+
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(_initialWorldPath) && System.IO.File.Exists(_initialWorldPath))
             {
-                Id = "sala_inicio",
-                Name = "Sala inicial",
-                Description = "Esta es la sala inicial de tu mundo."
-            };
-            _world.Rooms.Add(startRoom);
-            _currentPath = null;
-        }
+                TryLoadWorldWithPrompt(_initialWorldPath);
+                if (IsCanceled)
+                {
+                    Close();
+                    return;
+                }
+            }
+            else
+            {
+                _world = new WorldModel();
+                _world.Game.Id = "nuevo_mundo";
+                _world.Game.Title = "Nuevo mundo";
+                _world.Game.StartRoomId = "sala_inicio";
 
-        MapPanel.SetWorld(_world);
-        BuildTree();
-        ResetUndoRedo();
+                _world.Rooms.Clear();
+                var startRoom = new Room
+                {
+                    Id = "sala_inicio",
+                    Name = "Sala inicial",
+                    Description = "Esta es la sala inicial de tu mundo."
+                };
+                _world.Rooms.Add(startRoom);
+                _currentPath = null;
+            }
+
+            MapPanel.SetWorld(_world);
+            BuildTree();
+            ResetUndoRedo();
+            SetDirty(false);
+        }
+        finally
+        {
+            LoadingOverlay.Visibility = Visibility.Collapsed;
+        }
     }
 
     private void TryLoadWorldWithPrompt(string worldPath)
@@ -752,6 +768,9 @@ public partial class WorldEditorWindow : Window
         if (_world == null)
             return true;
 
+        // Forzar la actualización del valor de la clave de encriptación antes de validar
+        PropertyEditor.UpdateEncryptionKey(_world.Game);
+
         var key = _world.Game.EncryptionKey;
         if (!string.IsNullOrWhiteSpace(key) && key.Trim().Length != 8)
         {
@@ -779,7 +798,7 @@ public partial class WorldEditorWindow : Window
         // Simulamos sender/e para reaprovechar lógica existente si fuera necesario, 
         // aunque idealmente SaveAsMenu_Click debería refactorizarse también.
         // Por ahora mantenemos la compatibilidad con el resto del código.
-        var sender = this; 
+        var sender = this;
         var e = new RoutedEventArgs();
 
         if (string.IsNullOrEmpty(_currentPath))
@@ -827,6 +846,9 @@ public partial class WorldEditorWindow : Window
 
     private void SaveAsMenu_Click(object sender, RoutedEventArgs e)
     {
+        if (!ValidateEncryptionKey())
+            return;
+
         var dlg = new SaveFileDialog
         {
             Title = "Guardar mundo",
@@ -840,6 +862,11 @@ public partial class WorldEditorWindow : Window
             _currentPath = dlg.FileName;
             SaveMenu_Click(sender, e);
         }
+    }
+
+    private void SaveCommand_Executed(object sender, ExecutedRoutedEventArgs e)
+    {
+        SaveMenu_Click(sender, e);
     }
 
     private void CloseMenu_Click(object sender, RoutedEventArgs e)
@@ -1813,6 +1840,12 @@ public partial class WorldEditorWindow : Window
 
             if (dlg.Result == SaveChangesResult.Save)
             {
+                if (!ValidateEncryptionKey())
+                {
+                    e.Cancel = true;
+                    return;
+                }
+
                 SaveMenu_Click(this, new RoutedEventArgs());
                 if (_isDirty)
                 {

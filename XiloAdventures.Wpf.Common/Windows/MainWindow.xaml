@@ -131,26 +131,7 @@
             </MenuItem>
 
             <!-- Opción de IA a la derecha -->
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0">
-                <CheckBox x:Name="UseLlmCheckBox"
-                          Content="Usar IA"
-                          Foreground="White"
-                          VerticalAlignment="Center"
-                          Checked="UseLlmCheckBox_Changed"
-                          Unchecked="UseLlmCheckBox_Changed"
-                          Margin="0,0,8,0"/>
-                <TextBlock Text="?"
-                           Foreground="Yellow"
-                           FontWeight="Bold"
-                           FontSize="16"
-                           Cursor="Hand"
-                           VerticalAlignment="Center"
-                           MouseLeftButtonUp="LlmInfoIcon_MouseLeftButtonUp">
-                    <TextBlock.ToolTip>
-                        <TextBlock Text="Ayuda sobre IA y voz. Haz clic para más detalles." />
-                    </TextBlock.ToolTip>
-                </TextBlock>
-            </StackPanel>
+            <!-- Eliminado del menú -->
         </Menu>
 
         <Grid Margin="8">
@@ -162,10 +143,33 @@
 
             <!-- Título de sala e imagen -->
             <StackPanel Grid.Row="0" Margin="0,0,0,8">
-                  <TextBlock x:Name="RoomTitleText" FontSize="18" 
-                             FontWeight="Bold"
-                           HorizontalAlignment="Center"
-                           Margin="0,0,0,4"/>
+                <Grid Margin="0,0,0,4">
+                    <TextBlock x:Name="RoomTitleText" FontSize="18" 
+                               FontWeight="Bold"
+                               HorizontalAlignment="Center"/>
+                    
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <CheckBox x:Name="UseLlmCheckBox"
+                                  Content="Usar IA"
+                                  Foreground="White"
+                                  VerticalAlignment="Center"
+                                  Checked="UseLlmCheckBox_Changed"
+                                  Unchecked="UseLlmCheckBox_Changed"
+                                  Margin="0,0,8,0"/>
+                        <TextBlock Text="?"
+                                   Foreground="Yellow"
+                                   FontWeight="Bold"
+                                   FontSize="16"
+                                   Cursor="Hand"
+                                   VerticalAlignment="Center"
+                                   MouseLeftButtonUp="LlmInfoIcon_MouseLeftButtonUp">
+                            <TextBlock.ToolTip>
+                                <TextBlock Text="Ayuda sobre IA y voz. Haz clic para más detalles." />
+                            </TextBlock.ToolTip>
+                        </TextBlock>
+                    </StackPanel>
+                </Grid>
+                
                 <Border Height="260" Background="#101010">
                     <Image x:Name="RoomImage"
                            Stretch="UniformToFill"

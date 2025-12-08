@@ -638,6 +638,23 @@ public partial class MainWindow : Window
     {
         if (UseLlmCheckBox.IsChecked == true)
         {
+            // El usuario está activando la IA: pedir confirmación
+            var confirmDlg = new ConfirmWindow(
+                "Al activar la IA se iniciará Docker Desktop automáticamente.\n\n" +
+                "Si es la primera vez que la usas, se descargarán los modelos necesarios (puede tardar varios minutos dependiendo de tu conexión).\n\n" +
+                "¿Deseas continuar?",
+                "Activar IA")
+            {
+                Owner = this
+            };
+
+            if (confirmDlg.ShowDialog() != true)
+            {
+                // Usuario canceló: desmarcar el checkbox
+                UseLlmCheckBox.IsChecked = false;
+                return;
+            }
+
             var progressWindow = new DockerProgressWindow
             {
                 Owner = this

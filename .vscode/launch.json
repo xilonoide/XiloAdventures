@@ -1,29 +1,24 @@
 {
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Xilo Adventures - Editor (WPF)",
+            "name": ".NET Core Launch (console)",
             "type": "coreclr",
             "request": "launch",
-            "preLaunchTask": "build-editor",
-            "program": "${workspaceFolder}/XiloAdventures.Wpf/bin/Debug/net8.0-windows/XiloAdventures.Wpf.dll",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/XiloAdventures.Wpf/bin/Debug/net8.0-windows/win-x64/XiloAdventures.Wpf.dll",
             "args": [],
-            "cwd": "${workspaceFolder}/XiloAdventures.Wpf/bin/Debug/net8.0-windows",
-            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/XiloAdventures.Wpf",
             "console": "internalConsole",
-            "internalConsoleOptions": "openOnSessionStart"
+            "stopAtEntry": false
         },
         {
-            "name": "Xilo Adventures - Player (WPF)",
+            "name": ".NET Core Attach",
             "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "build-player",
-            "program": "${workspaceFolder}/XiloAdventures.Wpf.Player/bin/Debug/net8.0-windows/XiloAdventures.Wpf.Player.dll",
-            "args": [],
-            "cwd": "${workspaceFolder}/XiloAdventures.Wpf.Player/bin/Debug/net8.0-windows",
-            "stopAtEntry": false,
-            "console": "internalConsole",
-            "internalConsoleOptions": "openOnSessionStart"
+            "request": "attach"
         }
     ]
 }
