@@ -32,6 +32,16 @@ public class WorldModel
     /// Posiciones del mapa para cada sala (coordenadas lógicas X/Y) usadas por el editor.
     /// </summary>
     public Dictionary<string, MapPosition> RoomPositions { get; set; } = new();
+
+    /// <summary>
+    /// Estado del grid en el editor (visible/oculto).
+    /// </summary>
+    public bool ShowGrid { get; set; } = false;
+
+    /// <summary>
+    /// Estado del snap-to-grid en el editor (activado/desactivado).
+    /// </summary>
+    public bool SnapToGrid { get; set; } = true;
 }
 
 public enum WeatherType

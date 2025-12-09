@@ -19,6 +19,10 @@ public partial class MapPanel : Control
 
     private WorldModel? _world;
 
+    // Estado del grid y snap-to-grid
+    private bool _showGrid = false;
+    private bool _snapToGrid = true;
+
     // Posiciones lógicas (coordenadas de mapa, no píxeles) del centro de cada sala
     private readonly Dictionary<string, Point> _roomPositions = new();
     // Rectángulos en pantalla (tras zoom + pan) para hit testing
@@ -326,5 +330,29 @@ public partial class MapPanel : Control
         InvalidateVisual();
     }
 
+    public void ToggleGridVisibility()
+    {
+        _showGrid = !_showGrid;
+        InvalidateVisual();
+    }
+
+    public void ToggleSnapToGrid()
+    {
+        _snapToGrid = !_snapToGrid;
+    }
+
+    public bool IsGridVisible => _showGrid;
+    public bool IsSnapToGridEnabled => _snapToGrid;
+
+    public void SetGridVisibility(bool visible)
+    {
+        _showGrid = visible;
+        InvalidateVisual();
+    }
+
+    public void SetSnapToGrid(bool enabled)
+    {
+        _snapToGrid = enabled;
+    }
 
 }

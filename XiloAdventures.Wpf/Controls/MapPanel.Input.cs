@@ -1795,6 +1795,12 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
             if (!_roomPositions.TryGetValue(id, out var desired))
                 continue;
 
+            // Si snap-to-grid está activado, aplicar snap primero
+            if (_snapToGrid)
+            {
+                desired = SnapToGridCell(desired);
+            }
+
             var adjusted = FindNearestNonCollidingPosition(id, desired, RoomSpacingMargin);
             _roomPositions[id] = adjusted;
         }
@@ -1818,40 +1824,87 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
         if (double.IsNaN(maxRadius) || maxRadius <= 0)
             maxRadius = 2000;
 
-        const double stepRadius = 10.0;
-        const double angleStep = Math.PI / 12.0;
-
         Point best = candidate;
         double bestDistance = double.MaxValue;
         bool found = false;
 
-        for (double radius = stepRadius; radius <= maxRadius; radius += stepRadius)
+        if (_snapToGrid)
         {
-            for (double angle = 0.0; angle < Math.PI * 2.0; angle += angleStep)
+            // Con snap-to-grid: buscar solo en celdas del grid
+            int maxCells = (int)(maxRadius / Math.Min(RoomBoxWidth, RoomBoxHeight)) + 2;
+
+            for (int radiusCells = 1; radiusCells <= maxCells; radiusCells++)
             {
-                Point trial = new(
-                    desiredCenter.X + radius * Math.Cos(angle),
-                    desiredCenter.Y + radius * Math.Sin(angle));
-
-                trial = ClampRoomCenterToMap(trial);
-
-                if (HasCollisionWithOtherRooms(roomId, trial, margin, null))
-                    continue;
-
-                double dx = trial.X - desiredCenter.X;
-                double dy = trial.Y - desiredCenter.Y;
-                double distance = Math.Sqrt(dx * dx + dy * dy);
-
-                if (distance < bestDistance)
+                // Buscar en un anillo de celdas a distancia radiusCells
+                for (int dx = -radiusCells; dx <= radiusCells; dx++)
                 {
-                    bestDistance = distance;
-                    best = trial;
-                    found = true;
-                }
-            }
+                    for (int dy = -radiusCells; dy <= radiusCells; dy++)
+                    {
+                        // Solo revisar las celdas del borde del anillo (no todas las interiores)
+                        if (Math.Abs(dx) != radiusCells && Math.Abs(dy) != radiusCells)
+                            continue;
 
-            if (found)
-                break;
+                        Point trial = new(
+                            desiredCenter.X + dx * RoomBoxWidth,
+                            desiredCenter.Y + dy * RoomBoxHeight);
+
+                        trial = SnapToGridCell(trial);
+                        trial = ClampRoomCenterToMap(trial);
+
+                        if (HasCollisionWithOtherRooms(roomId, trial, margin, null))
+                            continue;
+
+                        double distX = trial.X - desiredCenter.X;
+                        double distY = trial.Y - desiredCenter.Y;
+                        double distance = Math.Sqrt(distX * distX + distY * distY);
+
+                        if (distance < bestDistance)
+                        {
+                            bestDistance = distance;
+                            best = trial;
+                            found = true;
+                        }
+                    }
+                }
+
+                if (found)
+                    break;
+            }
+        }
+        else
+        {
+            // Sin snap-to-grid: búsqueda radial continua
+            const double stepRadius = 10.0;
+            const double angleStep = Math.PI / 12.0;
+
+            for (double radius = stepRadius; radius <= maxRadius; radius += stepRadius)
+            {
+                for (double angle = 0.0; angle < Math.PI * 2.0; angle += angleStep)
+                {
+                    Point trial = new(
+                        desiredCenter.X + radius * Math.Cos(angle),
+                        desiredCenter.Y + radius * Math.Sin(angle));
+
+                    trial = ClampRoomCenterToMap(trial);
+
+                    if (HasCollisionWithOtherRooms(roomId, trial, margin, null))
+                        continue;
+
+                    double dx = trial.X - desiredCenter.X;
+                    double dy = trial.Y - desiredCenter.Y;
+                    double distance = Math.Sqrt(dx * dx + dy * dy);
+
+                    if (distance < bestDistance)
+                    {
+                        bestDistance = distance;
+                        best = trial;
+                        found = true;
+                    }
+                }
+
+                if (found)
+                    break;
+            }
         }
 
         return found ? best : candidate;
@@ -2039,6 +2092,15 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
         }
 
         return menuItem;
+    }
+
+    private Point SnapToGridCell(Point position)
+    {
+        // Redondea la posición al centro de la celda del grid más cercana
+        // Las celdas están centradas en RoomBoxWidth/2, RoomBoxWidth*1.5, etc.
+        double cellX = Math.Round((position.X - RoomBoxWidth/2) / RoomBoxWidth) * RoomBoxWidth + RoomBoxWidth/2;
+        double cellY = Math.Round((position.Y - RoomBoxHeight/2) / RoomBoxHeight) * RoomBoxHeight + RoomBoxHeight/2;
+        return new Point(cellX, cellY);
     }
 
 }

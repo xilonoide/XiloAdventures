@@ -32,6 +32,11 @@ public partial class MapPanel : Control
             null,
             new Rect(0, 0, width, height));
 
+        if (_showGrid)
+        {
+            DrawGrid(dc, width, height);
+        }
+
         DrawConnections(dc);
         DrawRooms(dc);
         DrawSelectionRectangle(dc);
@@ -699,5 +704,35 @@ private void DrawSelectionRectangle(DrawingContext dc)
         dc.DrawLine(pen, fromScreen, toScreen);
     }
 
+    private void DrawGrid(DrawingContext dc, double width, double height)
+    {
+        Pen gridPen = new(new SolidColorBrush(Color.FromRgb(35, 35, 35)), 1.0);
+
+        // Calculamos el área visible en coordenadas lógicas
+        Point topLeftLogical = ScreenToLogical(new Point(0, 0));
+        Point bottomRightLogical = ScreenToLogical(new Point(width, height));
+
+        // Encontramos el inicio y fin de las líneas del grid alineadas con las celdas
+        double startX = Math.Floor(topLeftLogical.X / RoomBoxWidth) * RoomBoxWidth;
+        double endX = Math.Ceiling(bottomRightLogical.X / RoomBoxWidth) * RoomBoxWidth;
+        double startY = Math.Floor(topLeftLogical.Y / RoomBoxHeight) * RoomBoxHeight;
+        double endY = Math.Ceiling(bottomRightLogical.Y / RoomBoxHeight) * RoomBoxHeight;
+
+        // Líneas verticales
+        for (double x = startX; x <= endX; x += RoomBoxWidth)
+        {
+            Point topScreen = LogicalToScreen(new Point(x, topLeftLogical.Y));
+            Point bottomScreen = LogicalToScreen(new Point(x, bottomRightLogical.Y));
+            dc.DrawLine(gridPen, topScreen, bottomScreen);
+        }
+
+        // Líneas horizontales
+        for (double y = startY; y <= endY; y += RoomBoxHeight)
+        {
+            Point leftScreen = LogicalToScreen(new Point(topLeftLogical.X, y));
+            Point rightScreen = LogicalToScreen(new Point(bottomRightLogical.X, y));
+            dc.DrawLine(gridPen, leftScreen, rightScreen);
+        }
+    }
 
 }

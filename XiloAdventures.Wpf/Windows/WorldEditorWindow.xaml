@@ -364,6 +364,32 @@
                         </StackPanel>
                     </Button>
 
+                    <Button x:Name="ToggleGridButton"
+                            Style="{StaticResource CommandButtonStyle}"
+                            Click="ToggleGridButton_Click"
+                            ToolTip="Mostrar/Ocultar grid"
+                            Margin="20,4,6,0">
+                        <TextBlock FontFamily="Segoe MDL2 Assets"
+                                   Text="&#xE80A;"
+                                   Foreground="#FF8C00"
+                                   FontSize="18"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"/>
+                    </Button>
+
+                    <Button x:Name="ToggleSnapButton"
+                            Style="{StaticResource CommandButtonStyle}"
+                            Click="ToggleSnapButton_Click"
+                            ToolTip="Snap to grid"
+                            Margin="0,4,20,0">
+                        <TextBlock FontFamily="Segoe MDL2 Assets"
+                                   Text="&#xE7C1;"
+                                   Foreground="#FF8C00"
+                                   FontSize="18"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"/>
+                    </Button>
+
                     <Button Style="{StaticResource CommandButtonStyle}"
                             Click="AddRoom_Click">
                         <StackPanel Orientation="Horizontal"

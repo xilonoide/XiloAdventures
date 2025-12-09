@@ -104,6 +104,14 @@ public partial class WorldEditorWindow : Window
             ResetUndoRedo();
             SetDirty(false);
 
+            // Restaurar estado del grid y snap-to-grid desde el mundo
+            MapPanel.SetGridVisibility(_world.ShowGrid);
+            MapPanel.SetSnapToGrid(_world.SnapToGrid);
+
+            // Inicializar aspecto de los botones de grid y snap
+            UpdateGridButtonAppearance();
+            UpdateSnapButtonAppearance();
+
             // Centrar en la sala inicial si se cargó un mundo existente
             if (!string.IsNullOrWhiteSpace(_initialWorldPath) && System.IO.File.Exists(_initialWorldPath))
             {
@@ -855,6 +863,10 @@ public partial class WorldEditorWindow : Window
                             Y = kv.Value.Y
                         };
                     }
+
+                    // Guardar estado del grid y snap-to-grid
+                    _world.ShowGrid = MapPanel.IsGridVisible;
+                    _world.SnapToGrid = MapPanel.IsSnapToGridEnabled;
                 }
 
                 Directory.CreateDirectory(AppPaths.WorldsFolder);
@@ -2016,6 +2028,44 @@ public partial class WorldEditorWindow : Window
 
         PushUndoSnapshot();
         SetDirty(true);
+    }
+
+    private void ToggleGridButton_Click(object sender, RoutedEventArgs e)
+    {
+        MapPanel.ToggleGridVisibility();
+        UpdateGridButtonAppearance();
+    }
+
+    private void ToggleSnapButton_Click(object sender, RoutedEventArgs e)
+    {
+        MapPanel.ToggleSnapToGrid();
+        UpdateSnapButtonAppearance();
+    }
+
+    private void UpdateGridButtonAppearance()
+    {
+        if (ToggleGridButton == null) return;
+
+        var textBlock = ToggleGridButton.Content as TextBlock;
+        if (textBlock != null)
+        {
+            textBlock.Foreground = MapPanel.IsGridVisible
+                ? new SolidColorBrush(Color.FromRgb(255, 215, 0))  // Amarillo brillante cuando está activo
+                : new SolidColorBrush(Color.FromRgb(255, 140, 0)); // Amarillo oscuro cuando está inactivo
+        }
+    }
+
+    private void UpdateSnapButtonAppearance()
+    {
+        if (ToggleSnapButton == null) return;
+
+        var textBlock = ToggleSnapButton.Content as TextBlock;
+        if (textBlock != null)
+        {
+            textBlock.Foreground = MapPanel.IsSnapToGridEnabled
+                ? new SolidColorBrush(Color.FromRgb(255, 215, 0))  // Amarillo brillante cuando está activo
+                : new SolidColorBrush(Color.FromRgb(255, 140, 0)); // Amarillo oscuro cuando está inactivo
+        }
     }
 
     private bool IsDotNet8SdkInstalled()
