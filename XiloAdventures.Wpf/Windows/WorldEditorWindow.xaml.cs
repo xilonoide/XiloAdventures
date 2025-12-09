@@ -2008,8 +2008,76 @@ public partial class WorldEditorWindow : Window
         SetDirty(true);
     }
 
+    private bool IsDotNet8SdkInstalled()
+    {
+        try
+        {
+            var startInfo = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "dotnet",
+                Arguments = "--list-sdks",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            using var process = System.Diagnostics.Process.Start(startInfo);
+            if (process == null)
+                return false;
+
+            var output = process.StandardOutput.ReadToEnd();
+            process.WaitForExit();
+
+            // Buscar si hay algún SDK que empiece con "8."
+            return output.Contains("8.0.");
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private async void ExportMenu_Click(object sender, RoutedEventArgs e)
     {
+        // Verificar que el SDK de .NET 8 esté instalado
+        if (!IsDotNet8SdkInstalled())
+        {
+            var alert = new AlertWindow(
+                "Para exportar a ejecutable necesitas tener instalado el SDK de .NET 8.",
+                "SDK de .NET 8 requerido")
+            {
+                Owner = this
+            };
+
+            // Crear un panel con el link de descarga
+            var panel = new System.Windows.Controls.StackPanel();
+            var link = new System.Windows.Documents.Hyperlink(new System.Windows.Documents.Run("Descarga el SDK"))
+            {
+                NavigateUri = new Uri("https://dotnet.microsoft.com/es-es/download/dotnet/thank-you/sdk-8.0.416-windows-x64-installer")
+            };
+            link.RequestNavigate += (s, args) =>
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = args.Uri.ToString(),
+                    UseShellExecute = true
+                });
+            };
+
+            var linkTextBlock = new System.Windows.Controls.TextBlock
+            {
+                FontSize = 16,
+                Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(100, 180, 255))
+            };
+            linkTextBlock.Inlines.Add(link);
+            panel.Children.Add(linkTextBlock);
+
+            alert.SetCustomContent(panel);
+            alert.ShowDialog();
+            return;
+        }
+
         // Verificar que el mundo esté guardado
         if (_isDirty)
         {
