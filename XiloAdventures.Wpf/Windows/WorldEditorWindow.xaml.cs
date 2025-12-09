@@ -794,6 +794,11 @@ public partial class WorldEditorWindow : Window
         await PerformSaveAsync();
     }
 
+    private async void SaveButton_Click(object sender, RoutedEventArgs e)
+    {
+        await PerformSaveAsync();
+    }
+
     private async Task<bool> PerformSaveAsync()
     {
         // Simulamos sender/e para reaprovechar lógica existente si fuera necesario,
@@ -2002,13 +2007,14 @@ public partial class WorldEditorWindow : Window
         // Verificar que el mundo esté guardado
         if (_isDirty)
         {
-            var result = MessageBox.Show(
+            var confirmDlg = new ConfirmWindow(
                 "Debes guardar el mundo antes de exportar. ¿Quieres guardarlo ahora?",
-                "Guardar antes de exportar",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
+                "Guardar antes de exportar")
+            {
+                Owner = this
+            };
 
-            if (result == MessageBoxResult.Yes)
+            if (confirmDlg.ShowDialog() == true)
             {
                 await PerformSaveAsync();
                 if (_isDirty) // Si sigue dirty, es que el usuario canceló o hubo error
@@ -2022,11 +2028,12 @@ public partial class WorldEditorWindow : Window
 
         if (string.IsNullOrEmpty(_currentPath))
         {
-            MessageBox.Show(
+            new AlertWindow(
                 "Debes guardar el mundo en un archivo antes de exportar.",
-                "Error",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+                "Error")
+            {
+                Owner = this
+            }.ShowDialog();
             return;
         }
 
@@ -2079,11 +2086,12 @@ public partial class WorldEditorWindow : Window
         catch (Exception ex)
         {
             HidePlayLoading();
-            MessageBox.Show(
+            new AlertWindow(
                 $"Error al exportar el ejecutable:\n\n{ex.Message}",
-                "Error de exportación",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+                "Error de exportación")
+            {
+                Owner = this
+            }.ShowDialog();
         }
     }
 
