@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Windows;
 using XiloAdventures.Engine;
@@ -87,7 +88,17 @@ public partial class App : Application
                 {
                     LogError($"Autoguardado encontrado: {autosavePath}");
                     state = SaveManager.LoadFromPath(autosavePath, world);
-                    LogError("Autoguardado cargado exitosamente");
+
+                    // Validar que el autoguardado pertenece al mundo actual
+                    if (!string.Equals(state.WorldId, world.Game.Id, StringComparison.OrdinalIgnoreCase))
+                    {
+                        LogError($"Autoguardado incompatible: WorldId={state.WorldId}, esperado={world.Game.Id}. Creando estado inicial.");
+                        state = WorldLoader.CreateInitialState(world);
+                    }
+                    else
+                    {
+                        LogError("Autoguardado cargado exitosamente");
+                    }
                 }
                 else
                 {
@@ -101,17 +112,41 @@ public partial class App : Application
                 state = WorldLoader.CreateInitialState(world);
             }
 
-            // Crear el SoundManager (deshabilitado para ejecutables standalone)
-            var soundManager = new SoundManager
-            {
-                SoundEnabled = false
-            };
-
             // Configuración de UI: intentar cargar desde archivo, sino desactivar IA
             var uiSettings = TryLoadConfigOrDefault(world.Game.Id);
 
+            // Crear el SoundManager y aplicar configuración desde uiSettings
+            var soundManager = new SoundManager
+            {
+                SoundEnabled = uiSettings.SoundEnabled,
+                MusicVolume = (float)(uiSettings.MusicVolume / 10.0),
+                EffectsVolume = (float)(uiSettings.EffectsVolume / 10.0),
+                MasterVolume = (float)(uiSettings.MasterVolume / 10.0),
+                VoiceVolume = (float)(uiSettings.VoiceVolume / 10.0)
+            };
+            soundManager.RefreshVolumes();
+
             // Crear la ventana de juego
             var window = new MainWindow(world, state, soundManager, uiSettings, isRunningFromEditor: false);
+
+            // Precargar la voz de la sala inicial antes de mostrar la ventana,
+            // para que se escuche nada más entrar.
+            if (uiSettings.SoundEnabled && uiSettings.VoiceVolume > 0)
+            {
+                try
+                {
+                    var startRoom = state.Rooms
+                        .FirstOrDefault(r => r.Id.Equals(state.CurrentRoomId, StringComparison.OrdinalIgnoreCase));
+                    if (startRoom != null && !string.IsNullOrWhiteSpace(startRoom.Description))
+                    {
+                        await soundManager.PreloadRoomVoiceAsync(startRoom.Id, startRoom.Description);
+                    }
+                }
+                catch
+                {
+                    // Si algo falla al precargar la voz, continuamos sin interrumpir el inicio del juego.
+                }
+            }
 
             // Asegurar mínimo 2 segundos de splash
             var elapsed = stopwatch.ElapsedMilliseconds;

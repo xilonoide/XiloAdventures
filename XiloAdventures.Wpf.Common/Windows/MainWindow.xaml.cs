@@ -485,14 +485,36 @@ public partial class MainWindow : Window
             try
             {
                 var newState = SaveManager.LoadFromPath(dlg.FileName, _world);
+
+                // Validar que la partida pertenece al mundo actual
+                if (!string.Equals(newState.WorldId, _world.Game.Id, StringComparison.OrdinalIgnoreCase))
+                {
+                    new AlertWindow(
+                        $"Esta partida pertenece a otro mundo ('{newState.WorldId}').\n\n" +
+                        $"No es compatible con el mundo actual ('{_world.Game.Id}').",
+                        "Partida incompatible")
+                    {
+                        Owner = this
+                    }.ShowDialog();
+                    return;
+                }
+
                 var newWindow = new MainWindow(_world, newState, _sound, _uiSettings);
                 newWindow.Owner = Owner;
                 Close();
                 newWindow.Show();
             }
+            catch (System.Security.Cryptography.CryptographicException)
+            {
+                new AlertWindow("Clave incorrecta o archivo corrupto.", "Error") { Owner = this }.ShowDialog();
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                new AlertWindow("El archivo de partida está corrupto o no es válido.", "Error") { Owner = this }.ShowDialog();
+            }
             catch (Exception ex)
             {
-                new AlertWindow($"Error al cargar partida:\n{ex.Message}", "Error") { Owner = this }.ShowDialog();
+                new AlertWindow($"Error al cargar partida:\n\n{ex.Message}", "Error") { Owner = this }.ShowDialog();
             }
         }
     }

@@ -593,16 +593,21 @@ public partial class WorldEditorWindow : Window
         if (_world == null)
             return;
 
-        ShowPlayLoading("Preparando partida...");
+        ShowPlayLoading("Guardando mundo...");
         await Dispatcher.Yield();
 
         // Guardar antes de lanzar la partida de prueba (y validar clave de encriptación)
-        if (!await PerformSaveAsync())
+        // No ocultamos el loading al terminar de guardar para mantener el overlay visible
+        if (!await PerformSaveAsync(hideLoadingOnComplete: false))
         {
             // Si el save falla (por clave incorrecta u otro error), no continuar
             HidePlayLoading();
             return;
         }
+
+        // Cambiar mensaje a "Preparando todo..." después de guardar
+        ShowPlayLoading("Preparando todo...");
+        await Dispatcher.Yield();
 
         _isPlayRunning = true;
         if (PlayButton != null)
@@ -799,7 +804,7 @@ public partial class WorldEditorWindow : Window
         await PerformSaveAsync();
     }
 
-    private async Task<bool> PerformSaveAsync()
+    private async Task<bool> PerformSaveAsync(bool hideLoadingOnComplete = true)
     {
         // Simulamos sender/e para reaprovechar lógica existente si fuera necesario,
         // aunque idealmente SaveAsMenu_Click debería refactorizarse también.
@@ -847,7 +852,8 @@ public partial class WorldEditorWindow : Window
             });
 
             SetDirty(false);
-            HidePlayLoading();
+            if (hideLoadingOnComplete)
+                HidePlayLoading();
             return true;
         }
         catch (Exception ex)

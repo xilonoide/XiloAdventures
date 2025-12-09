@@ -400,6 +400,19 @@ public partial class StartupWindow : Window
             {
                 Parser.SetWorldDictionary(world.Game.ParserDictionaryJson);
                 state = SaveManager.LoadFromPath(dlg.FileName, world);
+
+                // Validación adicional: asegurar que el WorldId cargado coincide
+                if (!string.Equals(state.WorldId, world.Game.Id, StringComparison.OrdinalIgnoreCase))
+                {
+                    new AlertWindow(
+                        $"La partida cargada no coincide con el mundo seleccionado.\n\n" +
+                        $"Partida: '{state.WorldId}'\nMundo: '{world.Game.Id}'",
+                        "Error de validación")
+                    {
+                        Owner = this
+                    }.ShowDialog();
+                    return;
+                }
             }
             catch (Exception)
             {
