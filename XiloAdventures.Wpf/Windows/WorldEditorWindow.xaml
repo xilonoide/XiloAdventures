@@ -439,9 +439,9 @@
 
             <Grid Margin="4">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="1*"/>
-                    <ColumnDefinition Width="5*"/>
-                    <ColumnDefinition Width="1*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -461,78 +461,86 @@
                                    Background="#202020"/>
 
                 <!-- Panel izquierdo: búsqueda + árbol -->
-                <StackPanel Grid.Column="0"
+                <ScrollViewer Grid.Column="0"
                         Grid.Row="0"
                         Grid.RowSpan="2"
                         Margin="0,0,4,0"
-                        Background="#333333"
-                        Panel.ZIndex="1">
-                    <DockPanel LastChildFill="True"
-                            Margin="0,0,0,4">
-                        <StackPanel Orientation="Horizontal"
-                                DockPanel.Dock="Left">
-                            <Button Width="28"
-                                    Height="28"
-                                    Margin="0,0,4,0"
-                                    Click="ExpandAll_Click"
-                                    ToolTip="Expandir todo">
-                                <TextBlock FontFamily="Segoe MDL2 Assets"
-                                        VerticalAlignment="Center"
-                                           Text="&#xE70D;"
-                                           FontSize="18"
-                                           HorizontalAlignment="Center"/>
-                            </Button>
-                            <Button Width="28"
-                                    Height="28"
-                                    Margin="0,0,4,0"
-                                    Click="CollapseAll_Click"
-                                    ToolTip="Contraer todo">
-                                <TextBlock FontFamily="Segoe MDL2 Assets"
-                                        VerticalAlignment="Center"
-                                           Text="&#xE70E;"
-                                           FontSize="18"
-                                           HorizontalAlignment="Center"/>
-                            </Button>
-                        </StackPanel>
-                        <TextBox x:Name="SearchTextBox"
-                                 FontSize="18"
-                                 TextChanged="SearchTextBox_TextChanged"/>
-                    </DockPanel>
-                    <TreeView x:Name="WorldTree"
-                              SelectedItemChanged="WorldTree_SelectedItemChanged"
-                              KeyDown="WorldTree_KeyDown"
-                              MouseDoubleClick="WorldTree_MouseDoubleClick"
-                              Background="#333333"
-                              BorderBrush="#555555">
-                        <TreeView.ItemContainerStyle>
-                            <Style TargetType="TreeViewItem">
-                                <Setter Property="Foreground"
-                                        Value="White"/>
-                                <Setter Property="Background"
-                                        Value="#333333"/>
-                                <Style.Triggers>
-                                    <Trigger Property="IsSelected"
-                                            Value="True">
-                                        <Setter Property="Background"
-                                                Value="#505050"/>
-                                        <Setter Property="Foreground"
-                                                Value="White"/>
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TreeView.ItemContainerStyle>
-                    </TreeView>
-                </StackPanel>
+                        Panel.ZIndex="1"
+                        Width="300"
+                        HorizontalScrollBarVisibility="Auto"
+                        VerticalScrollBarVisibility="Auto">
+                    <StackPanel Background="#333333">
+                        <DockPanel LastChildFill="True"
+                                Margin="0,0,0,4">
+                            <StackPanel Orientation="Horizontal"
+                                    DockPanel.Dock="Left">
+                                <Button Width="28"
+                                        Height="28"
+                                        Margin="0,0,4,0"
+                                        Click="ExpandAll_Click"
+                                        ToolTip="Expandir todo">
+                                    <TextBlock FontFamily="Segoe MDL2 Assets"
+                                            VerticalAlignment="Center"
+                                               Text="&#xE70D;"
+                                               FontSize="18"
+                                               HorizontalAlignment="Center"/>
+                                </Button>
+                                <Button Width="28"
+                                        Height="28"
+                                        Margin="0,0,4,0"
+                                        Click="CollapseAll_Click"
+                                        ToolTip="Contraer todo">
+                                    <TextBlock FontFamily="Segoe MDL2 Assets"
+                                            VerticalAlignment="Center"
+                                               Text="&#xE70E;"
+                                               FontSize="18"
+                                               HorizontalAlignment="Center"/>
+                                </Button>
+                            </StackPanel>
+                            <TextBox x:Name="SearchTextBox"
+                                     FontSize="18"
+                                     TextChanged="SearchTextBox_TextChanged"/>
+                        </DockPanel>
+                        <TreeView x:Name="WorldTree"
+                                  SelectedItemChanged="WorldTree_SelectedItemChanged"
+                                  KeyDown="WorldTree_KeyDown"
+                                  MouseDoubleClick="WorldTree_MouseDoubleClick"
+                                  Background="#333333"
+                                  BorderBrush="#555555">
+                            <TreeView.ItemContainerStyle>
+                                <Style TargetType="TreeViewItem">
+                                    <Setter Property="Foreground"
+                                            Value="White"/>
+                                    <Setter Property="Background"
+                                            Value="#333333"/>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsSelected"
+                                                Value="True">
+                                            <Setter Property="Background"
+                                                    Value="#505050"/>
+                                            <Setter Property="Foreground"
+                                                    Value="White"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TreeView.ItemContainerStyle>
+                        </TreeView>
+                    </StackPanel>
+                </ScrollViewer>
 
                 <!-- Panel derecho: propiedades -->
-                <StackPanel Grid.Column="2"
+                <ScrollViewer Grid.Column="2"
                         Grid.Row="0"
                         Grid.RowSpan="2"
                         Margin="4,0,0,0"
-                            Background="#333333"
-                            Panel.ZIndex="1">
-                    <controls:PropertyEditor x:Name="PropertyEditor"/>
-                </StackPanel>
+                        Panel.ZIndex="1"
+                        Width="300"
+                        HorizontalScrollBarVisibility="Disabled"
+                        VerticalScrollBarVisibility="Auto">
+                    <StackPanel Background="#333333">
+                        <controls:PropertyEditor x:Name="PropertyEditor"/>
+                    </StackPanel>
+                </ScrollViewer>
 
                 <StackPanel Grid.Column="2"
                         Grid.Row="2"

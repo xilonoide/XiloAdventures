@@ -200,7 +200,19 @@ public partial class StartupWindow : Window
 
         // No permitir eliminar el elemento especial '¡Crea tu aventura!'
         var selected = WorldsList.SelectedItem as string;
-        DeleteWorldButton.IsEnabled = selected != null && selected != CreateNewWorldItem;
+        var isCreateNewWorld = selected == CreateNewWorldItem;
+
+        DeleteWorldButton.IsEnabled = selected != null && !isCreateNewWorld;
+
+        // Deshabilitar botones y checks cuando se selecciona "¡Crea tu aventura!"
+        if (NewGameButton != null)
+            NewGameButton.IsEnabled = !isCreateNewWorld;
+        if (LoadGameButton != null)
+            LoadGameButton.IsEnabled = !isCreateNewWorld;
+        if (SoundCheckBox != null)
+            SoundCheckBox.IsEnabled = !isCreateNewWorld;
+        if (LlmCheckBox != null)
+            LlmCheckBox.IsEnabled = !isCreateNewWorld;
     }
 
     private string? GetSelectedWorldFile()
