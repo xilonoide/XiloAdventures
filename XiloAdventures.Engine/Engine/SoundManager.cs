@@ -514,6 +514,13 @@ public class SoundManager : IDisposable
         }
     }
 
+    private float CalculateEffectiveVolume(float targetVolume, float volume1, float volume2)
+    {
+        var v1 = Math.Clamp(volume1, 0f, 1f);
+        var v2 = Math.Clamp(volume2, 0f, 1f);
+        return targetVolume * v1 * v2;
+    }
+
     private void FadeWorldMusicTo(float targetVolume)
     {
         if (_worldMusicReader == null)
@@ -529,10 +536,7 @@ public class SoundManager : IDisposable
             return;
         }
 
-        var master = Math.Clamp(MasterVolume, 0f, 1f);
-        var music = Math.Clamp(MusicVolume, 0f, 1f);
-        var effectiveTarget = targetVolume * master * music;
-
+        var effectiveTarget = CalculateEffectiveVolume(targetVolume, MasterVolume, MusicVolume);
         FadeVolume(_worldMusicReader, start, effectiveTarget, FadeDurationSeconds);
     }
 
@@ -552,10 +556,7 @@ public class SoundManager : IDisposable
             return;
         }
 
-        var master = Math.Clamp(MasterVolume, 0f, 1f);
-        var music = Math.Clamp(MusicVolume, 0f, 1f);
-        var effectiveTarget = targetVolume * master * music;
-
+        var effectiveTarget = CalculateEffectiveVolume(targetVolume, MasterVolume, MusicVolume);
         FadeVolume(_roomMusicReader, start, effectiveTarget, FadeDurationSeconds);
     }
 
@@ -566,9 +567,7 @@ public class SoundManager : IDisposable
         {
             try
             {
-                var master = Math.Clamp(MasterVolume, 0f, 1f);
-                var music = Math.Clamp(MusicVolume, 0f, 1f);
-                _worldMusicReader.Volume = volume * master * music;
+                _worldMusicReader.Volume = CalculateEffectiveVolume(volume, MasterVolume, MusicVolume);
             }
             catch
             {
@@ -589,9 +588,7 @@ public class SoundManager : IDisposable
                     return;
                 }
 
-                var master = Math.Clamp(MasterVolume, 0f, 1f);
-                var voice = Math.Clamp(VoiceVolume, 0f, 1f);
-                voiceChannel.Volume = master * voice;
+                voiceChannel.Volume = CalculateEffectiveVolume(1.0f, MasterVolume, VoiceVolume);
             }
             catch
             {

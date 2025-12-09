@@ -128,6 +128,35 @@ dotnet test --verbosity normal
 
 ---
 
+## Arquitectura y optimizaciones
+
+### Componentes principales
+- **Parser optimizado**: Usa regex compilados para mejor rendimiento en análisis de comandos
+- **GameEngine**: Incluye métodos auxiliares para búsquedas case-insensitive optimizadas
+- **SoundManager**: Cálculo consolidado de volúmenes efectivos (master × música × canal)
+- **Cifrado**: Sistema AES-CBC con claves de 8 caracteres para archivos `.xaw` y `.xas`
+
+### Exportación de ejecutables
+El editor permite exportar mundos como ejecutables `.exe` standalone (~80-100 MB):
+- Incluye runtime de .NET 8 embebido (no requiere instalación)
+- El mundo `.xaw` va empaquetado como recurso embebido
+- Usa `appicon.ico` como icono del ejecutable
+- Configuración de IA opcional via archivo `config.xac` junto al `.exe`
+
+### Popups y UI
+- Todos los popups usan tema oscuro consistente (#1E1E1E fondo, #F5F5F5 texto)
+- Popups de un solo botón se cierran con clic o ESC (sin botón visible)
+- Checkbox "Usar IA" centrado verticalmente con su label
+- Interrogantes de ayuda (?) en labels: Parser Dictionary, Imagen de Sala (3.5:1 @ 1400×400)
+
+### Gestión de audio
+- Música global + música por sala con fade
+- Volúmenes independientes: Master, Música, Efectos, Voz
+- Precarga de voces de salas adyacentes para transiciones fluidas
+- TTS opcional con modelos locales (Piper via Docker)
+
+---
+
 ## Licencia
 
 Consulta el archivo `LICENSE` para términos y condiciones.

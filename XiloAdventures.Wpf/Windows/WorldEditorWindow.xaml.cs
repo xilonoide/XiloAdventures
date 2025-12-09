@@ -1988,20 +1988,22 @@ public partial class WorldEditorWindow : Window
 
             HidePlayLoading();
 
-            MessageBox.Show(
+            new AlertWindow(
                 $"Ejecutable creado exitosamente en:\n{outputPath}\n\nTamaño aproximado: ~80-100 MB\n\nEl jugador no necesitará .NET instalado para ejecutarlo.",
-                "Exportación completada",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+                "Exportación completada")
+            {
+                Owner = this
+            }.ShowDialog();
 
             // Preguntar si quiere abrir la carpeta
-            var openFolder = MessageBox.Show(
+            var confirmDlg = new ConfirmWindow(
                 "¿Deseas abrir la carpeta donde se guardó el ejecutable?",
-                "Abrir carpeta",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
+                "Abrir carpeta")
+            {
+                Owner = this
+            };
 
-            if (openFolder == MessageBoxResult.Yes)
+            if (confirmDlg.ShowDialog() == true)
             {
                 var folderPath = System.IO.Path.GetDirectoryName(outputPath);
                 if (!string.IsNullOrEmpty(folderPath))

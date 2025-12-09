@@ -85,12 +85,8 @@ public partial class App : Application
                 SoundEnabled = false
             };
 
-            // Configuración de UI (sin IA para ejecutables standalone)
-            var uiSettings = new UiSettings
-            {
-                FontSize = 18,
-                UseLlmForUnknownCommands = false
-            };
+            // Configuración de UI: intentar cargar desde archivo, sino desactivar IA
+            var uiSettings = TryLoadConfigOrDefault(world.Game.Id);
 
             // Crear la ventana de juego
             var window = new MainWindow(world, state, soundManager, uiSettings, isRunningFromEditor: false);
@@ -133,6 +129,36 @@ public partial class App : Application
         {
             // Si no se puede escribir el log, ignorar
         }
+    }
+
+    private UiSettings TryLoadConfigOrDefault(string worldId)
+    {
+        try
+        {
+            // Buscar archivo de configuración en la misma carpeta del ejecutable
+            var exePath = System.Reflection.Assembly.GetExecutingAssembly().Location;
+            var exeDir = Path.GetDirectoryName(exePath);
+            if (string.IsNullOrEmpty(exeDir))
+            {
+                return new UiSettings { FontSize = 18, UseLlmForUnknownCommands = false };
+            }
+
+            var configPath = Path.Combine(exeDir, "config.xac");
+            if (File.Exists(configPath))
+            {
+                var json = CryptoUtil.DecryptFromFile(configPath);
+                var settings = System.Text.Json.JsonSerializer.Deserialize<UiSettings>(json) ?? new UiSettings();
+                settings.FontSize = 18; // Forzar tamaño de fuente
+                return settings;
+            }
+        }
+        catch
+        {
+            // Si hay error al cargar config, continuar con valores por defecto
+        }
+
+        // Si no hay config, IA desactivada por defecto
+        return new UiSettings { FontSize = 18, UseLlmForUnknownCommands = false };
     }
 
     private WorldModel? LoadEmbeddedWorld()

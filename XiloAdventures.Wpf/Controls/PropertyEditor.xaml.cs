@@ -321,6 +321,31 @@ public partial class PropertyEditor : UserControl
 
             RootPanel.Children.Add(labelPanel);
         }
+        else if (obj is Room && prop.Name == "MusicId" && prop.PropertyType == typeof(string))
+        {
+            var labelPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Margin = label.Margin
+            };
+            label.Margin = new Thickness(0);
+            labelPanel.Children.Add(label);
+
+            var helpIcon = new TextBlock
+            {
+                Text = "?",
+                Foreground = Brushes.Yellow,
+                FontWeight = FontWeights.Bold,
+                Margin = new Thickness(6, 0, 0, 0),
+                Cursor = Cursors.Hand,
+                VerticalAlignment = VerticalAlignment.Center,
+                ToolTip = "Ayuda sobre música de sala"
+            };
+            helpIcon.MouseLeftButtonUp += (_, _) => ShowMusicIdHelp();
+            labelPanel.Children.Add(helpIcon);
+
+            RootPanel.Children.Add(labelPanel);
+        }
         else
         {
             RootPanel.Children.Add(label);
@@ -1076,6 +1101,21 @@ public partial class PropertyEditor : UserControl
 
         var owner = Window.GetWindow(this);
         new AlertWindow(message, "Diccionario del parser")
+        {
+            Owner = owner
+        }.ShowDialog();
+    }
+
+    private void ShowMusicIdHelp()
+    {
+        var message =
+            "Recomendaciones para la imagen de sala:\n\n" +
+            "• Relación de aspecto recomendada: 3.5:1 (panorámica horizontal)\n" +
+            "• Resolución recomendada: 1400x400 píxeles\n\n" +
+            "Esto asegurará que la imagen se vea correctamente en el visor de la sala.";
+
+        var owner = Window.GetWindow(this);
+        new AlertWindow(message, "Imagen de sala")
         {
             Owner = owner
         }.ShowDialog();

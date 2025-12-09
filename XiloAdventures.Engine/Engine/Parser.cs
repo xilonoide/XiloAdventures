@@ -22,6 +22,15 @@ public enum PrepositionKind
 }
 
 /// <summary>
+/// Compiled regex patterns for performance optimization.
+/// </summary>
+file static class ParserRegex
+{
+    public static readonly Regex MultiSpace = new(@"\s+", RegexOptions.Compiled);
+    public static readonly Regex Punctuation = new("[.,;:!?¡¿\"'()]", RegexOptions.Compiled);
+}
+
+/// <summary>
 /// Represents a parsed player command with verb, objects, and preposition.
 /// </summary>
 public readonly struct ParsedCommand
@@ -269,7 +278,7 @@ public static class Parser
         input = input.Trim();
 
         // Normalizar espacios
-        input = Regex.Replace(input, @"\s+", " ");
+        input = ParserRegex.MultiSpace.Replace(input, " ");
 
         var parts = input.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
         var verbToken = parts[0];
@@ -374,10 +383,10 @@ public static class Parser
         var s = noun.ToLowerInvariant();
 
         // quitar puntuación sencilla
-        s = Regex.Replace(s, "[.,;:!?¡¿\"'()]", "");
+        s = ParserRegex.Punctuation.Replace(s, "");
 
         // normalizar espacios
-        s = Regex.Replace(s, "\\s+", " ").Trim();
+        s = ParserRegex.MultiSpace.Replace(s, " ").Trim();
         if (string.IsNullOrEmpty(s))
             return null;
 
@@ -408,7 +417,7 @@ public static class Parser
             return string.Empty;
 
         token = token.Trim();
-        token = Regex.Replace(token, "[.,;:!?¡¿\"'()]", "");
+        token = ParserRegex.Punctuation.Replace(token, "");
         return token.ToLowerInvariant();
     }
 

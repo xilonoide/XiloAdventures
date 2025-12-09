@@ -7,6 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <ApplicationIcon>..\XiloAdventures.Wpf.Common\appicon.ico</ApplicationIcon>
 
     <!-- Configuración para publicación standalone -->
     <PublishSingleFile>true</PublishSingleFile>

@@ -89,11 +89,20 @@ public class GameEngine
         OnRoomChanged();
     }
 
+    // Helper methods for common searches with case-insensitive comparison
+    private GameObject? FindObjectById(string id)
+        => _state.Objects.FirstOrDefault(o => o.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+
+    private Room? FindRoomById(string id)
+        => _state.Rooms.FirstOrDefault(r => r.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+
+    private Npc? FindNpcById(string id)
+        => _state.Npcs.FirstOrDefault(n => n.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+
     /// <summary>
     /// Gets the room where the player is currently located.
     /// </summary>
-    public Room? CurrentRoom =>
-        _state.Rooms.FirstOrDefault(r => r.Id.Equals(_state.CurrentRoomId, StringComparison.OrdinalIgnoreCase));
+    public Room? CurrentRoom => FindRoomById(_state.CurrentRoomId);
 
 
     /// <summary>
@@ -382,7 +391,7 @@ public class GameEngine
         {
             foreach (var id in _state.InventoryObjectIds)
             {
-                var obj = _state.Objects.FirstOrDefault(o => o.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+                var obj = FindObjectById(id);
                 if (obj != null)
                     sb.AppendLine($" - {obj.Name}");
             }
@@ -695,7 +704,7 @@ public class GameEngine
             return "¿Qué quieres soltar?";
 
         var obj = _state.InventoryObjectIds
-            .Select(id => _state.Objects.FirstOrDefault(o => o.Id.Equals(id, StringComparison.OrdinalIgnoreCase)))
+            .Select(FindObjectById)
             .FirstOrDefault(o => o != null && o.Name.Contains(arg, StringComparison.OrdinalIgnoreCase));
 
         if (obj == null)

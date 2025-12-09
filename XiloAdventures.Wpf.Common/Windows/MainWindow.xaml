@@ -148,15 +148,25 @@
                                FontWeight="Bold"
                                HorizontalAlignment="Center"/>
                     
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                        <CheckBox x:Name="UseLlmCheckBox"
-                                  Content="Usar IA"
-                                  Foreground="White"
-                                  VerticalAlignment="Center"
-                                  Checked="UseLlmCheckBox_Changed"
-                                  Unchecked="UseLlmCheckBox_Changed"
-                                  Margin="0,0,8,0"/>
-                        <TextBlock Text="?"
+                    <Grid HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,8,0">
+                            <CheckBox x:Name="UseLlmCheckBox"
+                                      VerticalAlignment="Center"
+                                      Checked="UseLlmCheckBox_Changed"
+                                      Unchecked="UseLlmCheckBox_Changed"
+                                      Margin="0,0,8,0"/>
+                            <TextBlock Text="Usar IA"
+                                       Foreground="White"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <TextBlock Grid.Column="1"
+                                   Text="?"
                                    Foreground="Yellow"
                                    FontWeight="Bold"
                                    FontSize="16"
@@ -167,7 +177,7 @@
                                 <TextBlock Text="Ayuda sobre IA y voz. Haz clic para más detalles." />
                             </TextBlock.ToolTip>
                         </TextBlock>
-                    </StackPanel>
+                    </Grid>
                 </Grid>
                 
                 <Border Height="260" Background="#101010">
