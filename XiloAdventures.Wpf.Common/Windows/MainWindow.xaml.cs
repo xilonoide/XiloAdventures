@@ -47,6 +47,11 @@ public partial class MainWindow : Window
         _engine.RoomChanged += Engine_RoomChanged;
 
         InitializeComponent();
+
+        // Establecer tamaño de ventana
+        Height = SystemParameters.WorkArea.Height - 100;
+        Width = 1300;
+
         ApplyUiSettings();
 
         Loaded += MainWindow_Loaded;

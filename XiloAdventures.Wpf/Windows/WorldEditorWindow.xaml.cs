@@ -103,6 +103,16 @@ public partial class WorldEditorWindow : Window
             BuildTree();
             ResetUndoRedo();
             SetDirty(false);
+
+            // Centrar en la sala inicial si se cargó un mundo existente
+            if (!string.IsNullOrWhiteSpace(_initialWorldPath) && System.IO.File.Exists(_initialWorldPath))
+            {
+                var startRoom = _world.Rooms.FirstOrDefault(r => r.Id == _world.Game.StartRoomId);
+                if (startRoom != null)
+                {
+                    MapPanel.CenterOnRoom(startRoom);
+                }
+            }
         }
         finally
         {

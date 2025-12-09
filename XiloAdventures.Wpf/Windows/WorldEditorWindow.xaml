@@ -6,6 +6,7 @@
         Icon="/appicon.ico"
         Height="700"
         Width="1200"
+        MinWidth="950"
         WindowStartupLocation="CenterOwner"
         WindowState="Maximized"
         Background="#222222"

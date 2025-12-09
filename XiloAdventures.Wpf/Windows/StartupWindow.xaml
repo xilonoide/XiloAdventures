@@ -6,6 +6,7 @@
         Height="450"
         Width="925"
         WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
         Background="#222222"
         Foreground="White">
     <Grid Margin="10">
