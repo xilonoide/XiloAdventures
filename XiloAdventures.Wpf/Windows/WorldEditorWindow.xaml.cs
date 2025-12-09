@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -108,9 +109,9 @@ public partial class WorldEditorWindow : Window
             MapPanel.SetGridVisibility(_world.ShowGrid);
             MapPanel.SetSnapToGrid(_world.SnapToGrid);
 
-            // Inicializar aspecto de los botones de grid y snap
-            UpdateGridButtonAppearance();
-            UpdateSnapButtonAppearance();
+            // Sincronizar estado visual de los ToggleButtons
+            ToggleGridButton.IsChecked = _world.ShowGrid;
+            ToggleSnapButton.IsChecked = _world.SnapToGrid;
 
             // Centrar en la sala inicial si se cargó un mundo existente
             if (!string.IsNullOrWhiteSpace(_initialWorldPath) && System.IO.File.Exists(_initialWorldPath))
@@ -2032,39 +2033,19 @@ public partial class WorldEditorWindow : Window
 
     private void ToggleGridButton_Click(object sender, RoutedEventArgs e)
     {
-        MapPanel.ToggleGridVisibility();
-        UpdateGridButtonAppearance();
+        if (sender is ToggleButton toggleButton)
+        {
+            bool isChecked = toggleButton.IsChecked ?? false;
+            MapPanel.SetGridVisibility(isChecked);
+        }
     }
 
     private void ToggleSnapButton_Click(object sender, RoutedEventArgs e)
     {
-        MapPanel.ToggleSnapToGrid();
-        UpdateSnapButtonAppearance();
-    }
-
-    private void UpdateGridButtonAppearance()
-    {
-        if (ToggleGridButton == null) return;
-
-        var textBlock = ToggleGridButton.Content as TextBlock;
-        if (textBlock != null)
+        if (sender is ToggleButton toggleButton)
         {
-            textBlock.Foreground = MapPanel.IsGridVisible
-                ? new SolidColorBrush(Color.FromRgb(255, 215, 0))  // Amarillo brillante cuando está activo
-                : new SolidColorBrush(Color.FromRgb(255, 140, 0)); // Amarillo oscuro cuando está inactivo
-        }
-    }
-
-    private void UpdateSnapButtonAppearance()
-    {
-        if (ToggleSnapButton == null) return;
-
-        var textBlock = ToggleSnapButton.Content as TextBlock;
-        if (textBlock != null)
-        {
-            textBlock.Foreground = MapPanel.IsSnapToGridEnabled
-                ? new SolidColorBrush(Color.FromRgb(255, 215, 0))  // Amarillo brillante cuando está activo
-                : new SolidColorBrush(Color.FromRgb(255, 140, 0)); // Amarillo oscuro cuando está inactivo
+            bool isChecked = toggleButton.IsChecked ?? false;
+            MapPanel.SetSnapToGrid(isChecked);
         }
     }
 

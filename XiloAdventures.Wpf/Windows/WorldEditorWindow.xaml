@@ -364,31 +364,31 @@
                         </StackPanel>
                     </Button>
 
-                    <Button x:Name="ToggleGridButton"
-                            Style="{StaticResource CommandButtonStyle}"
+                    <ToggleButton x:Name="ToggleGridButton"
+                            Style="{StaticResource ToggleCommandButtonStyle}"
                             Click="ToggleGridButton_Click"
                             ToolTip="Mostrar/Ocultar grid"
                             Margin="20,4,6,0">
                         <TextBlock FontFamily="Segoe MDL2 Assets"
                                    Text="&#xE80A;"
-                                   Foreground="#FF8C00"
+                                   Foreground="#FFD700"
                                    FontSize="18"
                                    VerticalAlignment="Center"
                                    HorizontalAlignment="Center"/>
-                    </Button>
+                    </ToggleButton>
 
-                    <Button x:Name="ToggleSnapButton"
-                            Style="{StaticResource CommandButtonStyle}"
+                    <ToggleButton x:Name="ToggleSnapButton"
+                            Style="{StaticResource ToggleCommandButtonStyle}"
                             Click="ToggleSnapButton_Click"
                             ToolTip="Snap to grid"
                             Margin="0,4,20,0">
                         <TextBlock FontFamily="Segoe MDL2 Assets"
                                    Text="&#xE7C1;"
-                                   Foreground="#FF8C00"
+                                   Foreground="#FFD700"
                                    FontSize="18"
                                    VerticalAlignment="Center"
                                    HorizontalAlignment="Center"/>
-                    </Button>
+                    </ToggleButton>
 
                     <Button Style="{StaticResource CommandButtonStyle}"
                             Click="AddRoom_Click">
