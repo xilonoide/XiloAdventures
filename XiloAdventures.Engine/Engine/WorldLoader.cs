@@ -79,6 +79,7 @@ public static class WorldLoader
         world.Keys ??= new List<KeyDefinition>();
         world.RoomPositions ??= new Dictionary<string, MapPosition>();
         world.Musics ??= new List<MusicAsset>();
+        world.Fxs ??= new List<FxAsset>();
 
         return world;
     }

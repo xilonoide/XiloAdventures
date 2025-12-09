@@ -918,6 +918,26 @@ public partial class WorldEditorWindow : Window
         }
     }
 
+    private void FxMenu_Click(object sender, RoutedEventArgs e)
+    {
+        if (_world == null)
+        {
+            new AlertWindow("No hay ningún mundo abierto.", "Gestión de FX")
+            {
+                Owner = this
+            }.ShowDialog();
+            return;
+        }
+
+        var fxWindow = new FxManagerWindow(_world)
+        {
+            Owner = this
+        };
+        fxWindow.ShowDialog();
+
+        SetDirty(true);
+    }
+
     private void AddRoom_Click(object sender, RoutedEventArgs e)
     {
         var index = _world.Rooms.Count + 1;

@@ -24,6 +24,11 @@ public class WorldModel
     public List<MusicAsset> Musics { get; set; } = new();
 
     /// <summary>
+    /// Biblioteca de efectos de sonido del mundo.
+    /// </summary>
+    public List<FxAsset> Fxs { get; set; } = new();
+
+    /// <summary>
     /// Posiciones del mapa para cada sala (coordenadas lógicas X/Y) usadas por el editor.
     /// </summary>
     public Dictionary<string, MapPosition> RoomPositions { get; set; } = new();
@@ -315,6 +320,30 @@ public class MusicAsset
 
     /// <summary>
     /// Contenido del archivo de música en Base64.
+    /// </summary>
+    [Browsable(false)]
+    public string Base64 { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Tamaño del archivo en bytes.
+    /// </summary>
+    public long SizeBytes { get; set; }
+
+    /// <summary>
+    /// Duración del archivo en segundos.
+    /// </summary>
+    public double DurationSeconds { get; set; }
+}
+
+public class FxAsset
+{
+    /// <summary>
+    /// Nombre del archivo de FX (ej: "explosion.wav").
+    /// </summary>
+    public string Id { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Contenido del archivo de FX en Base64.
     /// </summary>
     [Browsable(false)]
     public string Base64 { get; set; } = string.Empty;

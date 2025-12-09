@@ -311,7 +311,7 @@
                         </MenuItem.Icon>
                     </MenuItem>
                     <MenuItem Header="FX"
-                            IsEnabled="False"
+                            Click="FxMenu_Click"
                             Style="{StaticResource SubMenuItemStyle}">
                         <MenuItem.Icon>
                             <TextBlock FontFamily="Segoe MDL2 Assets"
