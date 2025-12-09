@@ -78,6 +78,7 @@ public static class WorldLoader
         world.Doors ??= new List<Door>();
         world.Keys ??= new List<KeyDefinition>();
         world.RoomPositions ??= new Dictionary<string, MapPosition>();
+        world.Musics ??= new List<MusicAsset>();
 
         return world;
     }
@@ -201,7 +202,7 @@ public static class WorldLoader
                 if (room is null) continue;
 
                 // Si el usuario ha borrado el MusicId de la sala en el editor,
-                // descartamos también la música embebida en Base64.
+                // descartamos también el MusicId y MusicBase64.
                 if (string.IsNullOrWhiteSpace(room.MusicId))
                 {
                     room.MusicId = null;

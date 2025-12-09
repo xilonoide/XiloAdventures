@@ -44,6 +44,7 @@ public partial class WorldEditorWindow : Window
         _baseTitle = Title ?? "Editor de mundos";
         PropertyEditor.PropertyEdited += PropertyEditor_PropertyEdited;
         PropertyEditor.GetRooms = () => _world.Rooms;
+        PropertyEditor.GetMusics = () => _world.Musics;
         MapPanel.RoomClicked += MapPanel_RoomClicked;
         MapPanel.MapEdited += MapPanel_MapEdited;
         MapPanel.DoorCreated += MapPanel_DoorCreated;
@@ -596,7 +597,7 @@ public partial class WorldEditorWindow : Window
         await Dispatcher.Yield();
 
         // Guardar antes de lanzar la partida de prueba (y validar clave de encriptación)
-        if (!PerformSave())
+        if (!await PerformSaveAsync())
         {
             // Si el save falla (por clave incorrecta u otro error), no continuar
             HidePlayLoading();
@@ -788,14 +789,14 @@ public partial class WorldEditorWindow : Window
         return true;
     }
 
-    private void SaveMenu_Click(object sender, RoutedEventArgs e)
+    private async void SaveMenu_Click(object sender, RoutedEventArgs e)
     {
-        PerformSave();
+        await PerformSaveAsync();
     }
 
-    private bool PerformSave()
+    private async Task<bool> PerformSaveAsync()
     {
-        // Simulamos sender/e para reaprovechar lógica existente si fuera necesario, 
+        // Simulamos sender/e para reaprovechar lógica existente si fuera necesario,
         // aunque idealmente SaveAsMenu_Click debería refactorizarse también.
         // Por ahora mantenemos la compatibilidad con el resto del código.
         var sender = this;
@@ -811,37 +812,50 @@ public partial class WorldEditorWindow : Window
         if (!ValidateEncryptionKey())
             return false;
 
+        ShowPlayLoading("Guardando mundo...");
+
         try
         {
-            // Antes de guardar, sincronizamos las posiciones actuales del mapa con el modelo.
-            if (_world != null)
+            await Task.Run(() =>
             {
-                var roomIds = _world.Rooms.Select(r => r.Id);
-                var positions = MapPanel.GetRoomPositions(roomIds);
-
-                _world.RoomPositions ??= new Dictionary<string, MapPosition>();
-                _world.RoomPositions.Clear();
-
-                foreach (var kv in positions)
+                // Antes de guardar, sincronizamos las posiciones actuales del mapa con el modelo.
+                if (_world != null)
                 {
-                    _world.RoomPositions[kv.Key] = new MapPosition
-                    {
-                        X = kv.Value.X,
-                        Y = kv.Value.Y
-                    };
-                }
-            }
+                    var roomIds = _world.Rooms.Select(r => r.Id);
+                    var positions = MapPanel.GetRoomPositions(roomIds);
 
-            Directory.CreateDirectory(AppPaths.WorldsFolder);
-            WorldLoader.SaveWorldModel(_world!, _currentPath);
+                    _world.RoomPositions ??= new Dictionary<string, MapPosition>();
+                    _world.RoomPositions.Clear();
+
+                    foreach (var kv in positions)
+                    {
+                        _world.RoomPositions[kv.Key] = new MapPosition
+                        {
+                            X = kv.Value.X,
+                            Y = kv.Value.Y
+                        };
+                    }
+                }
+
+                Directory.CreateDirectory(AppPaths.WorldsFolder);
+                WorldLoader.SaveWorldModel(_world!, _currentPath);
+            });
+
             SetDirty(false);
+            HidePlayLoading();
             return true;
         }
         catch (Exception ex)
         {
+            HidePlayLoading();
             new AlertWindow($"Error al guardar mundo:\n{ex.Message}", "Error") { Owner = this }.ShowDialog();
             return false;
         }
+    }
+
+    private bool PerformSave()
+    {
+        return PerformSaveAsync().GetAwaiter().GetResult();
     }
 
     private void SaveAsMenu_Click(object sender, RoutedEventArgs e)
@@ -872,6 +886,36 @@ public partial class WorldEditorWindow : Window
     private void CloseMenu_Click(object sender, RoutedEventArgs e)
     {
         Close();
+    }
+
+    private void MusicMenu_Click(object sender, RoutedEventArgs e)
+    {
+        if (_world == null)
+        {
+            new AlertWindow("No hay ningún mundo abierto.", "Gestión de Música")
+            {
+                Owner = this
+            }.ShowDialog();
+            return;
+        }
+
+        // Guardar el objeto actualmente seleccionado
+        var currentObject = PropertyEditor.GetCurrentObject();
+
+        var musicWindow = new MusicManagerWindow(_world)
+        {
+            Owner = this
+        };
+        musicWindow.ShowDialog();
+
+        // Marcar como modificado si se han hecho cambios
+        SetDirty(true);
+
+        // Recargar el PropertyEditor para actualizar los combos de música
+        if (currentObject != null)
+        {
+            PropertyEditor.SetObject(currentObject);
+        }
     }
 
     private void AddRoom_Click(object sender, RoutedEventArgs e)
@@ -1846,7 +1890,7 @@ public partial class WorldEditorWindow : Window
                     return;
                 }
 
-                SaveMenu_Click(this, new RoutedEventArgs());
+                PerformSave();
                 if (_isDirty)
                 {
                     e.Cancel = true;
@@ -1946,7 +1990,7 @@ public partial class WorldEditorWindow : Window
 
             if (result == MessageBoxResult.Yes)
             {
-                SaveMenu_Click(sender, e);
+                await PerformSaveAsync();
                 if (_isDirty) // Si sigue dirty, es que el usuario canceló o hubo error
                     return;
             }

@@ -582,27 +582,26 @@ public partial class MainWindow : Window
 
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
-        var saveConfirm = new ConfirmWindow("¿Quieres guardar la partida antes de salir?", "Salir de la partida")
+        var saveChangesWindow = new SaveChangesWindow(
+            "¿Seguro que quieres salir?",
+            saveButtonText: "Guardar y salir",
+            dontSaveButtonText: "Salir sin guardar",
+            cancelButtonText: "Cancelar")
         {
             Owner = this
         };
 
-        var saveResult = saveConfirm.ShowDialog() == true;
-        if (saveResult)
-        {
-            SaveMenu_Click(this, new RoutedEventArgs());
-        }
+        saveChangesWindow.ShowDialog();
 
-        var exitConfirm = new ConfirmWindow("¿Seguro que quieres salir de la partida?", "Salir")
-        {
-            Owner = this
-        };
-
-        var exitResult = exitConfirm.ShowDialog() == true;
-        if (!exitResult)
+        if (saveChangesWindow.Result == SaveChangesResult.Cancel)
         {
             e.Cancel = true;
             return;
+        }
+
+        if (saveChangesWindow.Result == SaveChangesResult.Save)
+        {
+            SaveMenu_Click(this, new RoutedEventArgs());
         }
 
         // Al cerrar la ventana de partida detenemos toda la música.

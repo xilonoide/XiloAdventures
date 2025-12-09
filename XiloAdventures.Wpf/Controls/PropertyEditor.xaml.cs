@@ -27,10 +27,17 @@ public partial class PropertyEditor : UserControl
 
     public Func<IEnumerable<Room>>? GetRooms { get; set; }
 
+    public Func<IEnumerable<MusicAsset>>? GetMusics { get; set; }
+
 
     public PropertyEditor()
     {
         InitializeComponent();
+    }
+
+    public object? GetCurrentObject()
+    {
+        return _currentObject;
     }
 
     public void SetObject(object? obj)
@@ -489,83 +496,49 @@ public partial class PropertyEditor : UserControl
             else if (prop.Name == "WorldMusicId" && prop.PropertyType == typeof(string))
             {
                 var valueObj = prop.GetValue(obj);
-                string text = Convert.ToString(valueObj) ?? string.Empty;
+                var currentMusicId = Convert.ToString(valueObj) ?? string.Empty;
 
-                var panel = new Grid
+                var musics = GetMusics?.Invoke()?.ToList() ?? new List<MusicAsset>();
+
+                var combo = new ComboBox
                 {
                     Margin = new Thickness(0, 2, 0, 0)
                 };
-                panel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                panel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-                var tb = new TextBox
+                // Añadir opción vacía para "sin música"
+                var items = new List<MusicComboItem>
                 {
-                    Text = text,
-                    Margin = new Thickness(0, 0, 4, 0)
-                };
-                Grid.SetColumn(tb, 0);
-
-                var btn = new Button
-                {
-                    Content = "...",
-                    Width = 28,
-                    Padding = new Thickness(0, 0, 0, 0)
-                };
-                Grid.SetColumn(btn, 1);
-
-                tb.LostFocus += (_, _) =>
-                {
-                    try
-                    {
-                        if (_currentObject is not { } target) return;
-                        prop.SetValue(target, tb.Text);
-                        PropertyEdited?.Invoke(target, prop.Name);
-                    }
-                    catch
-                    {
-                        // Ignorar errores
-                    }
+                    new MusicComboItem { Id = string.Empty, DisplayName = "(Sin música)" }
                 };
 
-                btn.Click += (_, _) =>
+                // Añadir las músicas disponibles
+                items.AddRange(musics.Select(m => new MusicComboItem { Id = m.Id, DisplayName = m.Id }));
+
+                combo.ItemsSource = items;
+                combo.DisplayMemberPath = nameof(MusicComboItem.DisplayName);
+                combo.SelectedValuePath = nameof(MusicComboItem.Id);
+                combo.SelectedValue = currentMusicId;
+
+                // Si no encuentra el valor actual (puede ser una música antigua que ya no existe),
+                // seleccionar la opción vacía
+                if (combo.SelectedItem == null)
+                {
+                    combo.SelectedIndex = 0;
+                }
+
+                combo.SelectionChanged += (_, _) =>
                 {
                     try
                     {
                         if (_currentObject is not GameInfo game) return;
+                        if (combo.SelectedValue is not string selectedId) return;
 
-                        var dlg = new OpenFileDialog
-                        {
-                            Filter = "Audio (*.mp3;*.wav)|*.mp3;*.wav|Todos los archivos (*.*)|*.*",
-                            InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyMusic)
-                        };
+                        game.WorldMusicId = selectedId;
+                        // Ya no guardamos Base64 en GameInfo, solo el nombre
+                        game.WorldMusicBase64 = null;
 
-                        if (dlg.ShowDialog() == true)
-                        {
-                            var fileInfo = new FileInfo(dlg.FileName);
-                            const long MaxAudioBytes = 20L * 1024 * 1024; // 20 MB
-
-                            if (fileInfo.Length > MaxAudioBytes)
-                            {
-                                var msg = $"El archivo de música es demasiado grande ({fileInfo.Length / (1024 * 1024)} MB).\n" +
-                                          "El tamaño máximo permitido es de 20MB.";
-                                new AlertWindow(msg, "Archivo demasiado grande")
-                                {
-                                    Owner = Window.GetWindow(this)
-                                }.ShowDialog();
-                                return;
-                            }
-
-                            var fileName = Path.GetFileName(dlg.FileName);
-                            var bytes = File.ReadAllBytes(dlg.FileName);
-                            var base64 = Convert.ToBase64String(bytes);
-
-                            tb.Text = fileName;
-                            game.WorldMusicId = fileName;
-                            game.WorldMusicBase64 = base64;
-
-                            PropertyEdited?.Invoke(game, nameof(GameInfo.WorldMusicId));
-                            PropertyEdited?.Invoke(game, nameof(GameInfo.WorldMusicBase64));
-                        }
+                        PropertyEdited?.Invoke(game, nameof(GameInfo.WorldMusicId));
+                        PropertyEdited?.Invoke(game, nameof(GameInfo.WorldMusicBase64));
                     }
                     catch
                     {
@@ -573,9 +546,7 @@ public partial class PropertyEditor : UserControl
                     }
                 };
 
-                panel.Children.Add(tb);
-                panel.Children.Add(btn);
-                editor = panel;
+                editor = combo;
             }
 
 
@@ -661,87 +632,53 @@ public partial class PropertyEditor : UserControl
             }
 
 
-            // MusicId de Room: textbox + botón ... para música de sala
+            // MusicId de Room: ComboBox con las músicas disponibles
             else if (prop.Name == "MusicId" && prop.PropertyType == typeof(string))
             {
                 var valueObj = prop.GetValue(obj);
-                var text = Convert.ToString(valueObj) ?? string.Empty;
+                var currentMusicId = Convert.ToString(valueObj) ?? string.Empty;
 
-                var panel = new Grid
+                var musics = GetMusics?.Invoke()?.ToList() ?? new List<MusicAsset>();
+
+                var combo = new ComboBox
                 {
                     Margin = new Thickness(0, 2, 0, 0)
                 };
-                panel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                panel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-                var tb = new TextBox
+                // Añadir opción vacía para "sin música"
+                var items = new List<MusicComboItem>
                 {
-                    Text = text,
-                    Margin = new Thickness(0, 0, 4, 0)
-                };
-                Grid.SetColumn(tb, 0);
-
-                var btn = new Button
-                {
-                    Content = "...",
-                    Width = 28,
-                    Padding = new Thickness(0, 0, 0, 0)
-                };
-                Grid.SetColumn(btn, 1);
-
-                tb.LostFocus += (_, _) =>
-                {
-                    try
-                    {
-                        if (_currentObject is not { } target) return;
-                        prop.SetValue(target, tb.Text);
-                        PropertyEdited?.Invoke(target, prop.Name);
-                    }
-                    catch
-                    {
-                        // Ignorar errores
-                    }
+                    new MusicComboItem { Id = string.Empty, DisplayName = "(Sin música)" }
                 };
 
-                btn.Click += (_, _) =>
+                // Añadir las músicas disponibles
+                items.AddRange(musics.Select(m => new MusicComboItem { Id = m.Id, DisplayName = m.Id }));
+
+                combo.ItemsSource = items;
+                combo.DisplayMemberPath = nameof(MusicComboItem.DisplayName);
+                combo.SelectedValuePath = nameof(MusicComboItem.Id);
+                combo.SelectedValue = currentMusicId;
+
+                // Si no encuentra el valor actual (puede ser una música antigua que ya no existe),
+                // seleccionar la opción vacía
+                if (combo.SelectedItem == null)
+                {
+                    combo.SelectedIndex = 0;
+                }
+
+                combo.SelectionChanged += (_, _) =>
                 {
                     try
                     {
                         if (_currentObject is not Room room) return;
+                        if (combo.SelectedValue is not string selectedId) return;
 
-                        var dlg = new OpenFileDialog
-                        {
-                            Filter = "Audio (*.mp3;*.wav)|*.mp3;*.wav|Todos los archivos (*.*)|*.*",
-                            InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyMusic)
-                        };
+                        room.MusicId = selectedId;
+                        // Ya no guardamos Base64 en la sala, solo el nombre
+                        room.MusicBase64 = null;
 
-                        if (dlg.ShowDialog() == true)
-                        {
-                            var fileInfo = new FileInfo(dlg.FileName);
-                            const long MaxAudioBytes = 20L * 1024 * 1024; // 20 MB
-
-                            if (fileInfo.Length > MaxAudioBytes)
-                            {
-                                var msg = $"El archivo de música es demasiado grande ({fileInfo.Length / (1024 * 1024)} MB).\n" +
-                                          "El tamaño máximo permitido es de 20MB.";
-                                new AlertWindow(msg, "Archivo demasiado grande")
-                                {
-                                    Owner = Window.GetWindow(this)
-                                }.ShowDialog();
-                                return;
-                            }
-
-                            var fileName = Path.GetFileName(dlg.FileName);
-                            var bytes = File.ReadAllBytes(dlg.FileName);
-                            var base64 = Convert.ToBase64String(bytes);
-
-                            tb.Text = fileName;
-                            room.MusicId = fileName;
-                            room.MusicBase64 = base64;
-
-                            PropertyEdited?.Invoke(room, nameof(Room.MusicId));
-                            PropertyEdited?.Invoke(room, nameof(Room.MusicBase64));
-                        }
+                        PropertyEdited?.Invoke(room, nameof(Room.MusicId));
+                        PropertyEdited?.Invoke(room, nameof(Room.MusicBase64));
                     }
                     catch
                     {
@@ -749,9 +686,7 @@ public partial class PropertyEditor : UserControl
                     }
                 };
 
-                panel.Children.Add(tb);
-                panel.Children.Add(btn);
-                editor = panel;
+                editor = combo;
             }
             else if (prop.PropertyType == typeof(string) &&
                      obj is GameInfo &&
@@ -1156,4 +1091,13 @@ public partial class PropertyEditor : UserControl
             gameInfo.EncryptionKey = trimmed;
         }
     }
+}
+
+/// <summary>
+/// Item para el ComboBox de selección de música.
+/// </summary>
+internal class MusicComboItem
+{
+    public string Id { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
 }

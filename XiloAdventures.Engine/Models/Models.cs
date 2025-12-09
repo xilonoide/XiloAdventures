@@ -19,6 +19,11 @@ public class WorldModel
     public List<KeyDefinition> Keys { get; set; } = new();
 
     /// <summary>
+    /// Biblioteca de música del mundo (archivos compartidos entre salas).
+    /// </summary>
+    public List<MusicAsset> Musics { get; set; } = new();
+
+    /// <summary>
     /// Posiciones del mapa para cada sala (coordenadas lógicas X/Y) usadas por el editor.
     /// </summary>
     public Dictionary<string, MapPosition> RoomPositions { get; set; } = new();
@@ -301,5 +306,27 @@ public class MapPosition
     public double Y { get; set; }
 }
 
+public class MusicAsset
+{
+    /// <summary>
+    /// Nombre del archivo de música (ej: "theme.mp3").
+    /// </summary>
+    public string Id { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Contenido del archivo de música en Base64.
+    /// </summary>
+    [Browsable(false)]
+    public string Base64 { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Tamaño del archivo en bytes.
+    /// </summary>
+    public long SizeBytes { get; set; }
+
+    /// <summary>
+    /// Duración del archivo en segundos.
+    /// </summary>
+    public double DurationSeconds { get; set; }
+}
 

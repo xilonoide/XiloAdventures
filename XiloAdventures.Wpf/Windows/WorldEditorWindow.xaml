@@ -57,7 +57,8 @@
         <DockPanel>
             <Menu DockPanel.Dock="Top"
                     Background="#303030"
-                    Foreground="White">
+                    Foreground="White"
+                    Margin="0,4,0,0">
                 <Menu.Resources>
                     <Style x:Key="TopMenuItemStyle"
                             TargetType="MenuItem">
@@ -291,6 +292,31 @@
                             <TextBlock FontFamily="Segoe MDL2 Assets"
                                     VerticalAlignment="Center"
                                     Text="&#xE16D;"
+                                    FontSize="18"
+                                    Margin="2"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                </MenuItem>
+                <MenuItem Header="Sonido"
+                        Style="{StaticResource TopMenuItemStyle}">
+                    <MenuItem Header="Música"
+                            Click="MusicMenu_Click"
+                            Style="{StaticResource SubMenuItemStyle}">
+                        <MenuItem.Icon>
+                            <TextBlock FontFamily="Segoe MDL2 Assets"
+                                    VerticalAlignment="Center"
+                                    Text="&#xE8D6;"
+                                    FontSize="18"
+                                    Margin="2"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="FX"
+                            IsEnabled="False"
+                            Style="{StaticResource SubMenuItemStyle}">
+                        <MenuItem.Icon>
+                            <TextBlock FontFamily="Segoe MDL2 Assets"
+                                    VerticalAlignment="Center"
+                                    Text="&#xE7F6;"
                                     FontSize="18"
                                     Margin="2"/>
                         </MenuItem.Icon>

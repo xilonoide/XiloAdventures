@@ -81,9 +81,10 @@ public class GameEngine
         EnsurePlayerRoom();
 
         // Arrancar la música global del mundo (si la hay) al inicio de la partida.
-        if (_world.Game != null)
+        if (_world.Game != null && !string.IsNullOrWhiteSpace(_state.WorldMusicId))
         {
-            _sound.PlayWorldMusic(_state.WorldMusicId, _world.Game.WorldMusicBase64);
+            var musicAsset = _world.Musics.FirstOrDefault(m => m.Id.Equals(_state.WorldMusicId, StringComparison.OrdinalIgnoreCase));
+            _sound.PlayWorldMusic(_state.WorldMusicId, musicAsset?.Base64);
         }
 
         OnRoomChanged();
@@ -858,7 +859,9 @@ public class GameEngine
             if (HasDistinctRoomMusic(room))
             {
                 roomMusicId = room.MusicId;
-                roomMusicBase64 = room.MusicBase64;
+                // Buscar la música en la lista de músicas del mundo
+                var musicAsset = _world.Musics.FirstOrDefault(m => m.Id.Equals(roomMusicId, StringComparison.OrdinalIgnoreCase));
+                roomMusicBase64 = musicAsset?.Base64;
             }
 
             _sound.PlayRoomMusic(

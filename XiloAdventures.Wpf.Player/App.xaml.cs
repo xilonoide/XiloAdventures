@@ -76,8 +76,30 @@ public partial class App : Application
             // Configurar el parser
             Parser.SetWorldDictionary(world.Game.ParserDictionaryJson);
 
-            // Crear el estado inicial del juego
-            var state = WorldLoader.CreateInitialState(world);
+            // Intentar cargar autoguardado, si no existe crear estado inicial
+            GameState state;
+            try
+            {
+                var autosaveFileName = $"autosave_{world.Game.Id}.xas";
+                var autosavePath = Path.Combine(AppPaths.SavesFolder, autosaveFileName);
+
+                if (File.Exists(autosavePath))
+                {
+                    LogError($"Autoguardado encontrado: {autosavePath}");
+                    state = SaveManager.LoadFromPath(autosavePath, world);
+                    LogError("Autoguardado cargado exitosamente");
+                }
+                else
+                {
+                    LogError("No se encontró autoguardado, creando estado inicial");
+                    state = WorldLoader.CreateInitialState(world);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogError($"Error al cargar autoguardado: {ex.Message}, creando estado inicial");
+                state = WorldLoader.CreateInitialState(world);
+            }
 
             // Crear el SoundManager (deshabilitado para ejecutables standalone)
             var soundManager = new SoundManager
