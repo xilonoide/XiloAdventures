@@ -203,6 +203,12 @@ public partial class WorldEditorWindow : Window
             }
         }
 
+        // Si se cambian las salas de una puerta, reconstruir el árbol
+        if (obj is Door && (propertyName == "RoomIdA" || propertyName == "RoomIdB"))
+        {
+            BuildTree();
+        }
+
         PushUndoSnapshot();
         SetDirty(true);
     }
@@ -315,16 +321,17 @@ public partial class WorldEditorWindow : Window
         var roomsRoot = new TreeViewItem { Header = "Salas", Foreground = Brushes.White };
         foreach (var room in _world.Rooms)
         {
-            roomsRoot.Items.Add(new TreeViewItem { Header = room.Name, Tag = room, Foreground = Brushes.White });
+            var roomNode = new TreeViewItem { Header = room.Name, Tag = room, Foreground = Brushes.White };
+
+            // Añadir puertas que conectan con esta sala como hijas
+            foreach (var door in _world.Doors.Where(d => d.RoomIdA == room.Id || d.RoomIdB == room.Id))
+            {
+                roomNode.Items.Add(new TreeViewItem { Header = door.Name, Tag = door, Foreground = Brushes.White });
+            }
+
+            roomsRoot.Items.Add(roomNode);
         }
         WorldTree.Items.Add(roomsRoot);
-
-        var doorsRoot = new TreeViewItem { Header = "Puertas", Foreground = Brushes.White };
-        foreach (var door in _world.Doors)
-        {
-            doorsRoot.Items.Add(new TreeViewItem { Header = door.Name, Tag = door, Foreground = Brushes.White });
-        }
-        WorldTree.Items.Add(doorsRoot);
 
         var objsRoot = new TreeViewItem { Header = "Objetos", Foreground = Brushes.White };
         foreach (var obj in _world.Objects)
@@ -419,6 +426,9 @@ public partial class WorldEditorWindow : Window
         {
             case Room room:
                 MapPanel.CenterOnRoom(room);
+                break;
+            case Door door:
+                MapPanel.CenterOnDoor(door);
                 break;
             case GameObject obj:
                 CenterOnObject(obj);
@@ -1919,16 +1929,23 @@ public partial class WorldEditorWindow : Window
 
     private void AddDoorToTreeNode(Door door)
     {
-        var root = WorldTree.Items.OfType<TreeViewItem>().FirstOrDefault(i => i.Header?.ToString() == "Puertas");
-        if (root == null)
+        var salasRoot = WorldTree.Items.OfType<TreeViewItem>().FirstOrDefault(i => i.Header?.ToString() == "Salas");
+        if (salasRoot == null)
         {
             BuildTree();
             return;
         }
 
-        if (!root.Items.OfType<TreeViewItem>().Any(i => ReferenceEquals(i.Tag, door)))
+        // Añadir la puerta a las salas que conecta (RoomIdA y RoomIdB)
+        foreach (TreeViewItem roomNode in salasRoot.Items.OfType<TreeViewItem>())
         {
-            root.Items.Add(new TreeViewItem { Header = door.Name, Tag = door, Foreground = Brushes.White });
+            if (roomNode.Tag is Room room && (room.Id == door.RoomIdA || room.Id == door.RoomIdB))
+            {
+                if (!roomNode.Items.OfType<TreeViewItem>().Any(i => ReferenceEquals(i.Tag, door)))
+                {
+                    roomNode.Items.Add(new TreeViewItem { Header = door.Name, Tag = door, Foreground = Brushes.White });
+                }
+            }
         }
     }
 
@@ -1951,18 +1968,23 @@ public partial class WorldEditorWindow : Window
     {
         foreach (TreeViewItem root in WorldTree.Items)
         {
-            if (root.Header?.ToString() == "Puertas")
+            if (root.Header?.ToString() == "Salas")
             {
                 root.IsExpanded = true;
-                foreach (TreeViewItem child in root.Items.OfType<TreeViewItem>())
+                // Buscar la puerta dentro de cualquier sala que la contenga
+                foreach (TreeViewItem roomNode in root.Items.OfType<TreeViewItem>())
                 {
-                    if (child.Tag == door)
+                    foreach (TreeViewItem doorNode in roomNode.Items.OfType<TreeViewItem>())
                     {
-                        WorldTree.Focus();
-                        child.IsSelected = true;
-                        child.BringIntoView();
-                        child.Focus();
-                        return;
+                        if (doorNode.Tag == door)
+                        {
+                            roomNode.IsExpanded = true;
+                            WorldTree.Focus();
+                            doorNode.IsSelected = true;
+                            doorNode.BringIntoView();
+                            doorNode.Focus();
+                            return;
+                        }
                     }
                 }
             }

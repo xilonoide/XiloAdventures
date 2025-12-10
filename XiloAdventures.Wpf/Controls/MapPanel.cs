@@ -205,6 +205,54 @@ public partial class MapPanel : Control
         InvalidateVisual();
     }
 
+    public void CenterOnDoor(Door door)
+    {
+        if (_world == null || door == null)
+            return;
+
+        EnsureLayout();
+
+        // Obtener posiciones de las dos salas que conecta la puerta
+        Point? posA = null, posB = null;
+
+        if (!string.IsNullOrEmpty(door.RoomIdA) && _roomPositions.TryGetValue(door.RoomIdA, out var pA))
+            posA = pA;
+        if (!string.IsNullOrEmpty(door.RoomIdB) && _roomPositions.TryGetValue(door.RoomIdB, out var pB))
+            posB = pB;
+
+        Point logicalCenter;
+        if (posA.HasValue && posB.HasValue)
+        {
+            // Punto medio entre las dos salas
+            logicalCenter = new Point(
+                (posA.Value.X + posB.Value.X) / 2,
+                (posA.Value.Y + posB.Value.Y) / 2);
+        }
+        else if (posA.HasValue)
+        {
+            logicalCenter = posA.Value;
+        }
+        else if (posB.HasValue)
+        {
+            logicalCenter = posB.Value;
+        }
+        else
+        {
+            return;
+        }
+
+        double width = ActualWidth;
+        double height = ActualHeight;
+        if (width <= 0 || height <= 0)
+            return;
+
+        _offset = new Point(
+            width / (2.0 * _zoom) - logicalCenter.X,
+            height / (2.0 * _zoom) - logicalCenter.Y);
+
+        InvalidateVisual();
+    }
+
     /// <summary>
     /// Devuelve las salas actualmente seleccionadas.
     /// </summary>

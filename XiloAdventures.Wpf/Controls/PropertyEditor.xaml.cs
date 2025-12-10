@@ -705,6 +705,12 @@ public partial class PropertyEditor : UserControl
                             {
                                 prop.SetValue(target, value);
                                 PropertyEdited?.Invoke(target, prop.Name);
+
+                                // Al cambiar manualmente el género, activar "no sobrescribir con IA"
+                                if (IsAiEnabled && manualCheck.IsChecked != true)
+                                {
+                                    manualCheck.IsChecked = true;
+                                }
                             }
                         }
                         catch
