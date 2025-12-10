@@ -114,7 +114,8 @@ public static class Parser
     private static void InitializeDictionaries()
     {
         // Verbos base en castellano -> verbos canónicos
-        AddVerbAlias("look", "mirar", "mira", "examinar", "ver", "observa", "x");
+        AddVerbAlias("look", "mirar", "mira", "ver", "observa");
+        AddVerbAlias("examine", "examinar", "examina", "x");
         AddVerbAlias("go", "ir", "ve", "andar", "caminar");
         AddVerbAlias("inventory", "inventario", "inv", "i");
         AddVerbAlias("take", "coger", "toma", "coge", "tomar", "agarrar", "recoger");
@@ -125,7 +126,7 @@ public static class Parser
         AddVerbAlias("lock", "bloquear", "cerrar con llave", "cerrar con");
         AddVerbAlias("put", "meter", "poner", "colocar", "guardar");
         AddVerbAlias("get_from", "sacar", "quitar", "extraer");
-        AddVerbAlias("look_in", "mirar en", "mirar dentro", "ver en", "ver dentro", "examinar en");
+        AddVerbAlias("look_in", "mirar en", "mirar dentro", "ver en", "ver dentro");
         AddVerbAlias("talk", "hablar", "habla", "charlar", "conversar");
         AddVerbAlias("say", "decir", "di");
         AddVerbAlias("option", "opcion", "opción");

@@ -3,9 +3,12 @@
     "look": [
       "mirar",
       "mira",
-      "examinar",
       "ver",
-      "observa",
+      "observa"
+    ],
+    "examine": [
+      "examinar",
+      "examina",
       "x"
     ],
     "go": [

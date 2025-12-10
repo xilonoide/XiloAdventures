@@ -308,17 +308,26 @@ public class EventRule
 
 public class PlayerStats
 {
-    public string ClassName { get; set; } = "Aventurero";
-    public int Strength { get; set; } = 5;
-    public int Dexterity { get; set; } = 5;
-    public int Intelligence { get; set; } = 5;
+    /// <summary>Nombre del jugador.</summary>
+    public string Name { get; set; } = "Aventurero";
 
-    public int MaxHealth { get; set; } = 20;
-    public int CurrentHealth { get; set; } = 20;
+    /// <summary>Fuerza del jugador.</summary>
+    public int Strength { get; set; } = 20;
 
+    /// <summary>Constitución del jugador.</summary>
+    public int Constitution { get; set; } = 20;
+
+    /// <summary>Inteligencia del jugador.</summary>
+    public int Intelligence { get; set; } = 20;
+
+    /// <summary>Destreza del jugador.</summary>
+    public int Dexterity { get; set; } = 20;
+
+    /// <summary>Carisma del jugador.</summary>
+    public int Charisma { get; set; } = 20;
+
+    /// <summary>Dinero del jugador en monedas.</summary>
     public int Gold { get; set; } = 0;
-    public int Level { get; set; } = 1;
-    public int Experience { get; set; } = 0;
 }
 
 /// <summary>
@@ -353,6 +362,9 @@ public class PlayerDefinition
 
     /// <summary>Carisma (mínimo 10, máximo según puntos disponibles).</summary>
     public int Charisma { get; set; } = 20;
+
+    /// <summary>Dinero inicial en monedas (mínimo 0).</summary>
+    public int InitialGold { get; set; } = 0;
 
     /// <summary>
     /// Calcula el total de puntos de características asignados.

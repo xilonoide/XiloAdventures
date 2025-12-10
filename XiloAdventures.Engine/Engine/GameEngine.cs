@@ -101,6 +101,24 @@ public class GameEngine
         => _state.Npcs.FirstOrDefault(n => n.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
+    /// Returns the name with first letter capitalized (for start of sentence).
+    /// </summary>
+    private static string Cap(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return name;
+        return char.ToUpper(name[0]) + name[1..];
+    }
+
+    /// <summary>
+    /// Returns the name with first letter lowercased (for mid-sentence use).
+    /// </summary>
+    private static string Low(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return name;
+        return char.ToLower(name[0]) + name[1..];
+    }
+
+    /// <summary>
     /// Find an object in the current room or player inventory by name
     /// </summary>
     private GameObject? FindObjectInRoomOrInventory(Room room, string name)
@@ -127,25 +145,25 @@ public class GameEngine
 
         if (!container.IsContainer)
         {
-            message = $"{container.Name} no es un contenedor.";
+            message = $"{Cap(container.Name)} no es un contenedor.";
             return false;
         }
 
         if (!container.IsOpenable)
         {
-            message = $"{container.Name} no se puede abrir.";
+            message = $"{Cap(container.Name)} no se puede abrir.";
             return false;
         }
 
         if (container.IsOpen)
         {
-            message = $"{container.Name} ya está abierto.";
+            message = $"{Cap(container.Name)} ya está abierto.";
             return false;
         }
 
         if (container.IsLocked)
         {
-            message = $"{container.Name} está cerrado con llave.";
+            message = $"{Cap(container.Name)} está cerrado con llave.";
             return false;
         }
 
@@ -158,19 +176,19 @@ public class GameEngine
 
         if (!container.IsContainer)
         {
-            message = $"{container.Name} no es un contenedor.";
+            message = $"{Cap(container.Name)} no es un contenedor.";
             return false;
         }
 
         if (!container.IsOpenable)
         {
-            message = $"{container.Name} no se puede cerrar.";
+            message = $"{Cap(container.Name)} no se puede cerrar.";
             return false;
         }
 
         if (!container.IsOpen)
         {
-            message = $"{container.Name} ya está cerrado.";
+            message = $"{Cap(container.Name)} ya está cerrado.";
             return false;
         }
 
@@ -183,13 +201,13 @@ public class GameEngine
 
         if (!container.IsLocked)
         {
-            message = $"{container.Name} no está cerrado con llave.";
+            message = $"{Cap(container.Name)} no está cerrado con llave.";
             return false;
         }
 
         if (string.IsNullOrWhiteSpace(container.KeyId))
         {
-            message = $"{container.Name} no tiene cerradura.";
+            message = $"{Cap(container.Name)} no tiene cerradura.";
             return false;
         }
 
@@ -331,6 +349,10 @@ public class GameEngine
                 sb.AppendLine(DescribeCurrentRoom());
                 break;
 
+            case "examine":
+                sb.AppendLine(HandleExamine(parsed));
+                break;
+
             case "go":
                 sb.AppendLine(HandleGo(parsed));
                 break;
@@ -463,7 +485,7 @@ public class GameEngine
             sb.AppendLine();
             sb.AppendLine("Ves aquí:");
             foreach (var obj in visibleObjects)
-                sb.AppendLine($" - {obj.Name}");
+                sb.AppendLine($" - {Cap(obj.Name)}");
         }
 
         // NPCs visibles
@@ -476,25 +498,93 @@ public class GameEngine
             sb.AppendLine();
             sb.AppendLine("Personajes presentes:");
             foreach (var npc in visibleNpcs)
-                sb.AppendLine($" - {npc.Name}");
+                sb.AppendLine($" - {Cap(npc.Name)}");
         }
 
-        // Salidas
-        if (room.Exits.Any())
+        // Salidas (directas e inversas)
+        var allExits = new List<(string Direction, string? DoorId, bool IsLocked)>();
+
+        // Salidas directas definidas en esta sala
+        foreach (var exit in room.Exits)
+        {
+            allExits.Add((exit.Direction, exit.DoorId, exit.IsLocked));
+        }
+
+        // Salidas inversas: otras salas que tienen salidas apuntando a esta sala
+        var directDirections = new HashSet<string>(
+            room.Exits.Select(e => NormalizeDirection(e.Direction)),
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var candidateRoom in _state.Rooms)
+        {
+            if (candidateRoom.Id.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            foreach (var candidateExit in candidateRoom.Exits)
+            {
+                if (!candidateExit.TargetRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var normCandidate = NormalizeDirection(candidateExit.Direction);
+                var opposite = GetOppositeDirectionCode(normCandidate);
+
+                // Solo añadir si no hay ya una salida directa en esa dirección
+                if (!directDirections.Contains(opposite))
+                {
+                    var displayDir = GetDisplayDirection(opposite);
+                    allExits.Add((displayDir, candidateExit.DoorId, candidateExit.IsLocked));
+                    directDirections.Add(opposite); // Evitar duplicados
+                }
+            }
+        }
+
+        if (allExits.Count > 0)
         {
             sb.AppendLine();
             sb.AppendLine("Salidas:");
-            foreach (var exit in room.Exits)
+            foreach (var (dir, doorId, isLocked) in allExits)
             {
-                var dir = exit.Direction;
-                if (exit.IsLocked)
-                    sb.AppendLine($" - {dir} (bloqueada)");
+                var doorInfo = "";
+
+                // Comprobar si hay una puerta en esta salida
+                if (!string.IsNullOrEmpty(doorId))
+                {
+                    var door = _state.Doors.FirstOrDefault(d =>
+                        d.Id.Equals(doorId, StringComparison.OrdinalIgnoreCase));
+                    if (door != null)
+                    {
+                        var doorName = string.IsNullOrWhiteSpace(door.Name) ? "puerta" : Low(door.Name);
+                        var doorState = door.IsOpen ? "abierta" : "cerrada";
+                        doorInfo = $" ({doorName} {doorState})";
+                    }
+                }
+
+                if (isLocked)
+                    sb.AppendLine($" - {dir} (bloqueada){doorInfo}");
                 else
-                    sb.AppendLine($" - {dir}");
+                    sb.AppendLine($" - {dir}{doorInfo}");
             }
         }
 
         return sb.ToString().TrimEnd();
+    }
+
+    private static string GetDisplayDirection(string normalizedDir)
+    {
+        return normalizedDir switch
+        {
+            "n" => "norte",
+            "s" => "sur",
+            "e" => "este",
+            "o" => "oeste",
+            "ne" => "noreste",
+            "no" => "noroeste",
+            "se" => "sureste",
+            "so" => "suroeste",
+            "up" => "arriba",
+            "down" => "abajo",
+            _ => normalizedDir
+        };
     }
 
 
@@ -516,7 +606,7 @@ public class GameEngine
             {
                 var obj = FindObjectById(id);
                 if (obj != null)
-                    sb.AppendLine($" - {obj.Name}");
+                    sb.AppendLine($" - {Cap(obj.Name)}");
             }
         }
 
@@ -525,19 +615,20 @@ public class GameEngine
 
     /// <summary>
     /// Generates a text summary of the player's stats.
-    /// Includes class, level, attributes, health, and gold.
+    /// Includes the 5 characteristics and gold.
     /// </summary>
     /// <returns>The player stats text.</returns>
     public string DescribePlayerStats()
     {
         var p = _state.Player;
         var sb = new StringBuilder();
-        sb.AppendLine($"Clase: {p.ClassName}");
-        sb.AppendLine($"Nivel: {p.Level}  Exp: {p.Experience}");
-        sb.AppendLine($"STR: {p.Strength}  DEX: {p.Dexterity}  INT: {p.Intelligence}");
-        sb.AppendLine($"Vida: {p.CurrentHealth}/{p.MaxHealth}");
-        sb.AppendLine($"Oro: {p.Gold}");
-        sb.AppendLine($"Turno: {_state.TurnCounter}");
+        sb.AppendLine($"Fuerza: {p.Strength}");
+        sb.AppendLine($"Constitución: {p.Constitution}");
+        sb.AppendLine($"Inteligencia: {p.Intelligence}");
+        sb.AppendLine($"Destreza: {p.Dexterity}");
+        sb.AppendLine($"Carisma: {p.Charisma}");
+        sb.AppendLine();
+        sb.AppendLine($"Dinero: {p.Gold} monedas");
         return sb.ToString().TrimEnd();
     }
 
@@ -663,35 +754,18 @@ public class GameEngine
             if (CanOpenContainer(obj, out string message))
             {
                 obj.IsOpen = true;
-                return $"Abres {obj.Name}.";
+                return $"Abres {Low(obj.Name)}.";
             }
             return message;
         }
 
-        // 1) Buscar puerta por nombre en la sala actual.
-        var door = FindDoorInCurrentRoomByName(room, arg);
-
-        // 2) Si no encontramos por nombre, probamos si es una dirección
-        //    (por ejemplo: "abrir norte").
+        // Buscar puerta
+        var (door, errorMsg) = FindDoorByArgument(room, arg);
         if (door == null)
-        {
-            var exit = room.Exits.FirstOrDefault(e =>
-                string.Equals(NormalizeDirection(e.Direction), NormalizeDirection(arg), StringComparison.OrdinalIgnoreCase));
+            return errorMsg ?? "Aquí no hay ninguna puerta así.";
 
-            if (exit != null && !string.IsNullOrEmpty(exit.DoorId))
-            {
-                door = _state.Doors.FirstOrDefault(d => d.Id.Equals(exit.DoorId, StringComparison.OrdinalIgnoreCase));
-            }
-        }
-
-        if (door == null)
-            return "Aquí no hay ninguna puerta así.";
-
-        // Objetos disponibles: inventario + objetos de la sala.
-        var availableObjectIds = new List<string>(_state.InventoryObjectIds);
-        availableObjectIds.AddRange(room.ObjectIds);
-
-        var result = _doorService.TryOpenDoor(door.Id, room.Id, availableObjectIds);
+        // Solo los objetos del inventario sirven como llaves
+        var result = _doorService.TryOpenDoor(door.Id, room.Id, _state.InventoryObjectIds);
 
         switch (result.MessageKey)
         {
@@ -702,7 +776,13 @@ public class GameEngine
             case "door_already_open":
                 return "La puerta ya está abierta.";
             case "door_opened":
-                return $"Abres {door.Name}.";
+                if (!string.IsNullOrWhiteSpace(door.KeyObjectId))
+                {
+                    var keyObj = FindObjectById(door.KeyObjectId);
+                    if (keyObj != null)
+                        return $"Abres {Low(door.Name)} con {Low(keyObj.Name)}.";
+                }
+                return $"Abres {Low(door.Name)}.";
             case "door_not_found":
             default:
                 return "Aquí no hay ninguna puerta así.";
@@ -726,46 +806,207 @@ public class GameEngine
             if (CanCloseContainer(obj, out string message))
             {
                 obj.IsOpen = false;
-                return $"Cierras {obj.Name}.";
+                return $"Cierras {Low(obj.Name)}.";
             }
             return message;
         }
 
-        var door = FindDoorInCurrentRoomByName(room, arg);
-
+        // Buscar puerta
+        var (door, errorMsg) = FindDoorByArgument(room, arg);
         if (door == null)
-        {
-            var exit = room.Exits.FirstOrDefault(e =>
-                string.Equals(NormalizeDirection(e.Direction), NormalizeDirection(arg), StringComparison.OrdinalIgnoreCase));
+            return errorMsg ?? "Aquí no hay ninguna puerta así.";
 
-            if (exit != null && !string.IsNullOrEmpty(exit.DoorId))
-            {
-                door = _state.Doors.FirstOrDefault(d => d.Id.Equals(exit.DoorId, StringComparison.OrdinalIgnoreCase));
-            }
-        }
-
-        if (door == null)
-            return "Aquí no hay ninguna puerta así.";
-
-        var availableObjectIds = new List<string>(_state.InventoryObjectIds);
-        availableObjectIds.AddRange(room.ObjectIds);
-
-        var result = _doorService.TryCloseDoor(door.Id, room.Id, availableObjectIds);
+        // Solo los objetos del inventario sirven como llaves
+        var result = _doorService.TryCloseDoor(door.Id, room.Id, _state.InventoryObjectIds);
 
         switch (result.MessageKey)
         {
             case "door_wrong_side":
                 return "No puedes cerrar la puerta desde este lado.";
             case "door_requires_key":
-                return "La puerta está cerrada con llave y no tienes la llave adecuada.";
+                return "No tienes la llave necesaria para cerrar esta puerta.";
             case "door_already_closed":
                 return "La puerta ya está cerrada.";
             case "door_closed":
-                return $"Cierras {door.Name}.";
+                if (!string.IsNullOrWhiteSpace(door.KeyObjectId))
+                {
+                    var keyObj = FindObjectById(door.KeyObjectId);
+                    if (keyObj != null)
+                        return $"Cierras {Low(door.Name)} con {Low(keyObj.Name)}.";
+                }
+                return $"Cierras {Low(door.Name)}.";
             case "door_not_found":
             default:
                 return "Aquí no hay ninguna puerta así.";
         }
+    }
+
+    /// <summary>
+    /// Busca una puerta basándose en el argumento del jugador.
+    /// Soporta: nombre de puerta, dirección, "puerta norte", "puerta del norte", etc.
+    /// </summary>
+    private (Door? door, string? errorMessage) FindDoorByArgument(Room room, string arg)
+    {
+        // 1) Si el argumento es "puerta" genérico sin dirección, comprobar cuántas puertas hay
+        if (IsDoorWord(arg))
+        {
+            var allDoors = GetAllDoorsInRoom(room);
+            if (allDoors.Count == 0)
+                return (null, "Aquí no hay ninguna puerta.");
+            if (allDoors.Count == 1)
+                return (allDoors[0].Door, null);
+
+            // Múltiples puertas: pedir especificar
+            var directions = string.Join(", ", allDoors.Select(d => d.Direction));
+            return (null, $"Hay varias puertas aquí. Especifica cuál: {directions}.");
+        }
+
+        // 2) Extraer dirección del argumento (ej: "puerta norte", "puerta del este", "norte")
+        var direction = ExtractDirectionFromArg(arg);
+
+        // 3) Si hay dirección, buscar puerta en esa dirección
+        if (!string.IsNullOrEmpty(direction))
+        {
+            var door = FindDoorByDirection(room, direction);
+            if (door != null)
+                return (door, null);
+            return (null, $"No hay ninguna puerta en esa dirección.");
+        }
+
+        // 4) Buscar puerta por nombre
+        var doorByName = FindDoorInCurrentRoomByName(room, arg);
+        if (doorByName != null)
+            return (doorByName, null);
+
+        return (null, "Aquí no hay ninguna puerta así.");
+    }
+
+    /// <summary>
+    /// Comprueba si el argumento es una palabra que significa "puerta".
+    /// </summary>
+    private static bool IsDoorWord(string arg)
+    {
+        var lower = arg.ToLowerInvariant();
+        return lower == "puerta" || lower == "la puerta" || lower == "una puerta";
+    }
+
+    /// <summary>
+    /// Extrae la dirección de un argumento como "puerta norte", "puerta del este", etc.
+    /// </summary>
+    private static string? ExtractDirectionFromArg(string arg)
+    {
+        var lower = arg.ToLowerInvariant().Trim();
+
+        // Patrones: "puerta norte", "puerta del norte", "puerta al norte", "la puerta norte", etc.
+        var patterns = new[] { "puerta del ", "puerta al ", "puerta de ", "puerta ", "la puerta del ", "la puerta al ", "la puerta de ", "la puerta " };
+        foreach (var pattern in patterns)
+        {
+            if (lower.StartsWith(pattern))
+            {
+                var dir = lower.Substring(pattern.Length).Trim();
+                if (!string.IsNullOrEmpty(dir))
+                    return dir;
+            }
+        }
+
+        // Si es directamente una dirección
+        var normalized = NormalizeDirection(lower);
+        if (normalized != lower || IsKnownDirection(lower))
+            return lower;
+
+        return null;
+    }
+
+    private static bool IsKnownDirection(string dir)
+    {
+        var known = new[] { "norte", "sur", "este", "oeste", "noreste", "noroeste", "sureste", "suroeste", "arriba", "abajo", "subir", "bajar", "n", "s", "e", "o", "ne", "no", "se", "so", "up", "down" };
+        return known.Contains(dir.ToLowerInvariant());
+    }
+
+    /// <summary>
+    /// Busca una puerta en una dirección específica (directa o inversa).
+    /// </summary>
+    private Door? FindDoorByDirection(Room room, string direction)
+    {
+        var normalizedDir = NormalizeDirection(direction);
+
+        // Buscar en salidas directas
+        var exit = room.Exits.FirstOrDefault(e =>
+            string.Equals(NormalizeDirection(e.Direction), normalizedDir, StringComparison.OrdinalIgnoreCase));
+
+        if (exit != null && !string.IsNullOrEmpty(exit.DoorId))
+        {
+            return _state.Doors.FirstOrDefault(d => d.Id.Equals(exit.DoorId, StringComparison.OrdinalIgnoreCase));
+        }
+
+        // Buscar en salidas inversas
+        foreach (var candidateRoom in _state.Rooms)
+        {
+            if (candidateRoom.Id.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            foreach (var candidateExit in candidateRoom.Exits)
+            {
+                if (!candidateExit.TargetRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var opposite = GetOppositeDirectionCode(NormalizeDirection(candidateExit.Direction));
+                if (string.Equals(opposite, normalizedDir, StringComparison.OrdinalIgnoreCase) &&
+                    !string.IsNullOrEmpty(candidateExit.DoorId))
+                {
+                    return _state.Doors.FirstOrDefault(d => d.Id.Equals(candidateExit.DoorId, StringComparison.OrdinalIgnoreCase));
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Obtiene todas las puertas accesibles desde una sala (directas e inversas).
+    /// </summary>
+    private List<(Door Door, string Direction)> GetAllDoorsInRoom(Room room)
+    {
+        var result = new List<(Door Door, string Direction)>();
+        var addedDoorIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // Puertas de salidas directas
+        foreach (var exit in room.Exits)
+        {
+            if (string.IsNullOrEmpty(exit.DoorId))
+                continue;
+
+            var door = _state.Doors.FirstOrDefault(d => d.Id.Equals(exit.DoorId, StringComparison.OrdinalIgnoreCase));
+            if (door != null && addedDoorIds.Add(door.Id))
+            {
+                result.Add((door, exit.Direction));
+            }
+        }
+
+        // Puertas de salidas inversas
+        foreach (var candidateRoom in _state.Rooms)
+        {
+            if (candidateRoom.Id.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            foreach (var candidateExit in candidateRoom.Exits)
+            {
+                if (!candidateExit.TargetRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (string.IsNullOrEmpty(candidateExit.DoorId))
+                    continue;
+
+                var door = _state.Doors.FirstOrDefault(d => d.Id.Equals(candidateExit.DoorId, StringComparison.OrdinalIgnoreCase));
+                if (door != null && addedDoorIds.Add(door.Id))
+                {
+                    var opposite = GetOppositeDirectionCode(NormalizeDirection(candidateExit.Direction));
+                    result.Add((door, GetDisplayDirection(opposite)));
+                }
+            }
+        }
+
+        return result;
     }
 
     private string HandleUnlock(ParsedCommand parsed)
@@ -790,7 +1031,7 @@ public class GameEngine
         if (CanUnlockContainer(obj, key?.Id, out string message))
         {
             obj.IsLocked = false;
-            return $"Desbloqueas {obj.Name} con {key?.Name}.";
+            return $"Desbloqueas {Low(obj.Name)} con {Low(key?.Name ?? "")}.";
         }
 
         return message;
@@ -811,10 +1052,10 @@ public class GameEngine
             return "No hay ningún contenedor con ese nombre.";
 
         if (obj.IsLocked)
-            return $"{obj.Name} ya está bloqueado.";
+            return $"{Cap(obj.Name)} ya está bloqueado.";
 
         if (string.IsNullOrWhiteSpace(obj.KeyId))
-            return $"{obj.Name} no tiene cerradura.";
+            return $"{Cap(obj.Name)} no tiene cerradura.";
 
         // Buscar la llave en el inventario
         var key = _state.InventoryObjectIds
@@ -825,7 +1066,7 @@ public class GameEngine
             return "No tienes la llave adecuada.";
 
         obj.IsLocked = true;
-        return $"Bloqueas {obj.Name} con {key.Name}.";
+        return $"Bloqueas {Low(obj.Name)} con {Low(key.Name)}.";
     }
 
     private string HandlePutIn(ParsedCommand parsed)
@@ -858,17 +1099,17 @@ public class GameEngine
             return "No hay ningún contenedor con ese nombre.";
 
         if (container.IsOpenable && !container.IsOpen)
-            return $"{container.Name} está cerrado.";
+            return $"{Cap(container.Name)} está cerrado.";
 
         if (container.MaxCapacity > 0 && container.ContainedObjectIds.Count >= container.MaxCapacity)
-            return $"{container.Name} está lleno.";
+            return $"{Cap(container.Name)} está lleno.";
 
         // Mover el objeto del inventario al contenedor
         _state.InventoryObjectIds.Remove(objToInsert.Id);
         container.ContainedObjectIds.Add(objToInsert.Id);
         objToInsert.RoomId = null; // El objeto ya no está en una sala
 
-        return $"Metes {objToInsert.Name} en {container.Name}.";
+        return $"Metes {Low(objToInsert.Name)} en {Low(container.Name)}.";
     }
 
     private string HandleGetFrom(ParsedCommand parsed)
@@ -892,7 +1133,7 @@ public class GameEngine
             return "No hay ningún contenedor con ese nombre.";
 
         if (container.IsOpenable && !container.IsOpen && !container.ContentsVisible)
-            return $"{container.Name} está cerrado.";
+            return $"{Cap(container.Name)} está cerrado.";
 
         // Buscar el objeto dentro del contenedor
         var objToExtract = container.ContainedObjectIds
@@ -900,13 +1141,13 @@ public class GameEngine
             .FirstOrDefault(o => o != null && o.Name.Contains(objectName, StringComparison.OrdinalIgnoreCase));
 
         if (objToExtract == null)
-            return $"No hay ningún {objectName} en {container.Name}.";
+            return $"No hay ningún {objectName} en {Low(container.Name)}.";
 
         // Mover el objeto del contenedor al inventario
         container.ContainedObjectIds.Remove(objToExtract.Id);
         _state.InventoryObjectIds.Add(objToExtract.Id);
 
-        return $"Sacas {objToExtract.Name} de {container.Name}.";
+        return $"Sacas {Low(objToExtract.Name)} de {Low(container.Name)}.";
     }
 
     private string HandleLookIn(ParsedCommand parsed)
@@ -924,22 +1165,74 @@ public class GameEngine
             return "No hay ningún contenedor con ese nombre.";
 
         if (container.IsOpenable && !container.IsOpen && !container.ContentsVisible)
-            return $"{container.Name} está cerrado y no puedes ver su interior.";
+            return $"{Cap(container.Name)} está cerrado y no puedes ver su interior.";
 
         if (container.ContainedObjectIds.Count == 0)
-            return $"{container.Name} está vacío.";
+            return $"{Cap(container.Name)} está vacío.";
 
         var sb = new StringBuilder();
-        sb.AppendLine($"Dentro de {container.Name} ves:");
+        sb.AppendLine($"Dentro de {Low(container.Name)} ves:");
 
         foreach (var objId in container.ContainedObjectIds)
         {
             var obj = FindObjectById(objId);
             if (obj != null)
-                sb.AppendLine($"- {obj.Name}");
+                sb.AppendLine($"- {Cap(obj.Name)}");
         }
 
         return sb.ToString().TrimEnd();
+    }
+
+    private string HandleExamine(ParsedCommand parsed)
+    {
+        var room = CurrentRoom;
+        if (room == null)
+            return "Estás perdido.";
+
+        var target = (parsed.DirectObject ?? string.Empty).Trim();
+        if (string.IsNullOrEmpty(target))
+            return "¿Qué quieres examinar?";
+
+        // Buscar objeto en la sala o inventario
+        var obj = FindObjectInRoomOrInventory(room, target);
+        if (obj != null)
+        {
+            if (!string.IsNullOrWhiteSpace(obj.Description))
+                return obj.Description;
+            return $"No ves nada especial en {Low(obj.Name)}.";
+        }
+
+        // Buscar NPC en la sala
+        var npc = _state.Npcs.FirstOrDefault(n =>
+            n.Visible &&
+            n.RoomId?.Equals(room.Id, StringComparison.OrdinalIgnoreCase) == true &&
+            n.Name.Contains(target, StringComparison.OrdinalIgnoreCase));
+        if (npc != null)
+        {
+            if (!string.IsNullOrWhiteSpace(npc.Description))
+                return npc.Description;
+            return $"No ves nada especial en {Low(npc.Name)}.";
+        }
+
+        // Buscar puerta en la sala
+        var door = FindDoorInCurrentRoomByName(room, target);
+        if (door != null)
+        {
+            var sb = new StringBuilder();
+            if (!string.IsNullOrWhiteSpace(door.Description))
+                sb.Append(door.Description);
+            else
+                sb.Append($"Es {Low(door.Name)}.");
+
+            // Añadir estado de la puerta
+            sb.Append(door.IsOpen ? " Está abierta." : " Está cerrada.");
+            if (door.IsLocked && !door.IsOpen)
+                sb.Append(" Parece que necesita una llave.");
+
+            return sb.ToString();
+        }
+
+        return "No ves eso por aquí.";
     }
 
     private string HandleTake(ParsedCommand parsed)
@@ -971,7 +1264,7 @@ public class GameEngine
 
         room.ObjectIds.RemoveAll(id => id.Equals(obj.Id, StringComparison.OrdinalIgnoreCase));
 
-        return $"Coges {obj.Name}.";
+        return $"Coges {Low(obj.Name)}.";
     }
 
     private string HandleTakeAll(string arg, Room room)
@@ -1004,7 +1297,7 @@ public class GameEngine
                 _state.InventoryObjectIds.Add(obj.Id);
 
             room.ObjectIds.RemoveAll(id => id.Equals(obj.Id, StringComparison.OrdinalIgnoreCase));
-            sb.AppendLine($"Coges {obj.Name}.");
+            sb.AppendLine($"Coges {Low(obj.Name)}.");
         }
 
         if (sb.Length == 0)
@@ -1038,7 +1331,7 @@ public class GameEngine
 
         obj.RoomId = room.Id;
 
-        return $"Sueltas {obj.Name}.";
+        return $"Sueltas {Low(obj.Name)}.";
     }
 
     private string HandleTalk(ParsedCommand parsed)
@@ -1060,10 +1353,10 @@ public class GameEngine
             return "No ves a esa persona aquí.";
 
         if (npc.Dialogue == null || npc.Dialogue.Count == 0)
-            return $"{npc.Name} no tiene nada que decir.";
+            return $"{Cap(npc.Name)} no tiene nada que decir.";
 
         var sb = new StringBuilder();
-        sb.AppendLine($"Hablas con {npc.Name}:");
+        sb.AppendLine($"Hablas con {Low(npc.Name)}:");
         foreach (var line in npc.Dialogue.OrderBy(d => d.Index))
         {
             sb.AppendLine($" [{line.Index}] {line.Text}");
@@ -1122,7 +1415,8 @@ public class GameEngine
     private static string GetHelpText()
     {
         return @"Comandos básicos:
- - mirar / examinar / x
+ - mirar (describe la sala actual)
+ - examinar <algo> / x <algo> (describe un objeto, NPC o puerta)
  - ir <dirección> (n, s, e, o, ne, no, se, so, subir, bajar, arriba, abajo)
  - coger <objeto>, coger todo, coger todo menos <objeto>
  - soltar <objeto>
@@ -1130,6 +1424,7 @@ public class GameEngine
  - hablar [npc], decir <n>, opcion <n>
  - usar <objeto> [con <objeto>]
  - dar <objeto> [a <npc>]
+ - abrir/cerrar <puerta>
  - misiones
  - guardar / cargar (usa el menú Archivo)
  - limpiar / cls / clear (limpia la pantalla de texto)

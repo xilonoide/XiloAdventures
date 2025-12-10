@@ -11,10 +11,10 @@ public class Door
     public string Id { get; set; } = Guid.NewGuid().ToString();
 
     /// <summary>Nombre visible de la puerta (por ejemplo "Puerta de la cocina").</summary>
-    public string Name { get; set; } = string.Empty;
+    public string Name { get; set; } = "puerta";
 
     /// <summary>Descripción opcional para el narrador/editor.</summary>
-    public string? Description { get; set; }
+    public string? Description { get; set; } = "una puerta cualquiera";
 
     /// <summary>Id de la sala A (una de las dos salas que conecta la puerta).</summary>
     public string? RoomIdA { get; set; }

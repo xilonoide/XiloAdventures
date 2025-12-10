@@ -56,11 +56,13 @@ public partial class MapPanel : Control
             bool hasPort = portHit.HasValue;
             bool hasExit = exitHit.HasValue;
 
-            // Doble click sobre una salida: crear o asociar una puerta entre las salas conectadas.
+            // Doble click sobre una salida: abrir popup para crear puerta.
+            // Pequeño retraso para evitar que el segundo click del doble-click cierre el popup.
             if (hasExit && exitHit.HasValue)
             {
                 var (exitRoom, exitIndex) = exitHit.Value;
-                ExitDoubleClicked?.Invoke(exitRoom, exitIndex);
+                Dispatcher.BeginInvoke(new Action(() => PromptCreateDoor(exitRoom, exitIndex)),
+                    System.Windows.Threading.DispatcherPriority.Input);
                 e.Handled = true;
                 return;
             }
@@ -88,14 +90,6 @@ public partial class MapPanel : Control
             if (doorHit != null)
             {
                 ShowDoorContextMenu(doorHit, pos);
-                e.Handled = true;
-                return;
-            }
-
-            var exitHit = HitTestExit(pos);
-            if (exitHit.HasValue)
-            {
-                ShowExitContextMenu(exitHit.Value, pos);
                 e.Handled = true;
                 return;
             }
@@ -552,11 +546,13 @@ public partial class MapPanel : Control
             bool hasPort = portHit.HasValue;
             bool hasExit = exitHit.HasValue;
 
-            // Doble click sobre una salida: crear o asociar una puerta entre las salas conectadas.
+            // Doble click sobre una salida: abrir popup para crear puerta.
+            // Pequeño retraso para evitar que el segundo click del doble-click cierre el popup.
             if (hasExit && exitHit.HasValue)
             {
                 var (exitRoom, exitIndex) = exitHit.Value;
-                ExitDoubleClicked?.Invoke(exitRoom, exitIndex);
+                Dispatcher.BeginInvoke(new Action(() => PromptCreateDoor(exitRoom, exitIndex)),
+                    System.Windows.Threading.DispatcherPriority.Input);
                 e.Handled = true;
                 return;
             }
@@ -1315,32 +1311,6 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
         menu.IsOpen = true;
     }
 
-    private void ShowExitContextMenu((Room room, int exitIndex) exitHit, Point screenPoint)
-    {
-        if (_world == null)
-            return;
-
-        var menu = new ContextMenu
-        {
-            Background = new SolidColorBrush(Color.FromRgb(32, 32, 32)),
-            Foreground = Brushes.White
-        };
-
-        var createDoorItem = new MenuItem
-        {
-            Header = "Crear puerta",
-            Background = new SolidColorBrush(Color.FromRgb(32, 32, 32)),
-            Foreground = Brushes.White
-        };
-        createDoorItem.Click += (_, _) => PromptCreateDoor(exitHit.room, exitHit.exitIndex);
-
-        menu.Items.Add(createDoorItem);
-
-        menu.PlacementTarget = this;
-        menu.Placement = PlacementMode.MousePoint;
-        menu.IsOpen = true;
-    }
-
     private void PromptCreateDoor(Room room, int exitIndex)
     {
         if (_world == null)
@@ -1426,6 +1396,9 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
             Owner = owner
         };
 
+        // Posicionar el diálogo evitando la posición actual del ratón para que el doble-click no lo cierre
+        PositionDialogAwayFromMouse(alert, owner);
+
         alert.ShowCancelButton(true);
 
         var content = new StackPanel
@@ -1433,34 +1406,23 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
             Margin = new Thickness(0, 8, 0, 0)
         };
 
-        var stateLabel = new TextBlock
+        // Check "Está abierta"
+        var openCheck = new CheckBox
         {
-            Text = "Estado inicial:",
-            Margin = new Thickness(0, 0, 0, 4),
-            Foreground = Brushes.White
-        };
-
-        var openRadio = new RadioButton
-        {
-            Content = "Abierta",
+            Content = "Está abierta",
             IsChecked = true,
             Foreground = Brushes.White
         };
 
-        var closedRadio = new RadioButton
+        // Check "Cerradura"
+        var lockCheck = new CheckBox
         {
-            Content = "Cerrada",
-            Margin = new Thickness(0, 2, 0, 0),
+            Content = "Cerradura",
+            Margin = new Thickness(0, 8, 0, 4),
             Foreground = Brushes.White
         };
 
-        var keyCheck = new CheckBox
-        {
-            Content = "Asignar llave a la puerta",
-            Margin = new Thickness(0, 10, 0, 4),
-            Foreground = Brushes.White
-        };
-
+        // Opciones de llave
         var keyOptions = BuildKeyOptions();
         var keyCombo = new ComboBox
         {
@@ -1474,28 +1436,41 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
         if (keyOptions.Count > 0)
             keyCombo.SelectedIndex = 0;
 
-        keyCheck.Checked += (_, _) => keyCombo.IsEnabled = true;
-        keyCheck.Unchecked += (_, _) => keyCombo.IsEnabled = false;
+        lockCheck.Checked += (_, _) => keyCombo.IsEnabled = true;
+        lockCheck.Unchecked += (_, _) => keyCombo.IsEnabled = false;
 
-        content.Children.Add(stateLabel);
-        content.Children.Add(openRadio);
-        content.Children.Add(closedRadio);
+        content.Children.Add(openCheck);
         content.Children.Add(new Separator
         {
             Margin = new Thickness(0, 10, 0, 10),
             Background = new SolidColorBrush(Color.FromRgb(60, 60, 60)),
             Height = 1
         });
-        content.Children.Add(keyCheck);
+        content.Children.Add(lockCheck);
         content.Children.Add(keyCombo);
 
         alert.SetCustomContent(content);
+
+        // Validación: si Cerradura está marcada, debe haber una llave seleccionada
+        alert.ValidateBeforeAccept = () =>
+        {
+            if (lockCheck.IsChecked == true && keyCombo.SelectedItem == null)
+            {
+                new AlertWindow("Si activas la cerradura, debes seleccionar o crear una llave.", "Validación")
+                {
+                    Owner = alert
+                }.ShowDialog();
+                return false;
+            }
+            return true;
+        };
+
         alert.Accepted += (_, _) =>
         {
             alert.Tag = new DoorCreationResult
             {
-                IsOpen = openRadio.IsChecked == true,
-                WithKey = keyCheck.IsChecked == true,
+                IsOpen = openCheck.IsChecked == true,
+                WithKey = lockCheck.IsChecked == true,
                 SelectedKeyOption = keyCombo.SelectedItem as KeyObjectOption
             };
         };
@@ -1517,7 +1492,7 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
 
         if (_world?.Objects != null)
         {
-            foreach (var obj in _world.Objects)
+            foreach (var obj in _world.Objects.Where(o => o.Type == ObjectType.Llave))
             {
                 options.Add(new KeyObjectOption
                 {
@@ -1540,7 +1515,6 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
         _world.Objects ??= new List<GameObject>();
 
         string doorId = GenerateUniqueDoorId();
-        string doorName = $"Puerta {fromRoom.Name} - {targetRoom.Name}";
 
         GameObject? createdObject = null;
 
@@ -1550,7 +1524,13 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
 
             if (selectedOption.IsAutoNew)
             {
-                createdObject = CreateKeyObjectForDoor(doorName);
+                createdObject = CreateKeyObjectForDoor();
+                // Situar la llave automáticamente en la sala A
+                if (createdObject != null && !fromRoom.ObjectIds.Contains(createdObject.Id))
+                {
+                    fromRoom.ObjectIds.Add(createdObject.Id);
+                    createdObject.RoomId = fromRoom.Id;
+                }
             }
             else
             {
@@ -1559,7 +1539,13 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
 
                 if (createdObject == null)
                 {
-                    createdObject = CreateKeyObjectForDoor(doorName);
+                    createdObject = CreateKeyObjectForDoor();
+                    // Situar la llave automáticamente en la sala A
+                    if (createdObject != null && !fromRoom.ObjectIds.Contains(createdObject.Id))
+                    {
+                        fromRoom.ObjectIds.Add(createdObject.Id);
+                        createdObject.RoomId = fromRoom.Id;
+                    }
                 }
             }
         }
@@ -1567,8 +1553,8 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
         var door = new Door
         {
             Id = doorId,
-            Name = doorName,
-            Description = $"Puerta entre {fromRoom.Name} y {targetRoom.Name}",
+            Name = "puerta",
+            Description = "una puerta cualquiera",
             RoomIdA = fromRoom.Id,
             RoomIdB = targetRoom.Id,
             IsOpen = data.IsOpen,
@@ -1591,15 +1577,15 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
         return new DoorCreationOutcome(door, createdObject);
     }
 
-    private GameObject CreateKeyObjectForDoor(string doorName)
+    private GameObject CreateKeyObjectForDoor()
     {
         _world!.Objects ??= new List<GameObject>();
 
         var obj = new GameObject
         {
             Id = GenerateUniqueObjectId("obj_llave"),
-            Name = $"Llave de {doorName}",
-            Description = $"Llave que abre {doorName}.",
+            Name = "llave",
+            Description = "una llave cualquiera",
             Type = ObjectType.Llave,
             CanTake = true,
             Visible = true
@@ -1643,6 +1629,94 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
         } while (existing.Contains(candidate));
 
         return candidate;
+    }
+
+    /// <summary>
+    /// Posiciona un diálogo de forma que el cursor del ratón no esté sobre él,
+    /// evitando que un doble-click lo cierre accidentalmente.
+    /// </summary>
+    private static void PositionDialogAwayFromMouse(Window dialog, Window? owner)
+    {
+        dialog.WindowStartupLocation = WindowStartupLocation.Manual;
+
+        // Obtener posición del ratón en coordenadas de pantalla usando Win32
+        GetCursorPos(out var cursorPos);
+        var mouseX = cursorPos.X;
+        var mouseY = cursorPos.Y;
+
+        // Obtener dimensiones del área de trabajo de la pantalla
+        var screenWidth = SystemParameters.PrimaryScreenWidth;
+        var screenHeight = SystemParameters.PrimaryScreenHeight;
+        var workAreaWidth = SystemParameters.WorkArea.Width;
+        var workAreaHeight = SystemParameters.WorkArea.Height;
+        var workAreaLeft = SystemParameters.WorkArea.Left;
+        var workAreaTop = SystemParameters.WorkArea.Top;
+
+        // Dimensiones estimadas del diálogo
+        const double dialogWidth = 350;
+        const double dialogHeight = 250;
+
+        // Calcular posición centrada en la ventana owner si existe
+        double centerX, centerY;
+        if (owner != null)
+        {
+            centerX = owner.Left + (owner.Width - dialogWidth) / 2;
+            centerY = owner.Top + (owner.Height - dialogHeight) / 2;
+        }
+        else
+        {
+            centerX = workAreaLeft + (workAreaWidth - dialogWidth) / 2;
+            centerY = workAreaTop + (workAreaHeight - dialogHeight) / 2;
+        }
+
+        // Margen de seguridad alrededor del cursor
+        const int margin = 50;
+
+        // Comprobar si el ratón estaría sobre el diálogo en la posición centrada
+        bool mouseOverDialog = mouseX >= centerX - margin && mouseX <= centerX + dialogWidth + margin &&
+                               mouseY >= centerY - margin && mouseY <= centerY + dialogHeight + margin;
+
+        if (mouseOverDialog)
+        {
+            // Mover el diálogo para evitar el cursor
+            if (mouseY - margin - dialogHeight - 20 > workAreaTop)
+            {
+                // Hay espacio arriba del cursor
+                centerY = mouseY - margin - dialogHeight - 20;
+            }
+            else if (mouseY + margin + dialogHeight + 20 < workAreaTop + workAreaHeight)
+            {
+                // Hay espacio debajo del cursor
+                centerY = mouseY + margin + 20;
+            }
+            else if (mouseX + margin + dialogWidth + 20 < workAreaLeft + workAreaWidth)
+            {
+                // Hay espacio a la derecha del cursor
+                centerX = mouseX + margin + 20;
+            }
+            else if (mouseX - margin - dialogWidth - 20 > workAreaLeft)
+            {
+                // Hay espacio a la izquierda del cursor
+                centerX = mouseX - margin - dialogWidth - 20;
+            }
+        }
+
+        // Asegurar que el diálogo está dentro del área de trabajo
+        centerX = Math.Max(workAreaLeft, Math.Min(centerX, workAreaLeft + workAreaWidth - dialogWidth));
+        centerY = Math.Max(workAreaTop, Math.Min(centerY, workAreaTop + workAreaHeight - dialogHeight));
+
+        dialog.Left = centerX;
+        dialog.Top = centerY;
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out POINT lpPoint);
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct POINT
+    {
+        public int X;
+        public int Y;
     }
 
     private sealed class DoorCreationResult

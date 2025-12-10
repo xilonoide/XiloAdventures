@@ -31,6 +31,11 @@ public partial class PropertyEditor : UserControl
 
     public event Action<object?, string>? PropertyEdited;
 
+    /// <summary>
+    /// Evento para solicitar la eliminación de un objeto por su ID.
+    /// </summary>
+    public event Action<string>? RequestDeleteObject;
+
     public PasswordBox? EncryptionPasswordBox => _encryptionPasswordBox;
 
     public Func<IEnumerable<Room>>? GetRooms { get; set; }
@@ -238,8 +243,8 @@ public partial class PropertyEditor : UserControl
         if (name is "InventoryObjectIds" or "Objectives" or "KeyObjectId" or "DoorId" or "ObjectId")
             return "🏷️ Otros";
 
-        // PlayerDefinition: propiedades físicas
-        if (obj is PlayerDefinition && name is "Age" or "Weight" or "Height")
+        // PlayerDefinition: propiedades físicas y económicas
+        if (obj is PlayerDefinition && name is "Age" or "Weight" or "Height" or "InitialGold")
             return "📊 Estadísticas";
 
         // PlayerDefinition: características
@@ -381,6 +386,29 @@ public partial class PropertyEditor : UserControl
                 try
                 {
                     if (_currentObject is not { } target) return;
+
+                    // Si es una puerta y se desmarca IsLocked (Cerradura), preguntar si eliminar la llave
+                    if (target is Door door && prop.Name == "IsLocked" && !string.IsNullOrEmpty(door.KeyObjectId))
+                    {
+                        var keyId = door.KeyObjectId;
+                        var keyObject = GetObjects?.Invoke().FirstOrDefault(o => o.Id == keyId);
+                        var keyName = keyObject?.Name ?? keyId;
+
+                        // Limpiar la asignación de llave
+                        door.KeyObjectId = null;
+                        PropertyEdited?.Invoke(target, "KeyObjectId");
+
+                        // Preguntar si desea eliminar el objeto llave (ventana oscura)
+                        var confirmWindow = new ConfirmWindow(
+                            $"¿Deseas eliminar también el objeto llave \"{keyName}\"?",
+                            "Eliminar llave");
+
+                        if (confirmWindow.ShowDialog() == true)
+                        {
+                            RequestDeleteObject?.Invoke(keyId);
+                        }
+                    }
+
                     prop.SetValue(target, false);
                     PropertyEdited?.Invoke(target, prop.Name);
 
@@ -785,6 +813,59 @@ public partial class PropertyEditor : UserControl
                 };
 
                 editor = comboHeight;
+            }
+            // PlayerDefinition: InitialGold (dinero inicial, mínimo 0, sin decimales)
+            else if (obj is PlayerDefinition && prop.Name == "InitialGold" && prop.PropertyType == typeof(int))
+            {
+                var currentGold = prop.GetValue(obj) is int g ? g : 0;
+                if (currentGold < 0) currentGold = 0;
+
+                var tbGold = new TextBox
+                {
+                    Margin = new Thickness(0, 2, 0, 0),
+                    Text = currentGold.ToString()
+                };
+
+                tbGold.PreviewTextInput += (_, e) =>
+                {
+                    // Solo permitir dígitos
+                    foreach (char c in e.Text)
+                    {
+                        if (!char.IsDigit(c))
+                        {
+                            e.Handled = true;
+                            return;
+                        }
+                    }
+                };
+
+                tbGold.LostFocus += (_, _) =>
+                {
+                    try
+                    {
+                        if (_currentObject is not { } target) return;
+                        if (int.TryParse(tbGold.Text, out var value))
+                        {
+                            if (value < 0) value = 0;
+                            prop.SetValue(target, value);
+                            tbGold.Text = value.ToString();
+                            PropertyEdited?.Invoke(target, prop.Name);
+                        }
+                        else
+                        {
+                            // Si no es válido, restaurar a 0
+                            prop.SetValue(target, 0);
+                            tbGold.Text = "0";
+                            PropertyEdited?.Invoke(target, prop.Name);
+                        }
+                    }
+                    catch
+                    {
+                        // Ignorar errores
+                    }
+                };
+
+                editor = tbGold;
             }
             // PlayerDefinition: Características (Strength, Constitution, Intelligence, Dexterity, Charisma)
             else if (obj is PlayerDefinition playerDef &&
@@ -1290,7 +1371,7 @@ public partial class PropertyEditor : UserControl
         ["IsOpenable"] = "Se puede abrir/cerrar",
         ["IsOpen"] = "Está abierto",
         ["IsLocked"] = "Está bloqueado",
-        ["OpenFromSide"] = "Se abre desde",
+        ["OpenFromSide"] = "Cerradura desde",
         ["ContentsVisible"] = "Contenido visible",
         ["MaxCapacity"] = "Capacidad máxima (m³)",
         ["Volume"] = "Volumen (m³)",
@@ -1362,8 +1443,8 @@ public partial class PropertyEditor : UserControl
         // Puerta
         ["Door.RoomIdA"] = "Sala A",
         ["Door.RoomIdB"] = "Sala B",
-        ["Door.LockId"] = "Cerradura",
-        ["Door.IsLocked"] = "Esta cerrada",
+        ["Door.IsOpen"] = "Está abierta",
+        ["Door.IsLocked"] = "Cerradura",
         ["Door.RequiredQuestId"] = "Misión requerida",
         ["Door.RequiredQuestStatus"] = "Estado de misión requerido",
         ["Door.Tags"] = "Etiquetas",
@@ -1388,10 +1469,12 @@ public partial class PropertyEditor : UserControl
         ["PlayerDefinition.Intelligence"] = "Inteligencia",
         ["PlayerDefinition.Dexterity"] = "Destreza",
         ["PlayerDefinition.Charisma"] = "Carisma",
+        ["PlayerDefinition.InitialGold"] = "Dinero inicial (monedas)",
         ["Constitution"] = "Constitución",
         ["Charisma"] = "Carisma",
         ["Age"] = "Edad",
         ["Height"] = "Altura",
+        ["InitialGold"] = "Dinero inicial (monedas)",
     };
 
     private static string GetDisplayLabel(PropertyInfo prop)
@@ -1500,6 +1583,26 @@ public partial class PropertyEditor : UserControl
             var binding = textBox.GetBindingExpression(TextBox.TextProperty);
             binding?.UpdateSource();
         }
+    }
+
+    /// <summary>
+    /// Aplica las validaciones pendientes a todos los campos del objeto actual.
+    /// Debe llamarse antes de guardar el mundo para asegurar que los valores
+    /// que no han disparado LostFocus sean validados y aplicados correctamente.
+    /// </summary>
+    public void ApplyPendingValidations()
+    {
+        if (_currentObject is PlayerDefinition playerDef)
+        {
+            // Validar y corregir InitialGold si es negativo
+            if (playerDef.InitialGold < 0)
+            {
+                playerDef.InitialGold = 0;
+            }
+        }
+
+        // También actualizar bindings pendientes
+        UpdateBindings();
     }
 
     /// <summary>

@@ -7,6 +7,11 @@ public partial class AlertWindow : Window
 {
     public event EventHandler? Accepted;
 
+    /// <summary>
+    /// Función de validación que se ejecuta antes de aceptar. Si devuelve false, no se cierra el diálogo.
+    /// </summary>
+    public Func<bool>? ValidateBeforeAccept { get; set; }
+
     public AlertWindow()
     {
         InitializeComponent();
@@ -108,6 +113,12 @@ public partial class AlertWindow : Window
 
     private void OkButton_Click(object sender, RoutedEventArgs e)
     {
+        // Ejecutar validación si existe
+        if (ValidateBeforeAccept != null && !ValidateBeforeAccept())
+        {
+            return; // No cerrar si la validación falla
+        }
+
         Accepted?.Invoke(this, EventArgs.Empty);
         DialogResult = true;
         Close();

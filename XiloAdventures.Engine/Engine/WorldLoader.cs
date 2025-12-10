@@ -91,6 +91,7 @@ public static class WorldLoader
     /// <returns>A new game state initialized with world data.</returns>
     public static GameState CreateInitialState(WorldModel world)
     {
+        var playerDef = world.Player ?? new PlayerDefinition();
         var state = new GameState
         {
             WorldId = world.Game.Id,
@@ -102,7 +103,17 @@ public static class WorldLoader
             UseRules = CloneList(world.UseRules),
             TradeRules = CloneList(world.TradeRules),
             Events = CloneList(world.Events),
-            Doors = CloneList(world.Doors)
+            Doors = CloneList(world.Doors),
+            Player = new PlayerStats
+            {
+                Name = playerDef.Name,
+                Strength = playerDef.Strength,
+                Constitution = playerDef.Constitution,
+                Intelligence = playerDef.Intelligence,
+                Dexterity = playerDef.Dexterity,
+                Charisma = playerDef.Charisma,
+                Gold = playerDef.InitialGold
+            }
         };
 
 

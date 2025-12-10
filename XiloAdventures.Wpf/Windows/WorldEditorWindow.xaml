@@ -36,6 +36,8 @@
                         Executed="PasteCommand_Executed"/>
         <CommandBinding Command="ApplicationCommands.Save"
                         Executed="SaveCommand_Executed"/>
+        <CommandBinding Command="{x:Static local:WorldEditorWindow.PlayCommand}"
+                        Executed="PlayCommand_Executed"/>
     </Window.CommandBindings>
 
     <Window.InputBindings>
@@ -59,6 +61,9 @@
         <KeyBinding Command="ApplicationCommands.Save"
                 Modifiers="Control"
                 Key="S"/>
+        <KeyBinding Command="{x:Static local:WorldEditorWindow.PlayCommand}"
+                Modifiers="Control"
+                Key="P"/>
     </Window.InputBindings>
 
     <Grid>
@@ -339,7 +344,7 @@
                     <Button x:Name="SaveButton"
                             Style="{StaticResource CommandButtonStyle}"
                             Click="SaveButton_Click"
-                            ToolTip="Guardar mundo"
+                            ToolTip="Guardar mundo (Ctrl+S)"
                             Foreground="#FF8C00">
                         <TextBlock FontFamily="Segoe MDL2 Assets"
                                    VerticalAlignment="Center"
@@ -351,7 +356,7 @@
                     <Button x:Name="PlayButton"
                             Style="{StaticResource CommandButtonStyle}"
                             Click="PlayButton_Click"
-                            ToolTip="Probar mundo (guarda y ejecuta nueva partida)"
+                            ToolTip="Probar mundo (Ctrl+P)"
                             Foreground="LawnGreen">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock FontFamily="Segoe MDL2 Assets"
@@ -374,7 +379,7 @@
                     <ToggleButton x:Name="ToggleGridButton"
                             Style="{StaticResource ToggleCommandButtonStyle}"
                             Click="ToggleGridButton_Click"
-                            ToolTip="Mostrar/Ocultar grid"
+                            ToolTip="Mostrar/Ocultar grid (G)"
                             Margin="20,4,6,0">
                         <TextBlock FontFamily="Segoe MDL2 Assets"
                                    Text="&#xE80A;"
@@ -387,7 +392,7 @@
                     <ToggleButton x:Name="ToggleSnapButton"
                             Style="{StaticResource ToggleCommandButtonStyle}"
                             Click="ToggleSnapButton_Click"
-                            ToolTip="Snap to grid"
+                            ToolTip="Snap to grid (H)"
                             Margin="0,4,20,0">
                         <TextBlock FontFamily="Segoe MDL2 Assets"
                                    Text="&#xE7C1;"

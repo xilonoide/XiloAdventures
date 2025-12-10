@@ -24,6 +24,7 @@ public partial class WorldEditorWindow : Window
 {
     public static RoutedCommand ToggleGridCommand = new RoutedCommand();
     public static RoutedCommand ToggleSnapCommand = new RoutedCommand();
+    public static RoutedCommand PlayCommand = new RoutedCommand();
 
     private WorldModel _world = new();
     private string? _currentPath;
@@ -46,6 +47,7 @@ public partial class WorldEditorWindow : Window
         InitializeComponent();
         _baseTitle = Title ?? "Editor de mundos";
         PropertyEditor.PropertyEdited += PropertyEditor_PropertyEdited;
+        PropertyEditor.RequestDeleteObject += PropertyEditor_RequestDeleteObject;
         PropertyEditor.GetRooms = () => _world.Rooms;
         PropertyEditor.GetMusics = () => _world.Musics;
         PropertyEditor.GetObjects = () => _world.Objects;
@@ -94,6 +96,7 @@ public partial class WorldEditorWindow : Window
                 _world.Game.Id = "nuevo_mundo";
                 _world.Game.Title = "Nuevo mundo";
                 _world.Game.StartRoomId = "sala_inicio";
+                _world.ShowGrid = true; // Grid activado por defecto en mundos nuevos
 
                 _world.Rooms.Clear();
                 startRoom = new Room
@@ -103,6 +106,10 @@ public partial class WorldEditorWindow : Window
                     Description = "Esta es la sala inicial de tu mundo."
                 };
                 _world.Rooms.Add(startRoom);
+
+                // Posición ajustada al grid (centro de la primera celda: 80, 45)
+                _world.RoomPositions["sala_inicio"] = new MapPosition { X = 80, Y = 45 };
+
                 _currentPath = null;
                 isNewWorld = true;
             }
@@ -781,7 +788,6 @@ public partial class WorldEditorWindow : Window
         if (room != null)
         {
             MapPanel.CenterOnRoom(room);
-            SelectRoomInTree(room);
         }
     }
 
@@ -818,7 +824,6 @@ public partial class WorldEditorWindow : Window
         if (room != null)
         {
             MapPanel.CenterOnRoom(room);
-            SelectRoomInTree(room);
         }
     }
 
@@ -938,6 +943,7 @@ public partial class WorldEditorWindow : Window
         _world.Game.Id = "nuevo_mundo";
         _world.Game.Title = "Nuevo mundo";
         _world.Game.StartRoomId = "sala_inicio";
+        _world.ShowGrid = true; // Grid activado por defecto en mundos nuevos
 
         var startRoom = new Room
         {
@@ -947,10 +953,19 @@ public partial class WorldEditorWindow : Window
         };
         _world.Rooms.Add(startRoom);
 
+        // Posición ajustada al grid (centro de la primera celda: 80, 45)
+        _world.RoomPositions["sala_inicio"] = new MapPosition { X = 80, Y = 45 };
+
         _currentPath = null;
         MapPanel.SetWorld(_world);
         BuildTree();
         ResetUndoRedo();
+
+        // Sincronizar estado visual del grid
+        MapPanel.SetGridVisibility(_world.ShowGrid);
+        MapPanel.SetSnapToGrid(_world.SnapToGrid);
+        ToggleGridButton.IsChecked = _world.ShowGrid;
+        ToggleSnapButton.IsChecked = _world.SnapToGrid;
 
         // Centrar el mapa en la sala inicial
         MapPanel.CenterOnRoom(startRoom);
@@ -1137,6 +1152,9 @@ public partial class WorldEditorWindow : Window
                 Owner = this
             };
 
+            // Ocultar el loading antes de mostrar la ventana del jugador
+            HidePlayLoading();
+
             // Mostramos la ventana de juego como diálogo modal para no abrir varios tests a la vez.
             main.ShowDialog();
         }
@@ -1215,6 +1233,12 @@ public partial class WorldEditorWindow : Window
             return false;
         }
 
+        // Validar y corregir dinero inicial si es negativo
+        if (_world.Player.InitialGold < 0)
+        {
+            _world.Player.InitialGold = 0;
+        }
+
         return true;
     }
 
@@ -1245,6 +1269,40 @@ public partial class WorldEditorWindow : Window
         }
     }
 
+    /// <summary>
+    /// Valida que todas las puertas con cerradura tengan una llave asignada.
+    /// Retorna true si es válido, false si no lo es.
+    /// </summary>
+    private bool ValidateDoorKeys()
+    {
+        if (_world?.Doors == null)
+            return true;
+
+        var doorsWithoutKey = _world.Doors
+            .Where(d => d.IsLocked && string.IsNullOrWhiteSpace(d.KeyObjectId))
+            .ToList();
+
+        if (doorsWithoutKey.Count > 0)
+        {
+            var doorNames = string.Join("\n• ", doorsWithoutKey.Select(d =>
+                string.IsNullOrWhiteSpace(d.Name) ? d.Id : d.Name));
+
+            new AlertWindow(
+                $"Las siguientes puertas tienen cerradura pero no tienen llave asignada:\n\n• {doorNames}\n\nAsigna una llave o desactiva la cerradura.",
+                "Puertas sin llave")
+            {
+                Owner = this
+            }.ShowDialog();
+
+            // Seleccionar la primera puerta sin llave
+            SelectDoorInTree(doorsWithoutKey[0]);
+            PropertyEditor.SetObject(doorsWithoutKey[0]);
+            return false;
+        }
+
+        return true;
+    }
+
     private async void SaveMenu_Click(object sender, RoutedEventArgs e)
     {
         await PerformSaveAsync();
@@ -1269,12 +1327,19 @@ public partial class WorldEditorWindow : Window
             return false; // No sabemos si el usuario guardó o canceló
         }
 
+        // Aplicar validaciones pendientes del PropertyEditor antes de guardar
+        PropertyEditor.ApplyPendingValidations();
+
         // Validar clave de encriptación
         if (!ValidateEncryptionKey())
             return false;
 
         // Validar características del jugador
         if (!ValidatePlayerAttributes())
+            return false;
+
+        // Validar puertas con cerradura tengan llave asignada
+        if (!ValidateDoorKeys())
             return false;
 
         ShowPlayLoading("Guardando mundo...");
@@ -1330,10 +1395,16 @@ public partial class WorldEditorWindow : Window
 
     private void SaveAsMenu_Click(object sender, RoutedEventArgs e)
     {
+        // Aplicar validaciones pendientes del PropertyEditor antes de guardar
+        PropertyEditor.ApplyPendingValidations();
+
         if (!ValidateEncryptionKey())
             return;
 
         if (!ValidatePlayerAttributes())
+            return;
+
+        if (!ValidateDoorKeys())
             return;
 
         var dlg = new SaveFileDialog
@@ -1354,6 +1425,11 @@ public partial class WorldEditorWindow : Window
     private void SaveCommand_Executed(object sender, ExecutedRoutedEventArgs e)
     {
         SaveMenu_Click(sender, e);
+    }
+
+    private void PlayCommand_Executed(object sender, ExecutedRoutedEventArgs e)
+    {
+        PlayButton_Click(sender, e);
     }
 
     private void CloseMenu_Click(object sender, RoutedEventArgs e)
@@ -1713,6 +1789,24 @@ public partial class WorldEditorWindow : Window
         PushUndoSnapshot();
         SetDirty(true);
 
+    }
+
+    /// <summary>
+    /// Elimina un objeto por su ID sin pedir confirmación (usada desde PropertyEditor).
+    /// </summary>
+    private void PropertyEditor_RequestDeleteObject(string objectId)
+    {
+        if (string.IsNullOrEmpty(objectId)) return;
+
+        var obj = _world.Objects.FirstOrDefault(o => o.Id == objectId);
+        if (obj == null) return;
+
+        WorldEditorHelpers.DeleteObject(_world, obj);
+
+        BuildTree();
+        MapPanel.SetWorld(_world);
+        PushUndoSnapshot();
+        SetDirty(true);
     }
 
     private void DeleteDoor(Door door)
@@ -2299,6 +2393,29 @@ public partial class WorldEditorWindow : Window
     {
         _isDirty = dirty;
         UpdateWindowTitle();
+        UpdateSaveButtonAppearance();
+    }
+
+    private void UpdateSaveButtonAppearance()
+    {
+        // Cuando NO hay cambios: botón se ve "pulsado" (más oscuro)
+        // Cuando HAY cambios: botón se ve normal (más claro)
+        if (_isDirty)
+        {
+            // Hay cambios: estilo normal
+            SaveButton.Background = new System.Windows.Media.SolidColorBrush(
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#3A3A3A"));
+            SaveButton.BorderBrush = new System.Windows.Media.SolidColorBrush(
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#4A4A4A"));
+        }
+        else
+        {
+            // No hay cambios: estilo "pulsado" (más oscuro/hundido)
+            SaveButton.Background = new System.Windows.Media.SolidColorBrush(
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#2A2A2A"));
+            SaveButton.BorderBrush = new System.Windows.Media.SolidColorBrush(
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#1A1A1A"));
+        }
     }
 
     private void UpdateWindowTitle()
