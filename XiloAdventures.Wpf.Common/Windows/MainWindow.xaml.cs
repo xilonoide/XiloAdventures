@@ -124,25 +124,22 @@ public partial class MainWindow : Window
             var result = _engine.ProcessCommand(cmd);
             string? llmAnswer = null;
 
-            if (_uiSettings.UseLlmForUnknownCommands)
+            // Si hubo error y la IA está activada, consultar a la IA
+            if (_uiSettings.UseLlmForUnknownCommands && result.HasError)
             {
-                var trimmed = (result ?? string.Empty).Trim();
-                if (ShouldAskLlm(trimmed))
+                ShowLlmProgress(cmd);
+                try
                 {
-                    ShowLlmProgress(cmd);
-                    try
-                    {
-                        llmAnswer = await TryAskLlmForUnknownCommandAsync(cmd);
-                    }
-                    finally
-                    {
-                        HideLlmProgress();
-                    }
+                    llmAnswer = await TryAskLlmForUnknownCommandAsync(cmd);
+                }
+                finally
+                {
+                    HideLlmProgress();
                 }
             }
 
-            if (!string.IsNullOrWhiteSpace(result) && llmAnswer == null)
-                AppendText(result);
+            if (!string.IsNullOrWhiteSpace(result.Message) && llmAnswer == null)
+                AppendText(result.Message);
 
             if (!string.IsNullOrWhiteSpace(llmAnswer))
                 AppendText(llmAnswer);
@@ -261,35 +258,6 @@ public partial class MainWindow : Window
             }.ShowDialog();
             return null;
         }
-    }
-
-    /// <summary>
-    /// Determina si se debe consultar a la IA basándose en la respuesta del motor.
-    /// </summary>
-    private static bool ShouldAskLlm(string engineResponse)
-    {
-        if (string.IsNullOrWhiteSpace(engineResponse))
-            return false;
-
-        var lower = engineResponse.ToLowerInvariant();
-
-        // Mensajes que indican que el parser no entendió el comando
-        var unknownPatterns = new[]
-        {
-            "no entiendo ese comando",
-            "no ves eso por aquí",
-            "no hay ninguna puerta así",
-            "no hay ningún contenedor con ese nombre",
-            "aquí no hay ninguna puerta",
-        };
-
-        foreach (var pattern in unknownPatterns)
-        {
-            if (lower.Contains(pattern))
-                return true;
-        }
-
-        return false;
     }
 
     private string BuildLlmPrompt(string originalCommand)

@@ -327,12 +327,12 @@ public class GameEngine
     /// Processes a player command and returns the result text.
     /// </summary>
     /// <param name="input">The raw command string entered by the player.</param>
-    /// <returns>The response text to display to the player.</returns>
+    /// <returns>CommandResult con el mensaje para mostrar al jugador y si fue exitoso.</returns>
     /// <remarks>
     /// Supported commands: look, go, open, close, take, drop, talk, use, give,
     /// quests, save, load, help, and inventory.
     /// </remarks>
-    public string ProcessCommand(string input)
+    public CommandResult ProcessCommand(string input)
     {
         _state.TurnCounter++;
         UpdateGameTimeFromReal();
@@ -341,119 +341,47 @@ public class GameEngine
         var commands = SplitCompoundCommand(input);
         if (commands.Count > 1)
         {
-            var results = new StringBuilder();
+            var results = new List<CommandResult>();
             foreach (var cmd in commands)
             {
-                var result = ProcessSingleCommand(cmd);
-                if (!string.IsNullOrWhiteSpace(result))
-                {
-                    results.AppendLine(result.TrimEnd());
-                }
+                results.Add(ProcessSingleCommand(cmd));
             }
-            return results.ToString().TrimEnd();
+            return CommandResult.Combine(results.ToArray());
         }
 
         return ProcessSingleCommand(input);
     }
 
-    private string ProcessSingleCommand(string input)
+    private CommandResult ProcessSingleCommand(string input)
     {
         var parsed = Parser.Parse(input);
         if (string.IsNullOrEmpty(parsed.Verb))
-            return string.Empty;
+            return CommandResult.Empty;
 
-        var sb = new StringBuilder();
-
-        switch (parsed.Verb)
+        return parsed.Verb switch
         {
-            case "look":
-                sb.AppendLine(DescribeCurrentRoom());
-                break;
-
-            case "examine":
-                sb.AppendLine(HandleExamine(parsed));
-                break;
-
-            case "go":
-                sb.AppendLine(HandleGo(parsed));
-                break;
-
-            case "open":
-                sb.AppendLine(HandleOpen(parsed));
-                break;
-
-            case "close":
-                sb.AppendLine(HandleClose(parsed));
-                break;
-
-            case "unlock":
-                sb.AppendLine(HandleUnlock(parsed));
-                break;
-
-            case "lock":
-                sb.AppendLine(HandleLock(parsed));
-                break;
-
-            case "put":
-                sb.AppendLine(HandlePutIn(parsed));
-                break;
-
-            case "get_from":
-                sb.AppendLine(HandleGetFrom(parsed));
-                break;
-
-            case "look_in":
-                sb.AppendLine(HandleLookIn(parsed));
-                break;
-
-            case "inventory":
-                sb.AppendLine(DescribeInventory());
-                break;
-
-            case "take":
-                sb.AppendLine(HandleTake(parsed));
-                break;
-
-            case "drop":
-                sb.AppendLine(HandleDrop(parsed));
-                break;
-
-            case "talk":
-            case "say":
-            case "option":
-                sb.AppendLine(HandleTalk(parsed));
-                break;
-
-            case "use":
-                sb.AppendLine(HandleUse(parsed));
-                break;
-
-            case "give":
-                sb.AppendLine(HandleGive(parsed));
-                break;
-
-            case "quests":
-                sb.AppendLine(DescribeQuests());
-                break;
-
-            case "save":
-                sb.AppendLine("Usa el menú Archivo -> Guardar partida... para guardar.");
-                break;
-
-            case "load":
-                sb.AppendLine("Usa el menú Archivo -> Cargar partida... para cargar.");
-                break;
-
-            case "help":
-                sb.AppendLine(GetHelpText());
-                break;
-
-            default:
-                sb.AppendLine("No entiendo ese comando.");
-                break;
-        }
-
-        return sb.ToString().TrimEnd();
+            "look" => CommandResult.Success(DescribeCurrentRoom()),
+            "examine" => HandleExamine(parsed),
+            "go" => HandleGo(parsed),
+            "open" => HandleOpen(parsed),
+            "close" => HandleClose(parsed),
+            "unlock" => HandleUnlock(parsed),
+            "lock" => HandleLock(parsed),
+            "put" => HandlePutIn(parsed),
+            "get_from" => HandleGetFrom(parsed),
+            "look_in" => HandleLookIn(parsed),
+            "inventory" => CommandResult.Success(DescribeInventory()),
+            "take" => HandleTake(parsed),
+            "drop" => HandleDrop(parsed),
+            "talk" or "say" or "option" => HandleTalk(parsed),
+            "use" => HandleUse(parsed),
+            "give" => HandleGive(parsed),
+            "quests" => CommandResult.Success(DescribeQuests()),
+            "save" => CommandResult.Success("Usa el menú Archivo -> Guardar partida... para guardar."),
+            "load" => CommandResult.Success("Usa el menú Archivo -> Cargar partida... para cargar."),
+            "help" => CommandResult.Success(GetHelpText()),
+            _ => CommandResult.Error("No entiendo ese comando.")
+        };
     }
 
     /// <summary>
@@ -784,17 +712,17 @@ public class GameEngine
     /// Soporta movimiento bidireccional: busca salidas directas y también permite
     /// regresar por salidas inversas (si hay una sala con salida hacia aquí, se puede volver).
     /// </summary>
-    private string HandleGo(ParsedCommand parsed)
+    private CommandResult HandleGo(ParsedCommand parsed)
     {
         var room = CurrentRoom;
         if (room == null)
-            return "Estás perdido.";
+            return CommandResult.Error("Estás perdido.");
 
         var dir = parsed.DirectObject ?? string.Empty;
         dir = dir.ToLowerInvariant();
 
         if (string.IsNullOrEmpty(dir))
-            return "¿Hacia dónde quieres ir?";
+            return CommandResult.Error("¿Hacia dónde quieres ir?");
 
         var normalizedRequested = NormalizeDirection(dir);
 
@@ -850,24 +778,24 @@ public class GameEngine
         }
 
         if (exit == null || targetRoom == null)
-            return "No puedes ir en esa dirección.";
+            return CommandResult.Error("No puedes ir en esa dirección.");
 
         // Si la salida está asociada a una puerta, usamos el estado de la puerta.
         if (!string.IsNullOrEmpty(exit.DoorId))
         {
             var door = _state.Doors.FirstOrDefault(d => d.Id.Equals(exit.DoorId, StringComparison.OrdinalIgnoreCase));
             if (door != null && !door.IsOpen)
-                return "La puerta está cerrada.";
+                return CommandResult.Error("La puerta está cerrada.");
         }
         else if (exit.IsLocked)
         {
-            return "La salida está bloqueada.";
+            return CommandResult.Error("La salida está bloqueada.");
         }
 
         _state.CurrentRoomId = targetRoom.Id;
         WorldLoader.RebuildRoomIndexes(_state); // por si algún script ha cambiado cosas
         OnRoomChanged();
-        return DescribeCurrentRoom();
+        return CommandResult.Success(DescribeCurrentRoom());
     }
 
 
@@ -884,15 +812,15 @@ public class GameEngine
             d.Name.Contains(arg, StringComparison.OrdinalIgnoreCase));
     }
 
-    private string HandleOpen(ParsedCommand parsed)
+    private CommandResult HandleOpen(ParsedCommand parsed)
     {
         var room = CurrentRoom;
         if (room == null)
-            return "Estás perdido.";
+            return CommandResult.Error("Estás perdido.");
 
         var arg = (parsed.DirectObject ?? string.Empty).Trim();
         if (string.IsNullOrEmpty(arg))
-            return "¿Qué quieres abrir?";
+            return CommandResult.Error("¿Qué quieres abrir?");
 
         // Primero intentar con objetos contenedores
         var obj = FindObjectInRoomOrInventory(room, arg);
@@ -901,50 +829,49 @@ public class GameEngine
             if (CanOpenContainer(obj, out string message))
             {
                 obj.IsOpen = true;
-                return $"Abres {Low(obj.Name)}.";
+                return CommandResult.Success($"Abres {Low(obj.Name)}.");
             }
-            return message;
+            return CommandResult.Error(message);
         }
 
         // Buscar puerta
         var (door, errorMsg) = FindDoorByArgument(room, arg);
         if (door == null)
-            return errorMsg ?? "Aquí no hay ninguna puerta así.";
+            return CommandResult.Error(errorMsg ?? "Aquí no hay ninguna puerta así.");
 
         // Solo los objetos del inventario sirven como llaves
         var result = _doorService.TryOpenDoor(door.Id, room.Id, _state.InventoryObjectIds);
 
-        switch (result.MessageKey)
+        return result.MessageKey switch
         {
-            case "door_wrong_side":
-                return "No puedes abrir la puerta desde este lado.";
-            case "door_requires_key":
-                return "La puerta está cerrada con llave.";
-            case "door_already_open":
-                return "La puerta ya está abierta.";
-            case "door_opened":
-                if (!string.IsNullOrWhiteSpace(door.KeyObjectId))
-                {
-                    var keyObj = FindObjectById(door.KeyObjectId);
-                    if (keyObj != null)
-                        return $"Abres {Low(door.Name)} con {Low(keyObj.Name)}.";
-                }
-                return $"Abres {Low(door.Name)}.";
-            case "door_not_found":
-            default:
-                return "Aquí no hay ninguna puerta así.";
-        }
+            "door_wrong_side" => CommandResult.Error("No puedes abrir la puerta desde este lado."),
+            "door_requires_key" => CommandResult.Error("La puerta está cerrada con llave."),
+            "door_already_open" => CommandResult.Error("La puerta ya está abierta."),
+            "door_opened" => CommandResult.Success(GetDoorOpenedMessage(door)),
+            _ => CommandResult.Error("Aquí no hay ninguna puerta así.")
+        };
     }
 
-    private string HandleClose(ParsedCommand parsed)
+    private string GetDoorOpenedMessage(Door door)
+    {
+        if (!string.IsNullOrWhiteSpace(door.KeyObjectId))
+        {
+            var keyObj = FindObjectById(door.KeyObjectId);
+            if (keyObj != null)
+                return $"Abres {Low(door.Name)} con {Low(keyObj.Name)}.";
+        }
+        return $"Abres {Low(door.Name)}.";
+    }
+
+    private CommandResult HandleClose(ParsedCommand parsed)
     {
         var room = CurrentRoom;
         if (room == null)
-            return "Estás perdido.";
+            return CommandResult.Error("Estás perdido.");
 
         var arg = (parsed.DirectObject ?? string.Empty).Trim();
         if (string.IsNullOrEmpty(arg))
-            return "¿Qué quieres cerrar?";
+            return CommandResult.Error("¿Qué quieres cerrar?");
 
         // Primero intentar con objetos contenedores
         var obj = FindObjectInRoomOrInventory(room, arg);
@@ -953,39 +880,38 @@ public class GameEngine
             if (CanCloseContainer(obj, out string message))
             {
                 obj.IsOpen = false;
-                return $"Cierras {Low(obj.Name)}.";
+                return CommandResult.Success($"Cierras {Low(obj.Name)}.");
             }
-            return message;
+            return CommandResult.Error(message);
         }
 
         // Buscar puerta
         var (door, errorMsg) = FindDoorByArgument(room, arg);
         if (door == null)
-            return errorMsg ?? "Aquí no hay ninguna puerta así.";
+            return CommandResult.Error(errorMsg ?? "Aquí no hay ninguna puerta así.");
 
         // Solo los objetos del inventario sirven como llaves
         var result = _doorService.TryCloseDoor(door.Id, room.Id, _state.InventoryObjectIds);
 
-        switch (result.MessageKey)
+        return result.MessageKey switch
         {
-            case "door_wrong_side":
-                return "No puedes cerrar la puerta desde este lado.";
-            case "door_requires_key":
-                return "No tienes la llave necesaria para cerrar esta puerta.";
-            case "door_already_closed":
-                return "La puerta ya está cerrada.";
-            case "door_closed":
-                if (!string.IsNullOrWhiteSpace(door.KeyObjectId))
-                {
-                    var keyObj = FindObjectById(door.KeyObjectId);
-                    if (keyObj != null)
-                        return $"Cierras {Low(door.Name)} con {Low(keyObj.Name)}.";
-                }
-                return $"Cierras {Low(door.Name)}.";
-            case "door_not_found":
-            default:
-                return "Aquí no hay ninguna puerta así.";
+            "door_wrong_side" => CommandResult.Error("No puedes cerrar la puerta desde este lado."),
+            "door_requires_key" => CommandResult.Error("No tienes la llave necesaria para cerrar esta puerta."),
+            "door_already_closed" => CommandResult.Error("La puerta ya está cerrada."),
+            "door_closed" => CommandResult.Success(GetDoorClosedMessage(door)),
+            _ => CommandResult.Error("Aquí no hay ninguna puerta así.")
+        };
+    }
+
+    private string GetDoorClosedMessage(Door door)
+    {
+        if (!string.IsNullOrWhiteSpace(door.KeyObjectId))
+        {
+            var keyObj = FindObjectById(door.KeyObjectId);
+            if (keyObj != null)
+                return $"Cierras {Low(door.Name)} con {Low(keyObj.Name)}.";
         }
+        return $"Cierras {Low(door.Name)}.";
     }
 
     /// <summary>
@@ -1156,19 +1082,19 @@ public class GameEngine
         return result;
     }
 
-    private string HandleUnlock(ParsedCommand parsed)
+    private CommandResult HandleUnlock(ParsedCommand parsed)
     {
         var room = CurrentRoom;
         if (room == null)
-            return "Estás perdido.";
+            return CommandResult.Error("Estás perdido.");
 
         var arg = (parsed.DirectObject ?? string.Empty).Trim();
         if (string.IsNullOrEmpty(arg))
-            return "¿Qué quieres desbloquear?";
+            return CommandResult.Error("¿Qué quieres desbloquear?");
 
         var obj = FindObjectInRoomOrInventory(room, arg);
         if (obj == null || !obj.IsContainer)
-            return "No hay ningún contenedor con ese nombre.";
+            return CommandResult.Error("No hay ningún contenedor con ese nombre.");
 
         // Buscar la llave en el inventario
         var key = _state.InventoryObjectIds
@@ -1178,31 +1104,31 @@ public class GameEngine
         if (CanUnlockContainer(obj, key?.Id, out string message))
         {
             obj.IsLocked = false;
-            return $"Desbloqueas {Low(obj.Name)} con {Low(key?.Name ?? "")}.";
+            return CommandResult.Success($"Desbloqueas {Low(obj.Name)} con {Low(key?.Name ?? "")}.");
         }
 
-        return message;
+        return CommandResult.Error(message);
     }
 
-    private string HandleLock(ParsedCommand parsed)
+    private CommandResult HandleLock(ParsedCommand parsed)
     {
         var room = CurrentRoom;
         if (room == null)
-            return "Estás perdido.";
+            return CommandResult.Error("Estás perdido.");
 
         var arg = (parsed.DirectObject ?? string.Empty).Trim();
         if (string.IsNullOrEmpty(arg))
-            return "¿Qué quieres bloquear?";
+            return CommandResult.Error("¿Qué quieres bloquear?");
 
         var obj = FindObjectInRoomOrInventory(room, arg);
         if (obj == null || !obj.IsContainer)
-            return "No hay ningún contenedor con ese nombre.";
+            return CommandResult.Error("No hay ningún contenedor con ese nombre.");
 
         if (obj.IsLocked)
-            return $"{Cap(obj.Name)} ya está bloqueado.";
+            return CommandResult.Error($"{Cap(obj.Name)} ya está bloqueado.");
 
         if (string.IsNullOrWhiteSpace(obj.KeyId))
-            return $"{Cap(obj.Name)} no tiene cerradura.";
+            return CommandResult.Error($"{Cap(obj.Name)} no tiene cerradura.");
 
         // Buscar la llave en el inventario
         var key = _state.InventoryObjectIds
@@ -1210,48 +1136,48 @@ public class GameEngine
             .FirstOrDefault(k => k != null && k.Id == obj.KeyId);
 
         if (key == null)
-            return "No tienes la llave adecuada.";
+            return CommandResult.Error("No tienes la llave adecuada.");
 
         obj.IsLocked = true;
-        return $"Bloqueas {Low(obj.Name)} con {Low(key.Name)}.";
+        return CommandResult.Success($"Bloqueas {Low(obj.Name)} con {Low(key.Name)}.");
     }
 
-    private string HandlePutIn(ParsedCommand parsed)
+    private CommandResult HandlePutIn(ParsedCommand parsed)
     {
         var room = CurrentRoom;
         if (room == null)
-            return "Estás perdido.";
+            return CommandResult.Error("Estás perdido.");
 
         // Necesitamos parsear "meter X en Y" - DirectObject es X, Preposition + IndirectObject es "en Y"
         var objectName = (parsed.DirectObject ?? string.Empty).Trim();
         var containerName = (parsed.IndirectObject ?? string.Empty).Trim();
 
         if (string.IsNullOrEmpty(objectName))
-            return "¿Qué quieres meter?";
+            return CommandResult.Error("¿Qué quieres meter?");
 
         if (string.IsNullOrEmpty(containerName))
-            return "¿Dónde quieres meterlo?";
+            return CommandResult.Error("¿Dónde quieres meterlo?");
 
         // Buscar el objeto a meter (puede estar en el inventario o en la sala)
         var objToInsert = FindObjectInRoomOrInventory(room, objectName);
 
         if (objToInsert == null)
-            return "No ves ese objeto por aquí.";
+            return CommandResult.Error("No ves ese objeto por aquí.");
 
         // Verificar que el objeto está en inventario o en la sala (no en otro contenedor)
         var isInInventory = _state.InventoryObjectIds.Contains(objToInsert.Id);
         var isInRoom = string.Equals(objToInsert.RoomId, room.Id, StringComparison.OrdinalIgnoreCase);
 
         if (!isInInventory && !isInRoom)
-            return "No puedes coger ese objeto.";
+            return CommandResult.Error("No puedes coger ese objeto.");
 
         // Buscar el contenedor
         var container = FindObjectInRoomOrInventory(room, containerName);
         if (container == null || !container.IsContainer)
-            return "No hay ningún contenedor con ese nombre.";
+            return CommandResult.Error("No hay ningún contenedor con ese nombre.");
 
         if (container.IsOpenable && !container.IsOpen)
-            return $"{Cap(container.Name)} está cerrado.";
+            return CommandResult.Error($"{Cap(container.Name)} está cerrado.");
 
         // Verificar capacidad por volumen
         if (container.MaxCapacity > 0)
@@ -1262,7 +1188,7 @@ public class GameEngine
                 .Sum(o => o!.Volume);
 
             if (currentVolume + objToInsert.Volume > container.MaxCapacity)
-                return $"{Cap(objToInsert.Name)} no cabe en {Low(container.Name)}.";
+                return CommandResult.Error($"{Cap(objToInsert.Name)} no cabe en {Low(container.Name)}.");
         }
 
         // Mover el objeto al contenedor (desde inventario o sala)
@@ -1272,31 +1198,31 @@ public class GameEngine
         container.ContainedObjectIds.Add(objToInsert.Id);
         objToInsert.RoomId = null; // El objeto ya no está en una sala
 
-        return $"Metes {Low(objToInsert.Name)} en {Low(container.Name)}.";
+        return CommandResult.Success($"Metes {Low(objToInsert.Name)} en {Low(container.Name)}.");
     }
 
-    private string HandleGetFrom(ParsedCommand parsed)
+    private CommandResult HandleGetFrom(ParsedCommand parsed)
     {
         var room = CurrentRoom;
         if (room == null)
-            return "Estás perdido.";
+            return CommandResult.Error("Estás perdido.");
 
         var objectName = (parsed.DirectObject ?? string.Empty).Trim();
         var containerName = (parsed.IndirectObject ?? string.Empty).Trim();
 
         if (string.IsNullOrEmpty(objectName))
-            return "¿Qué quieres sacar?";
+            return CommandResult.Error("¿Qué quieres sacar?");
 
         if (string.IsNullOrEmpty(containerName))
-            return "¿De dónde quieres sacarlo?";
+            return CommandResult.Error("¿De dónde quieres sacarlo?");
 
         // Buscar el contenedor
         var container = FindObjectInRoomOrInventory(room, containerName);
         if (container == null || !container.IsContainer)
-            return "No hay ningún contenedor con ese nombre.";
+            return CommandResult.Error("No hay ningún contenedor con ese nombre.");
 
         if (container.IsOpenable && !container.IsOpen && !container.ContentsVisible)
-            return $"{Cap(container.Name)} está cerrado.";
+            return CommandResult.Error($"{Cap(container.Name)} está cerrado.");
 
         // Buscar el objeto dentro del contenedor
         var objToExtract = container.ContainedObjectIds
@@ -1304,34 +1230,34 @@ public class GameEngine
             .FirstOrDefault(o => o != null && o.Name.Contains(objectName, StringComparison.OrdinalIgnoreCase));
 
         if (objToExtract == null)
-            return $"No hay ningún {objectName} en {Low(container.Name)}.";
+            return CommandResult.Error($"No hay ningún {objectName} en {Low(container.Name)}.");
 
         // Mover el objeto del contenedor a la sala
         container.ContainedObjectIds.Remove(objToExtract.Id);
         objToExtract.RoomId = room.Id;
 
-        return $"Sacas {Low(objToExtract.Name)} de {Low(container.Name)}.";
+        return CommandResult.Success($"Sacas {Low(objToExtract.Name)} de {Low(container.Name)}.");
     }
 
-    private string HandleLookIn(ParsedCommand parsed)
+    private CommandResult HandleLookIn(ParsedCommand parsed)
     {
         var room = CurrentRoom;
         if (room == null)
-            return "Estás perdido.";
+            return CommandResult.Error("Estás perdido.");
 
         var containerName = (parsed.DirectObject ?? string.Empty).Trim();
         if (string.IsNullOrEmpty(containerName))
-            return "¿Qué quieres mirar?";
+            return CommandResult.Error("¿Qué quieres mirar?");
 
         var container = FindObjectInRoomOrInventory(room, containerName);
         if (container == null || !container.IsContainer)
-            return "No hay ningún contenedor con ese nombre.";
+            return CommandResult.Error("No hay ningún contenedor con ese nombre.");
 
         if (container.IsOpenable && !container.IsOpen && !container.ContentsVisible)
-            return $"{Cap(container.Name)} está cerrado y no puedes ver su interior.";
+            return CommandResult.Error($"{Cap(container.Name)} está cerrado y no puedes ver su interior.");
 
         if (container.ContainedObjectIds.Count == 0)
-            return $"{Cap(container.Name)} está vacío.";
+            return CommandResult.Success($"{Cap(container.Name)} está vacío.");
 
         var sb = new StringBuilder();
         sb.AppendLine($"Dentro de {Low(container.Name)} ves:");
@@ -1343,18 +1269,18 @@ public class GameEngine
                 sb.AppendLine($"- {Cap(obj.Name)}");
         }
 
-        return sb.ToString().TrimEnd();
+        return CommandResult.Success(sb.ToString().TrimEnd());
     }
 
-    private string HandleExamine(ParsedCommand parsed)
+    private CommandResult HandleExamine(ParsedCommand parsed)
     {
         var room = CurrentRoom;
         if (room == null)
-            return "Estás perdido.";
+            return CommandResult.Error("Estás perdido.");
 
         var target = (parsed.DirectObject ?? string.Empty).Trim();
         if (string.IsNullOrEmpty(target))
-            return "¿Qué quieres examinar?";
+            return CommandResult.Error("¿Qué quieres examinar?");
 
         // Buscar objeto en la sala o inventario
         var obj = FindObjectInRoomOrInventory(room, target);
@@ -1400,7 +1326,7 @@ public class GameEngine
                 }
             }
 
-            return sb.ToString();
+            return CommandResult.Success(sb.ToString());
         }
 
         // Buscar NPC en la sala
@@ -1411,8 +1337,8 @@ public class GameEngine
         if (npc != null)
         {
             if (!string.IsNullOrWhiteSpace(npc.Description))
-                return npc.Description;
-            return $"No ves nada especial en {Low(npc.Name)}.";
+                return CommandResult.Success(npc.Description);
+            return CommandResult.Success($"No ves nada especial en {Low(npc.Name)}.");
         }
 
         // Buscar puerta en la sala
@@ -1430,23 +1356,23 @@ public class GameEngine
             if (door.IsLocked && !door.IsOpen)
                 sb.Append(" Parece que necesita una llave.");
 
-            return sb.ToString();
+            return CommandResult.Success(sb.ToString());
         }
 
-        return "No ves eso por aquí.";
+        return CommandResult.Error("No ves eso por aquí.");
     }
 
-    private string HandleTake(ParsedCommand parsed)
+    private CommandResult HandleTake(ParsedCommand parsed)
     {
         var room = CurrentRoom;
         if (room == null)
-            return "No estás en ninguna parte.";
+            return CommandResult.Error("No estás en ninguna parte.");
 
         var arg = parsed.DirectObject ?? string.Empty;
         arg = arg.ToLowerInvariant();
 
         if (string.IsNullOrEmpty(arg))
-            return "¿Qué quieres coger?";
+            return CommandResult.Error("¿Qué quieres coger?");
 
         if (arg.StartsWith("todo"))
         {
@@ -1455,20 +1381,20 @@ public class GameEngine
 
         var obj = FindVisibleObjectInRoom(room, arg);
         if (obj == null)
-            return "No ves eso aquí.";
+            return CommandResult.Error("No ves eso aquí.");
 
         if (!obj.CanTake)
-            return "No puedes coger eso.";
+            return CommandResult.Error("No puedes coger eso.");
 
         if (!_state.InventoryObjectIds.Contains(obj.Id))
             _state.InventoryObjectIds.Add(obj.Id);
 
         room.ObjectIds.RemoveAll(id => id.Equals(obj.Id, StringComparison.OrdinalIgnoreCase));
 
-        return $"Coges {Low(obj.Name)}.";
+        return CommandResult.Success($"Coges {Low(obj.Name)}.");
     }
 
-    private string HandleTakeAll(string arg, Room room)
+    private CommandResult HandleTakeAll(string arg, Room room)
     {
         var exceptName = string.Empty;
 
@@ -1482,7 +1408,7 @@ public class GameEngine
             .ToList();
 
         if (!visibleObjs.Any())
-            return "No hay nada que puedas coger.";
+            return CommandResult.Error("No hay nada que puedas coger.");
 
         var sb = new StringBuilder();
 
@@ -1502,29 +1428,29 @@ public class GameEngine
         }
 
         if (sb.Length == 0)
-            sb.AppendLine("No coges nada.");
+            return CommandResult.Error("No coges nada.");
 
-        return sb.ToString().TrimEnd();
+        return CommandResult.Success(sb.ToString().TrimEnd());
     }
 
-    private string HandleDrop(ParsedCommand parsed)
+    private CommandResult HandleDrop(ParsedCommand parsed)
     {
         var room = CurrentRoom;
         if (room == null)
-            return "No estás en ninguna parte.";
+            return CommandResult.Error("No estás en ninguna parte.");
 
         var arg = parsed.DirectObject ?? string.Empty;
         arg = arg.ToLowerInvariant();
 
         if (string.IsNullOrEmpty(arg))
-            return "¿Qué quieres soltar?";
+            return CommandResult.Error("¿Qué quieres soltar?");
 
         var obj = _state.InventoryObjectIds
             .Select(FindObjectById)
             .FirstOrDefault(o => o != null && o.Name.Contains(arg, StringComparison.OrdinalIgnoreCase));
 
         if (obj == null)
-            return "No llevas eso.";
+            return CommandResult.Error("No llevas eso.");
 
         _state.InventoryObjectIds.RemoveAll(id => id.Equals(obj.Id, StringComparison.OrdinalIgnoreCase));
         if (!room.ObjectIds.Contains(obj.Id))
@@ -1532,29 +1458,29 @@ public class GameEngine
 
         obj.RoomId = room.Id;
 
-        return $"Sueltas {Low(obj.Name)}.";
+        return CommandResult.Success($"Sueltas {Low(obj.Name)}.");
     }
 
-    private string HandleTalk(ParsedCommand parsed)
+    private CommandResult HandleTalk(ParsedCommand parsed)
     {
         var room = CurrentRoom;
         if (room == null)
-            return "No estás en ninguna parte.";
+            return CommandResult.Error("No estás en ninguna parte.");
 
         var arg = parsed.DirectObject ?? string.Empty;
 
         if (string.IsNullOrEmpty(arg))
-            return "¿Con quién quieres hablar?";
+            return CommandResult.Error("¿Con quién quieres hablar?");
 
         var npc = _state.Npcs
             .Where(n => n.Visible && room.NpcIds.Contains(n.Id, StringComparer.OrdinalIgnoreCase))
             .FirstOrDefault(n => n.Name.Contains(arg, StringComparison.OrdinalIgnoreCase));
 
         if (npc == null)
-            return "No ves a esa persona aquí.";
+            return CommandResult.Error("No ves a esa persona aquí.");
 
         if (npc.Dialogue == null || npc.Dialogue.Count == 0)
-            return $"{Cap(npc.Name)} no tiene nada que decir.";
+            return CommandResult.Success($"{Cap(npc.Name)} no tiene nada que decir.");
 
         var sb = new StringBuilder();
         sb.AppendLine($"Hablas con {Low(npc.Name)}:");
@@ -1564,26 +1490,26 @@ public class GameEngine
         }
         sb.AppendLine("Puedes usar 'decir <n>' u 'opcion <n>' para elegir.");
 
-        return sb.ToString().TrimEnd();
+        return CommandResult.Success(sb.ToString().TrimEnd());
     }
 
-    private string HandleUse(ParsedCommand parsed)
+    private CommandResult HandleUse(ParsedCommand parsed)
     {
         var objName = parsed.DirectObject ?? string.Empty;
         if (string.IsNullOrWhiteSpace(objName))
-            return "¿Qué quieres usar?";
+            return CommandResult.Error("¿Qué quieres usar?");
 
         // Uso básico: sólo mostramos un texto.
-        return $"Intentas usar {objName}, pero aún no hay reglas específicas definidas.";
+        return CommandResult.Error($"Intentas usar {objName}, pero aún no hay reglas específicas definidas.");
     }
 
-    private string HandleGive(ParsedCommand parsed)
+    private CommandResult HandleGive(ParsedCommand parsed)
     {
         var objName = parsed.DirectObject ?? string.Empty;
         if (string.IsNullOrWhiteSpace(objName))
-            return "¿Qué quieres dar?";
+            return CommandResult.Error("¿Qué quieres dar?");
 
-        return "El sistema de comercio está definido a nivel de datos, pero aquí sólo mostramos un mensaje básico.";
+        return CommandResult.Error("El sistema de comercio está definido a nivel de datos, pero aquí sólo mostramos un mensaje básico.");
     }
 
     private string DescribeQuests()
