@@ -92,4 +92,199 @@ public class ParserTests
             Parser.SetWorldDictionary(null);
         }
     }
+
+    [Fact]
+    public void Parse_EmptyInput_ReturnsEmptyCommand()
+    {
+        var parsed = Parser.Parse("");
+        Assert.Equal(string.Empty, parsed.Verb);
+        Assert.Null(parsed.DirectObject);
+    }
+
+    [Fact]
+    public void Parse_WhitespaceOnlyInput_ReturnsEmptyCommand()
+    {
+        var parsed = Parser.Parse("   ");
+        Assert.Equal(string.Empty, parsed.Verb);
+        Assert.Null(parsed.DirectObject);
+    }
+
+    [Theory]
+    [InlineData("norte", "n")]
+    [InlineData("sur", "s")]
+    [InlineData("este", "e")]
+    [InlineData("oeste", "o")]
+    [InlineData("arriba", "up")]
+    [InlineData("abajo", "down")]
+    [InlineData("subir", "up")]
+    [InlineData("bajar", "down")]
+    [InlineData("noreste", "ne")]
+    [InlineData("noroeste", "no")]
+    [InlineData("sureste", "se")]
+    [InlineData("suroeste", "so")]
+    public void Parse_DirectionWords_NormalizedCorrectly(string input, string expectedDirection)
+    {
+        var parsed = Parser.Parse(input);
+
+        Assert.Equal("go", parsed.Verb);
+        Assert.Equal(expectedDirection, parsed.DirectObject);
+    }
+
+    [Fact]
+    public void Parse_OpenDoor_ParsesCorrectly()
+    {
+        var parsed = Parser.Parse("abrir puerta");
+
+        Assert.Equal("open", parsed.Verb);
+        Assert.Equal("puerta", parsed.DirectObject);
+    }
+
+    [Fact]
+    public void Parse_CloseDoor_ParsesCorrectly()
+    {
+        var parsed = Parser.Parse("cerrar puerta");
+
+        Assert.Equal("close", parsed.Verb);
+        Assert.Equal("puerta", parsed.DirectObject);
+    }
+
+    [Fact]
+    public void Parse_TakeObject_ParsesCorrectly()
+    {
+        var parsed = Parser.Parse("coger espada");
+
+        Assert.Equal("take", parsed.Verb);
+        Assert.Equal("espada", parsed.DirectObject);
+    }
+
+    [Theory]
+    [InlineData("coger")]
+    [InlineData("toma")]
+    [InlineData("coge")]
+    [InlineData("tomar")]
+    [InlineData("agarrar")]
+    [InlineData("recoger")]
+    public void Parse_TakeSynonyms_AllMapToTake(string verb)
+    {
+        var parsed = Parser.Parse($"{verb} objeto");
+
+        Assert.Equal("take", parsed.Verb);
+        Assert.Equal("objeto", parsed.DirectObject);
+    }
+
+    [Fact]
+    public void Parse_DropObject_ParsesCorrectly()
+    {
+        var parsed = Parser.Parse("soltar espada");
+
+        Assert.Equal("drop", parsed.Verb);
+        Assert.Equal("espada", parsed.DirectObject);
+    }
+
+    [Theory]
+    [InlineData("inventario")]
+    [InlineData("inv")]
+    [InlineData("i")]
+    public void Parse_InventorySynonyms_AllMapToInventory(string verb)
+    {
+        var parsed = Parser.Parse(verb);
+
+        Assert.Equal("inventory", parsed.Verb);
+    }
+
+    [Fact]
+    public void Parse_ArticlesStripped_FromDirectObject()
+    {
+        var parsed = Parser.Parse("coger la espada");
+
+        Assert.Equal("take", parsed.Verb);
+        Assert.Equal("espada", parsed.DirectObject);
+    }
+
+    [Fact]
+    public void Parse_MultipleArticlesStripped_FromDirectObject()
+    {
+        var parsed = Parser.Parse("mirar el viejo libro");
+
+        Assert.Equal("look", parsed.Verb);
+        Assert.Equal("viejo libro", parsed.DirectObject);
+    }
+
+    [Fact]
+    public void Parse_PunctuationStripped_FromInput()
+    {
+        var parsed = Parser.Parse("mirar la espada!");
+
+        Assert.Equal("look", parsed.Verb);
+        Assert.Equal("espada", parsed.DirectObject);
+    }
+
+    [Fact]
+    public void Parse_MultipleSpaces_Normalized()
+    {
+        var parsed = Parser.Parse("coger    la    espada");
+
+        Assert.Equal("take", parsed.Verb);
+        Assert.Equal("espada", parsed.DirectObject);
+    }
+
+    [Fact]
+    public void Parse_LookVerb_ParsesCorrectly()
+    {
+        var parsed = Parser.Parse("mirar");
+
+        Assert.Equal("look", parsed.Verb);
+        Assert.Null(parsed.DirectObject);
+    }
+
+    [Fact]
+    public void Parse_PutObjectIn_ParsesCorrectly()
+    {
+        var parsed = Parser.Parse("meter espada en cofre");
+
+        Assert.Equal("put", parsed.Verb);
+        Assert.Equal("espada", parsed.DirectObject);
+        Assert.Equal("cofre", parsed.IndirectObject);
+        Assert.Equal(PrepositionKind.In, parsed.Preposition);
+    }
+
+    [Fact]
+    public void Parse_GetObjectFrom_ParsesCorrectly()
+    {
+        var parsed = Parser.Parse("sacar espada de cofre");
+
+        Assert.Equal("get_from", parsed.Verb);
+        Assert.Equal("espada", parsed.DirectObject);
+        Assert.Equal("cofre", parsed.IndirectObject);
+        Assert.Equal(PrepositionKind.From, parsed.Preposition);
+    }
+
+    [Fact]
+    public void Parse_GiveObjectTo_ParsesCorrectly()
+    {
+        var parsed = Parser.Parse("dar espada a enano");
+
+        Assert.Equal("give", parsed.Verb);
+        Assert.Equal("espada", parsed.DirectObject);
+        Assert.Equal("enano", parsed.IndirectObject);
+        Assert.Equal(PrepositionKind.To, parsed.Preposition);
+    }
+
+    [Fact]
+    public void Parse_HelpCommand_ParsesCorrectly()
+    {
+        var parsed = Parser.Parse("ayuda");
+
+        Assert.Equal("help", parsed.Verb);
+        Assert.Null(parsed.DirectObject);
+    }
+
+    [Fact]
+    public void Parse_UnknownVerb_PreservedAsIs()
+    {
+        var parsed = Parser.Parse("bailar");
+
+        Assert.Equal("bailar", parsed.Verb);
+        Assert.Null(parsed.DirectObject);
+    }
 }

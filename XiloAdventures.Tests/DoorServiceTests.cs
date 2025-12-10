@@ -132,4 +132,101 @@ public class DoorServiceTests
         Assert.False(result.Success);
         Assert.True(result.NotFoundDoor);
     }
+
+    [Fact]
+    public void DoorService_TryClose_WhenOpen_Succeeds()
+    {
+        var door = new Door
+        {
+            Id = "d6",
+            RoomIdA = "a",
+            RoomIdB = "b",
+            IsOpen = true
+        };
+
+        var service = new DoorService(new List<Door> { door }, new List<GameObject>());
+
+        var result = service.TryCloseDoor("d6", "a", new string[0]);
+
+        Assert.True(result.Success);
+        Assert.False(door.IsOpen);
+    }
+
+    [Fact]
+    public void DoorService_CanOperateFromRoom_BothSides_AllowsEither()
+    {
+        var door = new Door
+        {
+            Id = "d7",
+            RoomIdA = "roomA",
+            RoomIdB = "roomB",
+            OpenFromSide = DoorOpenSide.Both
+        };
+
+        var service = new DoorService(new List<Door> { door }, new List<GameObject>());
+
+        Assert.True(service.CanOperateFromRoom(door, "roomA"));
+        Assert.True(service.CanOperateFromRoom(door, "roomB"));
+        Assert.False(service.CanOperateFromRoom(door, "roomC"));
+    }
+
+    [Fact]
+    public void DoorService_CanOperateFromRoom_FromBOnly_OnlyAllowsB()
+    {
+        var door = new Door
+        {
+            Id = "d8",
+            RoomIdA = "roomA",
+            RoomIdB = "roomB",
+            OpenFromSide = DoorOpenSide.FromBOnly
+        };
+
+        var service = new DoorService(new List<Door> { door }, new List<GameObject>());
+
+        Assert.False(service.CanOperateFromRoom(door, "roomA"));
+        Assert.True(service.CanOperateFromRoom(door, "roomB"));
+    }
+
+    [Fact]
+    public void DoorService_HasRequiredKey_NoLockRequired_ReturnsTrue()
+    {
+        var door = new Door
+        {
+            Id = "d9",
+            RoomIdA = "a",
+            RoomIdB = "b",
+            IsLocked = false
+        };
+
+        var service = new DoorService(new List<Door> { door }, new List<GameObject>());
+
+        Assert.True(service.HasRequiredKey(door, new string[0]));
+    }
+
+    [Fact]
+    public void DoorService_GetDoor_ReturnsCorrectDoor()
+    {
+        var door1 = new Door { Id = "door1", Name = "Puerta Norte" };
+        var door2 = new Door { Id = "door2", Name = "Puerta Sur" };
+
+        var service = new DoorService(new List<Door> { door1, door2 }, new List<GameObject>());
+
+        var found = service.GetDoor("door2");
+
+        Assert.NotNull(found);
+        Assert.Equal("Puerta Sur", found!.Name);
+    }
+
+    [Fact]
+    public void DoorService_GetDoor_CaseInsensitive()
+    {
+        var door = new Door { Id = "MyDoor", Name = "Test" };
+
+        var service = new DoorService(new List<Door> { door }, new List<GameObject>());
+
+        var found = service.GetDoor("mydoor");
+
+        Assert.NotNull(found);
+        Assert.Equal("MyDoor", found!.Id);
+    }
 }

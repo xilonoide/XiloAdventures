@@ -409,4 +409,201 @@ public class GameEngineTests
     }
 
     #endregion
+
+    #region Door Tests
+
+    /// <summary>
+    /// Creates a test world with a door between two rooms.
+    /// </summary>
+    private static (WorldModel world, GameState state) CreateTestWorldWithDoor(bool doorIsOpen = true, bool doorIsLocked = false)
+    {
+        var world = new WorldModel
+        {
+            Game = new GameInfo
+            {
+                Id = "test_door_world",
+                Title = "Test Door World",
+                StartRoomId = "room1",
+                StartHour = 12
+            },
+            Rooms = new List<Room>
+            {
+                new Room
+                {
+                    Id = "room1",
+                    Name = "Sala Oeste",
+                    Description = "Estás en la sala oeste.",
+                    IsIlluminated = true,
+                    Exits = new List<Exit>
+                    {
+                        new Exit { Direction = "este", TargetRoomId = "room2", DoorId = "door1" }
+                    },
+                    ObjectIds = new List<string>(),
+                    NpcIds = new List<string>()
+                },
+                new Room
+                {
+                    Id = "room2",
+                    Name = "Sala Este",
+                    Description = "Estás en la sala este.",
+                    IsIlluminated = true,
+                    Exits = new List<Exit>
+                    {
+                        new Exit { Direction = "oeste", TargetRoomId = "room1", DoorId = "door1" }
+                    },
+                    ObjectIds = new List<string>(),
+                    NpcIds = new List<string>()
+                }
+            },
+            Objects = new List<GameObject>
+            {
+                new GameObject
+                {
+                    Id = "key1",
+                    Name = "llave dorada",
+                    Description = "Una llave dorada brillante.",
+                    CanTake = true,
+                    Visible = true,
+                    RoomId = "room1",
+                    Type = ObjectType.Llave
+                }
+            },
+            Npcs = new List<Npc>(),
+            Doors = new List<Door>
+            {
+                new Door
+                {
+                    Id = "door1",
+                    Name = "puerta de madera",
+                    Description = "Una puerta de madera.",
+                    RoomIdA = "room1",
+                    RoomIdB = "room2",
+                    IsOpen = doorIsOpen,
+                    IsLocked = doorIsLocked,
+                    KeyObjectId = doorIsLocked ? "key1" : null
+                }
+            },
+            Quests = new List<QuestDefinition>()
+        };
+
+        var state = WorldLoader.CreateInitialState(world);
+        return (world, state);
+    }
+
+    [Fact]
+    public void ProcessCommand_GoThroughOpenDoor_MovesToRoom()
+    {
+        // Arrange
+        var (world, state) = CreateTestWorldWithDoor(doorIsOpen: true);
+        var sound = CreateMockSoundManager();
+        var engine = new GameEngine(world, state, sound);
+
+        Assert.Equal("room1", engine.State.CurrentRoomId);
+
+        // Act - Usamos "e" en lugar de "este" porque el Parser trata "este"
+        // como demostrativos (este/esta/estos) y lo elimina del comando
+        var result = engine.ProcessCommand("e");
+
+        // Assert
+        Assert.Equal("room2", engine.State.CurrentRoomId);
+        Assert.Contains("sala este", result.Message.ToLowerInvariant());
+    }
+
+    [Fact]
+    public void ProcessCommand_GoThroughClosedDoor_Blocked()
+    {
+        // Arrange
+        var (world, state) = CreateTestWorldWithDoor(doorIsOpen: false);
+        var sound = CreateMockSoundManager();
+        var engine = new GameEngine(world, state, sound);
+
+        Assert.Equal("room1", engine.State.CurrentRoomId);
+
+        // Act - Usamos "e" en lugar de "este"
+        var result = engine.ProcessCommand("e");
+
+        // Assert
+        Assert.Equal("room1", engine.State.CurrentRoomId); // Didn't move
+        Assert.Contains("cerrad", result.Message.ToLowerInvariant()); // "cerrada"
+    }
+
+    [Fact]
+    public void ProcessCommand_OpenDoor_OpensClosedDoor()
+    {
+        // Arrange
+        var (world, state) = CreateTestWorldWithDoor(doorIsOpen: false);
+        var sound = CreateMockSoundManager();
+        var engine = new GameEngine(world, state, sound);
+
+        var door = state.Doors.First(d => d.Id == "door1");
+        Assert.False(door.IsOpen);
+
+        // Act - usamos "e" (dirección normalizada) en lugar de "este"
+        var result = engine.ProcessCommand("abrir puerta e");
+
+        // Assert
+        Assert.True(door.IsOpen);
+    }
+
+    [Fact]
+    public void ProcessCommand_CloseDoor_ClosesOpenDoor()
+    {
+        // Arrange
+        var (world, state) = CreateTestWorldWithDoor(doorIsOpen: true);
+        var sound = CreateMockSoundManager();
+        var engine = new GameEngine(world, state, sound);
+
+        var door = state.Doors.First(d => d.Id == "door1");
+        Assert.True(door.IsOpen);
+
+        // Act - usamos "e" (dirección normalizada) en lugar de "este"
+        var result = engine.ProcessCommand("cerrar puerta e");
+
+        // Assert
+        Assert.False(door.IsOpen);
+    }
+
+    [Fact]
+    public void ProcessCommand_OpenLockedDoor_RequiresKey()
+    {
+        // Arrange
+        var (world, state) = CreateTestWorldWithDoor(doorIsOpen: false, doorIsLocked: true);
+        var sound = CreateMockSoundManager();
+        var engine = new GameEngine(world, state, sound);
+
+        var door = state.Doors.First(d => d.Id == "door1");
+        Assert.True(door.IsLocked);
+
+        // Act - try to open without key
+        var result = engine.ProcessCommand("abrir puerta e");
+
+        // Assert
+        Assert.False(door.IsOpen);
+        Assert.Contains("llave", result.Message.ToLowerInvariant());
+    }
+
+    [Fact]
+    public void ProcessCommand_OpenLockedDoorWithKey_Opens()
+    {
+        // Arrange
+        var (world, state) = CreateTestWorldWithDoor(doorIsOpen: false, doorIsLocked: true);
+        // Add key to inventory
+        state.InventoryObjectIds.Add("key1");
+        state.Rooms.First(r => r.Id == "room1").ObjectIds.Remove("key1");
+
+        var sound = CreateMockSoundManager();
+        var engine = new GameEngine(world, state, sound);
+
+        var door = state.Doors.First(d => d.Id == "door1");
+        Assert.True(door.IsLocked);
+        Assert.False(door.IsOpen);
+
+        // Act
+        var result = engine.ProcessCommand("abrir puerta e");
+
+        // Assert
+        Assert.True(door.IsOpen);
+    }
+
+    #endregion
 }
