@@ -127,7 +127,7 @@ public partial class MainWindow : Window
             if (_uiSettings.UseLlmForUnknownCommands)
             {
                 var trimmed = (result ?? string.Empty).Trim();
-                if (string.Equals(trimmed, "No entiendo ese comando.", StringComparison.OrdinalIgnoreCase))
+                if (ShouldAskLlm(trimmed))
                 {
                     ShowLlmProgress(cmd);
                     try
@@ -261,6 +261,35 @@ public partial class MainWindow : Window
             }.ShowDialog();
             return null;
         }
+    }
+
+    /// <summary>
+    /// Determina si se debe consultar a la IA basándose en la respuesta del motor.
+    /// </summary>
+    private static bool ShouldAskLlm(string engineResponse)
+    {
+        if (string.IsNullOrWhiteSpace(engineResponse))
+            return false;
+
+        var lower = engineResponse.ToLowerInvariant();
+
+        // Mensajes que indican que el parser no entendió el comando
+        var unknownPatterns = new[]
+        {
+            "no entiendo ese comando",
+            "no ves eso por aquí",
+            "no hay ninguna puerta así",
+            "no hay ningún contenedor con ese nombre",
+            "aquí no hay ninguna puerta",
+        };
+
+        foreach (var pattern in unknownPatterns)
+        {
+            if (lower.Contains(pattern))
+                return true;
+        }
+
+        return false;
     }
 
     private string BuildLlmPrompt(string originalCommand)

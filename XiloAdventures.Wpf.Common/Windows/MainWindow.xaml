@@ -266,7 +266,7 @@
             <DockPanel Grid.Row="2" Margin="0,8,0,0">
                 <TextBlock Text="&gt;" Margin="0,0,6,0" VerticalAlignment="Center"/>
                 <TextBox x:Name="InputTextBox"
-                         KeyDown="InputTextBox_KeyDown"
+                         PreviewKeyDown="InputTextBox_KeyDown"
                          VerticalContentAlignment="Center"/>
             </DockPanel>
         </Grid>
