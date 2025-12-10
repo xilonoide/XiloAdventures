@@ -337,6 +337,27 @@ public class GameEngine
         _state.TurnCounter++;
         UpdateGameTimeFromReal();
 
+        // Detectar comandos compuestos (ej: "sacar espada del cofre y guardarla en mochila")
+        var commands = SplitCompoundCommand(input);
+        if (commands.Count > 1)
+        {
+            var results = new StringBuilder();
+            foreach (var cmd in commands)
+            {
+                var result = ProcessSingleCommand(cmd);
+                if (!string.IsNullOrWhiteSpace(result))
+                {
+                    results.AppendLine(result.TrimEnd());
+                }
+            }
+            return results.ToString().TrimEnd();
+        }
+
+        return ProcessSingleCommand(input);
+    }
+
+    private string ProcessSingleCommand(string input)
+    {
         var parsed = Parser.Parse(input);
         if (string.IsNullOrEmpty(parsed.Verb))
             return string.Empty;
@@ -435,6 +456,132 @@ public class GameEngine
         return sb.ToString().TrimEnd();
     }
 
+    /// <summary>
+    /// Divide un comando compuesto en múltiples comandos simples.
+    /// Ejemplo: "sacar espada del cofre y guardarla en mochila" -> ["sacar espada del cofre", "guardar espada en mochila"]
+    /// </summary>
+    private List<string> SplitCompoundCommand(string input)
+    {
+        var result = new List<string>();
+        var lower = input.ToLowerInvariant();
+
+        // Patrones que siempre indican separación de comandos
+        var separators = new[] { ", y luego ", " y luego ", ", y después ", " y después ", ". luego ", ". después " };
+
+        foreach (var sep in separators)
+        {
+            if (lower.Contains(sep))
+            {
+                var idx = lower.IndexOf(sep);
+                var first = input.Substring(0, idx).Trim();
+                var second = input.Substring(idx + sep.Length).Trim();
+                if (!string.IsNullOrEmpty(first)) result.Add(first);
+                if (!string.IsNullOrEmpty(second)) result.AddRange(SplitCompoundCommand(second));
+                return result;
+            }
+        }
+
+        // Buscar " y " seguido de verbo o pronombre con verbo
+        var yIndex = lower.IndexOf(" y ");
+        if (yIndex > 0 && yIndex < lower.Length - 3)
+        {
+            var afterY = lower.Substring(yIndex + 3).TrimStart();
+            if (StartsWithActionWord(afterY))
+            {
+                var first = input.Substring(0, yIndex).Trim();
+                var secondRaw = input.Substring(yIndex + 3).Trim();
+
+                // Resolver pronombres (guárdala -> guardar + objeto anterior)
+                var second = ResolvePronouns(secondRaw, first);
+
+                if (!string.IsNullOrEmpty(first)) result.Add(first);
+                if (!string.IsNullOrEmpty(second)) result.AddRange(SplitCompoundCommand(second));
+                return result;
+            }
+        }
+
+        // No es un comando compuesto
+        result.Add(input);
+        return result;
+    }
+
+    /// <summary>
+    /// Comprueba si el texto empieza con una palabra de acción (verbo o pronombre+verbo).
+    /// </summary>
+    private bool StartsWithActionWord(string text)
+    {
+        var lower = text.ToLowerInvariant();
+
+        // Verbos infinitivos comunes
+        var verbs = new[] {
+            "guardar", "meter", "poner", "sacar", "coger", "tomar", "dejar", "soltar",
+            "abrir", "cerrar", "usar", "examinar", "mirar", "ir", "hablar", "dar",
+            "desbloquear", "bloquear", "empujar", "tirar", "leer", "comer", "beber"
+        };
+
+        // Pronombres con verbo conjugado (guárdala, mételo, cógela, etc.)
+        var pronounPatterns = new[] {
+            "guárdal", "métel", "ponl", "sácal", "cógel", "tómal", "déjal", "suéltal",
+            "ábrel", "ciérral", "úsal", "examínal", "míral", "dal"
+        };
+
+        foreach (var verb in verbs)
+        {
+            if (lower.StartsWith(verb))
+                return true;
+        }
+
+        foreach (var pattern in pronounPatterns)
+        {
+            if (lower.StartsWith(pattern))
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Resuelve pronombres en el segundo comando usando el objeto del primer comando.
+    /// Ejemplo: "guárdala" con primer comando "sacar espada" -> "guardar espada"
+    /// </summary>
+    private string ResolvePronouns(string command, string previousCommand)
+    {
+        var lower = command.ToLowerInvariant();
+
+        // Mapeo de pronombres a verbos
+        var pronounMappings = new Dictionary<string, string>
+        {
+            { "guárdala", "guardar" }, { "guárdalo", "guardar" }, { "guárdalas", "guardar" }, { "guárdalos", "guardar" },
+            { "métela", "meter" }, { "mételo", "meter" }, { "mételas", "meter" }, { "mételos", "meter" },
+            { "ponla", "poner" }, { "ponlo", "poner" }, { "ponlas", "poner" }, { "ponlos", "poner" },
+            { "sácala", "sacar" }, { "sácalo", "sacar" }, { "sácalas", "sacar" }, { "sácalos", "sacar" },
+            { "cógela", "coger" }, { "cógelo", "coger" }, { "cógelas", "coger" }, { "cógelos", "coger" },
+            { "tómala", "tomar" }, { "tómalo", "tomar" }, { "tómalas", "tomar" }, { "tómalos", "tomar" },
+            { "déjala", "dejar" }, { "déjalo", "dejar" }, { "déjalas", "dejar" }, { "déjalos", "dejar" },
+            { "úsala", "usar" }, { "úsalo", "usar" }, { "úsalas", "usar" }, { "úsalos", "usar" },
+            { "ábrela", "abrir" }, { "ábrelo", "abrir" }, { "ábrelas", "abrir" }, { "ábrelos", "abrir" },
+            { "ciérrala", "cerrar" }, { "ciérralo", "cerrar" }, { "ciérralas", "cerrar" }, { "ciérralos", "cerrar" },
+            { "dásela", "dar" }, { "dáselo", "dar" }, { "dáselas", "dar" }, { "dáselos", "dar" },
+        };
+
+        // Buscar el objeto del comando anterior
+        var prevParsed = Parser.Parse(previousCommand);
+        var objectName = prevParsed.DirectObject ?? "";
+
+        // Buscar si el comando empieza con un pronombre mapeado
+        var words = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length == 0) return command;
+
+        var firstWord = words[0].ToLowerInvariant();
+        if (pronounMappings.TryGetValue(firstWord, out var verb))
+        {
+            // Reconstruir el comando con el verbo y el objeto
+            var rest = words.Length > 1 ? " " + string.Join(" ", words.Skip(1)) : "";
+            return $"{verb} {objectName}{rest}";
+        }
+
+        return command;
+    }
 
     private bool IsRoomLit(Room room)
     {
@@ -1085,13 +1232,18 @@ public class GameEngine
         if (string.IsNullOrEmpty(containerName))
             return "¿Dónde quieres meterlo?";
 
-        // Buscar el objeto a meter (debe estar en el inventario)
-        var objToInsert = _state.InventoryObjectIds
-            .Select(FindObjectById)
-            .FirstOrDefault(o => o != null && o.Visible && o.Name.Contains(objectName, StringComparison.OrdinalIgnoreCase));
+        // Buscar el objeto a meter (puede estar en el inventario o en la sala)
+        var objToInsert = FindObjectInRoomOrInventory(room, objectName);
 
         if (objToInsert == null)
-            return "No tienes ese objeto.";
+            return "No ves ese objeto por aquí.";
+
+        // Verificar que el objeto está en inventario o en la sala (no en otro contenedor)
+        var isInInventory = _state.InventoryObjectIds.Contains(objToInsert.Id);
+        var isInRoom = string.Equals(objToInsert.RoomId, room.Id, StringComparison.OrdinalIgnoreCase);
+
+        if (!isInInventory && !isInRoom)
+            return "No puedes coger ese objeto.";
 
         // Buscar el contenedor
         var container = FindObjectInRoomOrInventory(room, containerName);
@@ -1101,11 +1253,22 @@ public class GameEngine
         if (container.IsOpenable && !container.IsOpen)
             return $"{Cap(container.Name)} está cerrado.";
 
-        if (container.MaxCapacity > 0 && container.ContainedObjectIds.Count >= container.MaxCapacity)
-            return $"{Cap(container.Name)} está lleno.";
+        // Verificar capacidad por volumen
+        if (container.MaxCapacity > 0)
+        {
+            var currentVolume = container.ContainedObjectIds
+                .Select(FindObjectById)
+                .Where(o => o != null)
+                .Sum(o => o!.Volume);
 
-        // Mover el objeto del inventario al contenedor
-        _state.InventoryObjectIds.Remove(objToInsert.Id);
+            if (currentVolume + objToInsert.Volume > container.MaxCapacity)
+                return $"{Cap(objToInsert.Name)} no cabe en {Low(container.Name)}.";
+        }
+
+        // Mover el objeto al contenedor (desde inventario o sala)
+        if (isInInventory)
+            _state.InventoryObjectIds.Remove(objToInsert.Id);
+
         container.ContainedObjectIds.Add(objToInsert.Id);
         objToInsert.RoomId = null; // El objeto ya no está en una sala
 
@@ -1143,9 +1306,9 @@ public class GameEngine
         if (objToExtract == null)
             return $"No hay ningún {objectName} en {Low(container.Name)}.";
 
-        // Mover el objeto del contenedor al inventario
+        // Mover el objeto del contenedor a la sala
         container.ContainedObjectIds.Remove(objToExtract.Id);
-        _state.InventoryObjectIds.Add(objToExtract.Id);
+        objToExtract.RoomId = room.Id;
 
         return $"Sacas {Low(objToExtract.Name)} de {Low(container.Name)}.";
     }
@@ -1197,9 +1360,47 @@ public class GameEngine
         var obj = FindObjectInRoomOrInventory(room, target);
         if (obj != null)
         {
+            var sb = new StringBuilder();
+
+            // Descripción base
             if (!string.IsNullOrWhiteSpace(obj.Description))
-                return obj.Description;
-            return $"No ves nada especial en {Low(obj.Name)}.";
+                sb.Append(obj.Description);
+            else
+                sb.Append($"No ves nada especial en {Low(obj.Name)}.");
+
+            // Si es contenedor, añadir información adicional
+            if (obj.IsContainer)
+            {
+                // Estado abierto/cerrado si es abrible
+                if (obj.IsOpenable)
+                {
+                    sb.Append(obj.IsOpen ? " Está abierto." : " Está cerrado.");
+                    if (obj.IsLocked && !obj.IsOpen)
+                        sb.Append(" Parece que necesita una llave.");
+                }
+
+                // Mostrar contenido si está abierto o si el contenido es visible
+                if (obj.IsOpen || obj.ContentsVisible || !obj.IsOpenable)
+                {
+                    if (obj.ContainedObjectIds.Count == 0)
+                    {
+                        sb.Append(" Está vacío.");
+                    }
+                    else
+                    {
+                        var contents = obj.ContainedObjectIds
+                            .Select(FindObjectById)
+                            .Where(o => o != null)
+                            .Select(o => Low(o!.Name))
+                            .ToList();
+
+                        if (contents.Count > 0)
+                            sb.Append($" Dentro hay: {string.Join(", ", contents)}.");
+                    }
+                }
+            }
+
+            return sb.ToString();
         }
 
         // Buscar NPC en la sala
