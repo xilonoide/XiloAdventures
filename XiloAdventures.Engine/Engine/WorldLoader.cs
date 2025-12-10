@@ -76,7 +76,6 @@ public static class WorldLoader
         world.TradeRules ??= new List<TradeRule>();
         world.Events ??= new List<EventRule>();
         world.Doors ??= new List<Door>();
-        world.Keys ??= new List<KeyDefinition>();
         world.RoomPositions ??= new Dictionary<string, MapPosition>();
         world.Musics ??= new List<MusicAsset>();
         world.Fxs ??= new List<FxAsset>();
@@ -103,8 +102,7 @@ public static class WorldLoader
             UseRules = CloneList(world.UseRules),
             TradeRules = CloneList(world.TradeRules),
             Events = CloneList(world.Events),
-            Doors = CloneList(world.Doors),
-            Keys = CloneList(world.Keys)
+            Doors = CloneList(world.Doors)
         };
 
 

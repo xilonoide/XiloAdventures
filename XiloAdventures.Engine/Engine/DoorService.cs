@@ -7,21 +7,21 @@ namespace XiloAdventures.Engine;
 
 /// <summary>
 /// Lógica de alto nivel para trabajar con puertas y llaves.
-/// Solo depende de listas de Door / KeyDefinition, no del resto del motor.
+/// Solo depende de listas de Door / GameObject, no del resto del motor.
 /// </summary>
 public class DoorService
 {
     private readonly IList<Door> _doors;
-    private readonly IList<KeyDefinition> _keys;
+    private readonly IList<GameObject> _objects;
 
     /// <summary>
-    /// Crea un DoorService a partir de las colecciones de puertas y llaves
+    /// Crea un DoorService a partir de las colecciones de puertas y objetos
     /// (normalmente almacenadas en tu GameState).
     /// </summary>
-    public DoorService(IList<Door> doors, IList<KeyDefinition> keys)
+    public DoorService(IList<Door> doors, IList<GameObject> objects)
     {
         _doors = doors;
-        _keys = keys;
+        _objects = objects;
     }
 
     /// <summary>Devuelve una puerta por id, o null si no existe.</summary>
@@ -50,28 +50,22 @@ public class DoorService
     }
 
     /// <summary>
-    /// Devuelve true si la puerta no tiene cerradura, o si el jugador
-    /// dispone de al menos una llave que pueda accionar su LockId.
+    /// Devuelve true si la puerta no requiere llave, o si el jugador
+    /// dispone del objeto llave requerido (KeyObjectId).
     /// availableObjectIds son los ids de los objetos que el jugador
     /// tiene disponibles (inventario, objetos de la sala, etc.).
     /// </summary>
     public bool HasRequiredKey(Door door, IEnumerable<string> availableObjectIds)
     {
-        if (!door.HasLock || string.IsNullOrWhiteSpace(door.LockId))
+        if (!door.IsLocked || string.IsNullOrWhiteSpace(door.KeyObjectId))
             return true; // no requiere llave
 
-        var lockId = door.LockId;
         var availableIds = new HashSet<string>(availableObjectIds ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
         if (availableIds.Count == 0)
             return false;
 
-        // Buscamos definiciones de llave cuya ObjectId esté entre los objetos
-        // disponibles y cuyas LockIds contengan la cerradura de la puerta.
-        var matchingKey = _keys.Any(k =>
-            availableIds.Contains(k.ObjectId) &&
-            k.LockIds.Contains(lockId!, StringComparer.OrdinalIgnoreCase));
-
-        return matchingKey;
+        // Verificar si el jugador tiene el objeto llave específico
+        return availableIds.Contains(door.KeyObjectId);
     }
 
     /// <summary>

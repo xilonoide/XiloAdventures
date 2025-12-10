@@ -121,6 +121,11 @@ public static class Parser
         AddVerbAlias("drop", "soltar", "dejar", "tirar");
         AddVerbAlias("open", "abrir", "abre");
         AddVerbAlias("close", "cerrar", "cierra");
+        AddVerbAlias("unlock", "desbloquear", "abrir con llave", "abrir con");
+        AddVerbAlias("lock", "bloquear", "cerrar con llave", "cerrar con");
+        AddVerbAlias("put", "meter", "poner", "colocar", "guardar");
+        AddVerbAlias("get_from", "sacar", "quitar", "extraer");
+        AddVerbAlias("look_in", "mirar en", "mirar dentro", "ver en", "ver dentro", "examinar en");
         AddVerbAlias("talk", "hablar", "habla", "charlar", "conversar");
         AddVerbAlias("say", "decir", "di");
         AddVerbAlias("option", "opcion", "opción");

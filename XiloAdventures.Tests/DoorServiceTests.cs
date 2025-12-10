@@ -10,25 +10,26 @@ public class DoorServiceTests
     [Fact]
     public void DoorService_TryOpen_WithKeyFromAllowedSide_Succeeds()
     {
+        var keyObject = new GameObject
+        {
+            Id = "key-1",
+            Name = "Llave dorada",
+            Type = ObjectType.Llave
+        };
+
         var door = new Door
         {
             Id = "d1",
             RoomIdA = "a",
             RoomIdB = "b",
-            HasLock = true,
-            LockId = "lock1",
+            IsLocked = true,
+            KeyObjectId = "key-1",
             IsOpen = false
         };
 
-        var key = new KeyDefinition
-        {
-            ObjectId = "key-1",
-            LockIds = new List<string> { "lock1" }
-        };
+        var service = new DoorService(new List<Door> { door }, new List<GameObject> { keyObject });
 
-        var service = new DoorService(new List<Door> { door }, new List<KeyDefinition> { key });
-
-        var result = service.TryOpenDoor("d1", "a", new[] { "KEY-1" });
+        var result = service.TryOpenDoor("d1", "a", new[] { "key-1" });
 
         Assert.True(result.Success);
         Assert.False(result.MissingKey);
@@ -46,7 +47,7 @@ public class DoorServiceTests
             OpenFromSide = DoorOpenSide.FromAOnly
         };
 
-        var service = new DoorService(new List<Door> { door }, new List<KeyDefinition>());
+        var service = new DoorService(new List<Door> { door }, new List<GameObject>());
 
         var result = service.TryOpenDoor("d2", "b", new[] { "anything" });
 
@@ -58,22 +59,23 @@ public class DoorServiceTests
     [Fact]
     public void DoorService_TryOpen_MissingKey_Fails()
     {
+        var keyObject = new GameObject
+        {
+            Id = "key-3",
+            Name = "Llave plateada",
+            Type = ObjectType.Llave
+        };
+
         var door = new Door
         {
             Id = "d3",
             RoomIdA = "a",
             RoomIdB = "b",
-            HasLock = true,
-            LockId = "lock-3"
+            IsLocked = true,
+            KeyObjectId = "key-3"
         };
 
-        var key = new KeyDefinition
-        {
-            ObjectId = "key-3",
-            LockIds = new List<string> { "lock-3" }
-        };
-
-        var service = new DoorService(new List<Door> { door }, new List<KeyDefinition> { key });
+        var service = new DoorService(new List<Door> { door }, new List<GameObject> { keyObject });
 
         var result = service.TryOpenDoor("d3", "a", new string[0]);
 
@@ -93,7 +95,7 @@ public class DoorServiceTests
             IsOpen = true
         };
 
-        var service = new DoorService(new List<Door> { door }, new List<KeyDefinition>());
+        var service = new DoorService(new List<Door> { door }, new List<GameObject>());
 
         var result = service.TryOpenDoor("d4", "a", new[] { "any" });
 
@@ -112,7 +114,7 @@ public class DoorServiceTests
             IsOpen = false
         };
 
-        var service = new DoorService(new List<Door> { door }, new List<KeyDefinition>());
+        var service = new DoorService(new List<Door> { door }, new List<GameObject>());
 
         var result = service.TryCloseDoor("d5", "a", new[] { "any" });
 
@@ -123,7 +125,7 @@ public class DoorServiceTests
     [Fact]
     public void DoorService_TryOpen_NotFound_ReturnsNotFound()
     {
-        var service = new DoorService(new List<Door>(), new List<KeyDefinition>());
+        var service = new DoorService(new List<Door>(), new List<GameObject>());
 
         var result = service.TryOpenDoor("missing", "a", new[] { "any" });
 

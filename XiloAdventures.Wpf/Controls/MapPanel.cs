@@ -41,7 +41,6 @@ public partial class MapPanel : Control
     private readonly Dictionary<string, Rect> _roomStartIconRects = new();
     private readonly Dictionary<string, Rect> _doorIconRects = new();
     private readonly Dictionary<string, Rect> _keyIconRects = new();
-    private readonly Dictionary<string, KeyDefinition> _keyIconKeyDefs = new();
 
 
     // Tooltip para iconos de objetos/NPCs
@@ -91,9 +90,8 @@ public partial class MapPanel : Control
     public event Action<Room>? RoomClicked;
     public event Action<Door>? DoorClicked;
     public event Action<Door>? DoorKeyRequested;
-    public event Action<Door, KeyDefinition?, GameObject?>? DoorCreated;
+    public event Action<Door, GameObject?>? DoorCreated;
     public event Action<Door>? DoorDoubleClicked;
-    public event Action<KeyDefinition>? KeyDoubleClicked;
     public event Action<Room>? RoomDoubleClicked;
     public event Action<Room, int>? ExitDoubleClicked;
     public event Action<Point>? EmptyMapDoubleClicked;
@@ -115,6 +113,12 @@ public partial class MapPanel : Control
     {
         Focusable = true;
         Background = Brushes.Transparent;
+        AllowDrop = true;
+
+        // Configurar eventos de drag and drop
+        DragEnter += MapPanel_DragEnter;
+        DragOver += MapPanel_DragOver;
+        Drop += MapPanel_Drop;
     }
 
     public void SetWorld(WorldModel world)
@@ -160,7 +164,6 @@ public partial class MapPanel : Control
         _editingExitOriginalTarget = null;
         _editingExitIsOrigin = false;
         _keyIconRects.Clear();
-        _keyIconKeyDefs.Clear();
         HideIconTooltip();
         EnsureLayout();
         InvalidateVisual();

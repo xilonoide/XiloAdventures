@@ -48,11 +48,11 @@ public partial class WorldEditorWindow : Window
         PropertyEditor.PropertyEdited += PropertyEditor_PropertyEdited;
         PropertyEditor.GetRooms = () => _world.Rooms;
         PropertyEditor.GetMusics = () => _world.Musics;
+        PropertyEditor.GetObjects = () => _world.Objects;
         MapPanel.RoomClicked += MapPanel_RoomClicked;
         MapPanel.MapEdited += MapPanel_MapEdited;
         MapPanel.DoorCreated += MapPanel_DoorCreated;
         MapPanel.DoorDoubleClicked += MapPanel_DoorDoubleClicked;
-        MapPanel.KeyDoubleClicked += MapPanel_KeyDoubleClicked;
         MapPanel.DoorClicked += MapPanel_DoorClicked;
         MapPanel.SelectionCleared += MapPanel_SelectionCleared;
 
@@ -164,8 +164,8 @@ public partial class WorldEditorWindow : Window
     {
         if (obj is null) return;
 
-        // Si se ha editado el nombre, actualizamos el nodo correspondiente en el ├âãÆ├é┬írbol
-        if (propertyName == "Name")
+        // Si se ha editado el nombre o IsContainer, actualizamos el nodo correspondiente en el árbol
+        if (propertyName == "Name" || propertyName == "IsContainer")
         {
             foreach (TreeViewItem root in WorldTree.Items)
             {
@@ -189,7 +189,8 @@ public partial class WorldEditorWindow : Window
                     headerText = r.Name;
                     break;
                 case GameObject o:
-                    headerText = o.Name;
+                    // Incluir icono 📦 si es contenedor
+                    headerText = o.IsContainer ? $"📦 {o.Name}" : o.Name;
                     break;
                 case Npc n:
                     headerText = n.Name;
@@ -199,9 +200,6 @@ public partial class WorldEditorWindow : Window
                     break;
                 case Door d:
                     headerText = d.Name;
-                    break;
-                case KeyDefinition k:
-                    headerText = string.IsNullOrWhiteSpace(k.ObjectId) ? k.Id : $"Llave ({k.ObjectId})";
                     break;
             }
 
@@ -233,15 +231,12 @@ public partial class WorldEditorWindow : Window
         SetDirty(true);
     }
 
-    private void MapPanel_DoorCreated(Door door, KeyDefinition? createdKey, GameObject? createdObject)
+    private void MapPanel_DoorCreated(Door door, GameObject? createdObject)
     {
         AddDoorToTreeNode(door);
 
         if (createdObject != null)
             AddObjectToTreeNode(createdObject);
-
-        if (createdKey != null)
-            AddKeyToTreeNode(createdKey);
 
         SelectDoorInTree(door);
         PropertyEditor.SetObject(door);
@@ -254,12 +249,6 @@ public partial class WorldEditorWindow : Window
         PropertyEditor.SetObject(door);
     }
 
-    private void MapPanel_KeyDoubleClicked(KeyDefinition key)
-    {
-        SelectKeyInTree(key);
-        PropertyEditor.SetObject(key);
-    }
-
     private void MapPanel_DoorClicked(Door door)
     {
         SelectDoorInTree(door);
@@ -268,14 +257,29 @@ public partial class WorldEditorWindow : Window
 
     private void BuildTree()
     {
+        // Guardar el estado expandido de los nodos antes de reconstruir
+        var expandedNodes = new HashSet<string>();
+        foreach (TreeViewItem root in WorldTree.Items)
+        {
+            if (root.IsExpanded && root.Header is string header)
+            {
+                expandedNodes.Add(header);
+            }
+        }
+
         WorldTree.Items.Clear();
         _gameTreeNode = null;
 
         _world.Doors ??= new List<Door>();
-        _world.Keys ??= new List<KeyDefinition>();
 
         var gameNode = new TreeViewItem { Header = "Juego", Tag = _world.Game, Foreground = Brushes.White };
         _gameTreeNode = gameNode;
+
+        // Nodo Jugador como hijo de Juego
+        _world.Player ??= new PlayerDefinition();
+        var playerNode = new TreeViewItem { Header = "Jugador", Tag = _world.Player, Foreground = Brushes.White };
+        gameNode.Items.Add(playerNode);
+
         WorldTree.Items.Add(gameNode);
 
         var roomsRoot = new TreeViewItem { Header = "Salas", Foreground = Brushes.White };
@@ -295,7 +299,11 @@ public partial class WorldEditorWindow : Window
         var objsRoot = new TreeViewItem { Header = "Objetos", Foreground = Brushes.White };
         foreach (var obj in _world.Objects)
         {
-            objsRoot.Items.Add(new TreeViewItem { Header = obj.Name, Tag = obj, Foreground = Brushes.White });
+            // Solo añadir objetos que NO están contenidos en otros
+            if (!IsObjectContainedInAnother(obj))
+            {
+                BuildObjectTreeRecursive(objsRoot, obj);
+            }
         }
         WorldTree.Items.Add(objsRoot);
 
@@ -313,17 +321,20 @@ public partial class WorldEditorWindow : Window
         }
         WorldTree.Items.Add(questsRoot);
 
-        var keysRoot = new TreeViewItem { Header = "Llaves", Foreground = Brushes.White };
-        foreach (var k in _world.Keys)
+        // Restaurar el estado expandido de los nodos
+        foreach (TreeViewItem root in WorldTree.Items)
         {
-            // Mostramos el nombre del objeto asociado o el Id de la llave
-            var header = string.IsNullOrWhiteSpace(k.ObjectId) ? k.Id : $"Llave ({k.ObjectId})";
-            keysRoot.Items.Add(new TreeViewItem { Header = header, Tag = k, Foreground = Brushes.White });
+            if (root.Header is string header && expandedNodes.Contains(header))
+            {
+                root.IsExpanded = true;
+            }
         }
-        WorldTree.Items.Add(keysRoot);
 
-        // Seleccionar por defecto el nodo Juego al (re)construir el ├âãÆ├é┬írbol
-        SelectGameTreeNode();
+        // Seleccionar por defecto el nodo Juego al (re)construir el árbol solo si no hay nodos expandidos
+        if (expandedNodes.Count == 0)
+        {
+            SelectGameTreeNode();
+        }
     }
 
     private void SelectGameTreeNode()
@@ -386,6 +397,355 @@ public partial class WorldEditorWindow : Window
                 CenterOnNpc(npc);
                 break;
         }
+    }
+
+    private Point? _dragStartPoint;
+
+    private void WorldTree_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _dragStartPoint = e.GetPosition(null);
+    }
+
+    private void WorldTree_PreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (e.LeftButton == MouseButtonState.Pressed && _dragStartPoint.HasValue)
+        {
+            Point currentPosition = e.GetPosition(null);
+            Vector diff = _dragStartPoint.Value - currentPosition;
+
+            // Solo iniciar drag si el movimiento es significativo (más de 5 píxeles)
+            if (Math.Abs(diff.X) > 5 || Math.Abs(diff.Y) > 5)
+            {
+                if (WorldTree.SelectedItem is TreeViewItem item)
+                {
+                    // Solo permitir drag de objetos y NPCs
+                    if (item.Tag is GameObject gameObj)
+                    {
+                        var data = new DataObject();
+                        data.SetData("GameObject", gameObj);
+                        DragDrop.DoDragDrop(WorldTree, data, DragDropEffects.Move);
+                        _dragStartPoint = null;
+                    }
+                    else if (item.Tag is Npc npc)
+                    {
+                        var data = new DataObject();
+                        data.SetData("Npc", npc);
+                        DragDrop.DoDragDrop(WorldTree, data, DragDropEffects.Move);
+                        _dragStartPoint = null;
+                    }
+                }
+            }
+        }
+    }
+
+    private void WorldTree_DragEnter(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent("GameObject") || e.Data.GetDataPresent("Npc"))
+        {
+            e.Effects = DragDropEffects.Move;
+        }
+        else
+        {
+            e.Effects = DragDropEffects.None;
+        }
+        e.Handled = true;
+    }
+
+    private void WorldTree_DragOver(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent("GameObject") || e.Data.GetDataPresent("Npc"))
+        {
+            // Obtener el TreeViewItem sobre el que se está arrastrando
+            var targetItem = GetTreeViewItemAtPoint(WorldTree, e.GetPosition(WorldTree));
+
+            if (targetItem != null)
+            {
+                // Validar si es una operación válida
+                bool isValid = false;
+
+                if (e.Data.GetDataPresent("GameObject"))
+                {
+                    var draggedObj = e.Data.GetData("GameObject") as GameObject;
+                    if (draggedObj != null)
+                    {
+                        // Objeto → Contenedor (debe ser diferente y no crear referencia circular)
+                        if (targetItem.Tag is GameObject targetObj && targetObj.IsContainer && targetObj.Id != draggedObj.Id)
+                        {
+                            // Verificar que no se cree una referencia circular
+                            if (!WouldCreateCircularReference(draggedObj, targetObj))
+                            {
+                                // Verificar capacidad del contenedor (si tiene límite)
+                                if (targetObj.MaxCapacity > 0)
+                                {
+                                    double currentVolume = CalculateContainerUsedVolume(targetObj);
+                                    double newVolume = currentVolume + draggedObj.Volume;
+
+                                    // Solo permitir si no se excede la capacidad
+                                    isValid = newVolume <= targetObj.MaxCapacity;
+                                }
+                                else
+                                {
+                                    // Sin límite de capacidad
+                                    isValid = true;
+                                }
+                            }
+                        }
+                        // Objeto → Sala
+                        else if (targetItem.Tag is Room)
+                        {
+                            isValid = true;
+                        }
+                    }
+                }
+                else if (e.Data.GetDataPresent("Npc"))
+                {
+                    // NPC → Sala
+                    if (targetItem.Tag is Room)
+                    {
+                        isValid = true;
+                    }
+                }
+
+                e.Effects = isValid ? DragDropEffects.Move : DragDropEffects.None;
+            }
+            else
+            {
+                e.Effects = DragDropEffects.None;
+            }
+        }
+        else
+        {
+            e.Effects = DragDropEffects.None;
+        }
+        e.Handled = true;
+    }
+
+    private void WorldTree_Drop(object sender, DragEventArgs e)
+    {
+        try
+        {
+            var targetItem = GetTreeViewItemAtPoint(WorldTree, e.GetPosition(WorldTree));
+            if (targetItem == null) return;
+
+            bool changed = false;
+
+            if (e.Data.GetDataPresent("GameObject"))
+            {
+                var draggedObj = e.Data.GetData("GameObject") as GameObject;
+                if (draggedObj != null)
+                {
+                    // Objeto → Contenedor
+                    if (targetItem.Tag is GameObject targetObj && targetObj.IsContainer && targetObj.Id != draggedObj.Id)
+                    {
+                        // Verificar capacidad del contenedor (si tiene límite)
+                        if (targetObj.MaxCapacity > 0)
+                        {
+                            double currentVolume = CalculateContainerUsedVolume(targetObj);
+                            double newVolume = currentVolume + draggedObj.Volume;
+
+                            if (newVolume > targetObj.MaxCapacity)
+                            {
+                                var dlg = new AlertWindow(
+                                    $"No hay espacio suficiente en '{targetObj.Name}'.\n\n" +
+                                    $"Capacidad máxima: {targetObj.MaxCapacity:F3} m³\n" +
+                                    $"Volumen usado: {currentVolume:F3} m³\n" +
+                                    $"Espacio disponible: {(targetObj.MaxCapacity - currentVolume):F3} m³\n" +
+                                    $"Volumen del objeto: {draggedObj.Volume:F3} m³",
+                                    "Capacidad excedida")
+                                {
+                                    Owner = this
+                                };
+                                dlg.ShowDialog();
+                                return;
+                            }
+                        }
+
+                        // Quitar de contenedor anterior si estaba en uno
+                        foreach (var container in _world.Objects.Where(o => o.IsContainer))
+                        {
+                            if (container.ContainedObjectIds.Contains(draggedObj.Id, StringComparer.OrdinalIgnoreCase))
+                            {
+                                container.ContainedObjectIds.Remove(draggedObj.Id);
+                            }
+                        }
+
+                        // Añadir al nuevo contenedor
+                        if (!targetObj.ContainedObjectIds.Contains(draggedObj.Id, StringComparer.OrdinalIgnoreCase))
+                        {
+                            targetObj.ContainedObjectIds.Add(draggedObj.Id);
+                        }
+
+                        // Sincronizar la sala del objeto con la del contenedor
+                        draggedObj.RoomId = targetObj.RoomId;
+
+                        changed = true;
+                    }
+                    // Objeto → Sala
+                    else if (targetItem.Tag is Room targetRoom)
+                    {
+                        // Quitar del contenedor si estaba en uno
+                        foreach (var container in _world.Objects.Where(o => o.IsContainer))
+                        {
+                            if (container.ContainedObjectIds.Contains(draggedObj.Id, StringComparer.OrdinalIgnoreCase))
+                            {
+                                container.ContainedObjectIds.Remove(draggedObj.Id);
+                            }
+                        }
+
+                        // Cambiar la sala del objeto
+                        draggedObj.RoomId = targetRoom.Id;
+                        changed = true;
+                    }
+                }
+            }
+            else if (e.Data.GetDataPresent("Npc"))
+            {
+                var draggedNpc = e.Data.GetData("Npc") as Npc;
+                if (draggedNpc != null && targetItem.Tag is Room targetRoom)
+                {
+                    // NPC → Sala
+                    draggedNpc.RoomId = targetRoom.Id;
+                    changed = true;
+                }
+            }
+
+            if (changed)
+            {
+                BuildTree();
+                MapPanel.InvalidateVisual();
+                PropertyEditor.SetObject(WorldTree.SelectedItem is TreeViewItem item ? item.Tag : null);
+                PushUndoSnapshot();
+                SetDirty(true);
+            }
+
+            e.Handled = true;
+        }
+        catch
+        {
+            // Ignorar errores
+        }
+    }
+
+    private TreeViewItem? GetTreeViewItemAtPoint(TreeView treeView, Point point)
+    {
+        var hitTestResult = VisualTreeHelper.HitTest(treeView, point);
+        if (hitTestResult == null) return null;
+
+        var element = hitTestResult.VisualHit;
+        while (element != null && element != treeView)
+        {
+            if (element is TreeViewItem item)
+            {
+                return item;
+            }
+            element = VisualTreeHelper.GetParent(element);
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Verifica si poner draggedObj dentro de targetContainer crearía una referencia circular.
+    /// Por ejemplo, si draggedObj contiene targetContainer (directa o indirectamente).
+    /// </summary>
+    private bool WouldCreateCircularReference(GameObject draggedObj, GameObject targetContainer)
+    {
+        if (!draggedObj.IsContainer)
+        {
+            // Si draggedObj no es contenedor, no puede crear referencias circulares
+            return false;
+        }
+
+        // Verificar si targetContainer está contenido (directa o indirectamente) en draggedObj
+        return IsObjectContainedIn(targetContainer, draggedObj);
+    }
+
+    /// <summary>
+    /// Verifica si obj está contenido (directa o indirectamente) en container.
+    /// </summary>
+    private bool IsObjectContainedIn(GameObject obj, GameObject container)
+    {
+        if (!container.IsContainer)
+            return false;
+
+        // Verificación directa
+        if (container.ContainedObjectIds.Contains(obj.Id, StringComparer.OrdinalIgnoreCase))
+            return true;
+
+        // Verificación indirecta (recursiva)
+        foreach (var containedId in container.ContainedObjectIds)
+        {
+            var containedObj = _world.Objects.FirstOrDefault(o =>
+                string.Equals(o.Id, containedId, StringComparison.OrdinalIgnoreCase));
+
+            if (containedObj != null && containedObj.IsContainer)
+            {
+                if (IsObjectContainedIn(obj, containedObj))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Verifica si un objeto está contenido dentro de algún otro objeto.
+    /// </summary>
+    private bool IsObjectContainedInAnother(GameObject obj)
+    {
+        return _world.Objects.Any(container =>
+            container.IsContainer &&
+            container.ContainedObjectIds.Contains(obj.Id, StringComparer.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Construye recursivamente el árbol de objetos, incluyendo objetos contenidos como hijos.
+    /// </summary>
+    private void BuildObjectTreeRecursive(TreeViewItem parentNode, GameObject obj)
+    {
+        var header = obj.IsContainer ? $"📦 {obj.Name}" : obj.Name;
+        var objNode = new TreeViewItem { Header = header, Tag = obj, Foreground = Brushes.White };
+
+        // Si es un contenedor, añadir sus objetos contenidos como hijos
+        if (obj.IsContainer && obj.ContainedObjectIds.Count > 0)
+        {
+            foreach (var containedId in obj.ContainedObjectIds)
+            {
+                var containedObj = _world.Objects.FirstOrDefault(o =>
+                    string.Equals(o.Id, containedId, StringComparison.OrdinalIgnoreCase));
+
+                if (containedObj != null)
+                {
+                    BuildObjectTreeRecursive(objNode, containedObj);
+                }
+            }
+        }
+
+        parentNode.Items.Add(objNode);
+    }
+
+    /// <summary>
+    /// Calcula el volumen total de los objetos contenidos en un contenedor.
+    /// </summary>
+    private double CalculateContainerUsedVolume(GameObject container)
+    {
+        if (!container.IsContainer)
+            return 0;
+
+        double totalVolume = 0;
+
+        foreach (var containedId in container.ContainedObjectIds)
+        {
+            var containedObj = _world.Objects.FirstOrDefault(o =>
+                string.Equals(o.Id, containedId, StringComparison.OrdinalIgnoreCase));
+
+            if (containedObj != null)
+            {
+                totalVolume += containedObj.Volume;
+            }
+        }
+
+        return totalVolume;
     }
 
     private void CenterOnObject(GameObject obj)
@@ -829,6 +1189,62 @@ public partial class WorldEditorWindow : Window
         return true;
     }
 
+    /// <summary>
+    /// Valida que las características del jugador sumen exactamente 100 puntos.
+    /// Retorna true si es válido, false si no lo es.
+    /// </summary>
+    private bool ValidatePlayerAttributes()
+    {
+        if (_world?.Player == null)
+            return true;
+
+        var total = _world.Player.TotalAttributePoints;
+        if (total != 100)
+        {
+            new AlertWindow(
+                $"Las características del jugador deben sumar exactamente 100 puntos.\n\n" +
+                $"Suma actual: {total} puntos\n" +
+                $"Diferencia: {(total > 100 ? "+" : "")}{total - 100} puntos",
+                "Características incorrectas")
+            {
+                Owner = this
+            }.ShowDialog();
+
+            // Seleccionar el nodo Jugador para facilitar la corrección
+            SelectPlayerInTree();
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Selecciona el nodo Jugador en el árbol.
+    /// </summary>
+    private void SelectPlayerInTree()
+    {
+        if (_world?.Player == null) return;
+
+        foreach (TreeViewItem root in WorldTree.Items)
+        {
+            if (root.Header?.ToString() == "Juego")
+            {
+                root.IsExpanded = true;
+                foreach (TreeViewItem child in root.Items.OfType<TreeViewItem>())
+                {
+                    if (child.Tag == _world.Player)
+                    {
+                        WorldTree.Focus();
+                        child.IsSelected = true;
+                        child.BringIntoView();
+                        child.Focus();
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
     private async void SaveMenu_Click(object sender, RoutedEventArgs e)
     {
         await PerformSaveAsync();
@@ -855,6 +1271,10 @@ public partial class WorldEditorWindow : Window
 
         // Validar clave de encriptación
         if (!ValidateEncryptionKey())
+            return false;
+
+        // Validar características del jugador
+        if (!ValidatePlayerAttributes())
             return false;
 
         ShowPlayLoading("Guardando mundo...");
@@ -911,6 +1331,9 @@ public partial class WorldEditorWindow : Window
     private void SaveAsMenu_Click(object sender, RoutedEventArgs e)
     {
         if (!ValidateEncryptionKey())
+            return;
+
+        if (!ValidatePlayerAttributes())
             return;
 
         var dlg = new SaveFileDialog
@@ -1064,8 +1487,8 @@ public partial class WorldEditorWindow : Window
             Name = $"Puerta {index}",
             Description = "Nueva puerta.",
             IsOpen = false,
-            HasLock = false,
-            LockId = string.Empty,
+            IsLocked = false,
+            KeyObjectId = null,
             OpenFromSide = DoorOpenSide.Both
         };
 
@@ -1077,35 +1500,11 @@ public partial class WorldEditorWindow : Window
 
         _world.Doors.Add(door);
         BuildTree();
+        SelectDoorInTree(door);
         PropertyEditor.SetObject(door);
         PushUndoSnapshot();
         SetDirty(true);
     }
-
-    private void AddKey_Click(object sender, RoutedEventArgs e)
-    {
-        _world.Keys ??= new List<KeyDefinition>();
-
-        var index = _world.Keys.Count + 1;
-        var key = new KeyDefinition
-        {
-            Id = $"key_{index}",
-            ObjectId = string.Empty
-        };
-
-        // Si hay un objeto seleccionado, lo usamos como objeto asociado a la llave
-        if (WorldTree.SelectedItem is TreeViewItem item && item.Tag is GameObject obj)
-        {
-            key.ObjectId = obj.Id;
-        }
-
-        _world.Keys.Add(key);
-        BuildTree();
-        PropertyEditor.SetObject(key);
-        PushUndoSnapshot();
-        SetDirty(true);
-    }
-
 
     private void AddObject_Click(object sender, RoutedEventArgs e)
     {
@@ -1126,6 +1525,8 @@ public partial class WorldEditorWindow : Window
 
         _world.Objects.Add(obj);
         BuildTree();
+        SelectObjectInTree(obj);
+        PropertyEditor.SetObject(obj);
         PushUndoSnapshot();
         SetDirty(true);
     }
@@ -1148,6 +1549,8 @@ public partial class WorldEditorWindow : Window
 
         _world.Npcs.Add(npc);
         BuildTree();
+        SelectNpcInTree(npc);
+        PropertyEditor.SetObject(npc);
         PushUndoSnapshot();
         SetDirty(true);
     }
@@ -1163,6 +1566,8 @@ public partial class WorldEditorWindow : Window
         };
         _world.Quests.Add(q);
         BuildTree();
+        SelectQuestInTree(q);
+        PropertyEditor.SetObject(q);
         PushUndoSnapshot();
         SetDirty(true);
     }
@@ -1229,9 +1634,6 @@ public partial class WorldEditorWindow : Window
                 break;
             case Door door:
                 DeleteDoor(door);
-                break;
-            case KeyDefinition key:
-                DeleteKey(key);
                 break;
         }
     }
@@ -1336,30 +1738,6 @@ public partial class WorldEditorWindow : Window
 
     }
 
-    private void DeleteKey(KeyDefinition key)
-    {
-        if (key is null) return;
-
-        var dlg = new ConfirmWindow($"¿Eliminar la definición de llave '{key.Id}'?", "Confirmar eliminación")
-        {
-            Owner = this
-        };
-
-        if (dlg.ShowDialog() != true)
-            return;
-
-        _world.Keys?.Remove(key);
-
-        BuildTree();
-        MapPanel.SetWorld(_world);
-        PushUndoSnapshot();
-        SetDirty(true);
-        PushUndoSnapshot();
-        SetDirty(true);
-
-    }
-
-
     private void DeleteNpc(Npc npc)
     {
         if (npc is null) return;
@@ -1441,53 +1819,16 @@ public partial class WorldEditorWindow : Window
         }
     }
 
-    private void AddKeyToTreeNode(KeyDefinition key)
-    {
-        var root = WorldTree.Items.OfType<TreeViewItem>().FirstOrDefault(i => i.Header?.ToString() == "Llaves");
-        if (root == null)
-        {
-            BuildTree();
-            return;
-        }
-
-        var header = string.IsNullOrWhiteSpace(key.ObjectId) ? key.Id : $"Llave ({key.ObjectId})";
-
-        if (!root.Items.OfType<TreeViewItem>().Any(i => ReferenceEquals(i.Tag, key)))
-        {
-            root.Items.Add(new TreeViewItem { Header = header, Tag = key, Foreground = Brushes.White });
-        }
-    }
-
     private void SelectDoorInTree(Door door)
     {
         foreach (TreeViewItem root in WorldTree.Items)
         {
             if (root.Header?.ToString() == "Puertas")
             {
+                root.IsExpanded = true;
                 foreach (TreeViewItem child in root.Items.OfType<TreeViewItem>())
                 {
                     if (child.Tag == door)
-                    {
-                        WorldTree.Focus();
-                        child.IsSelected = true;
-                        child.BringIntoView();
-                        child.Focus();
-                        return;
-                    }
-                }
-            }
-        }
-    }
-
-    private void SelectKeyInTree(KeyDefinition key)
-    {
-        foreach (TreeViewItem root in WorldTree.Items)
-        {
-            if (root.Header?.ToString() == "Llaves")
-            {
-                foreach (TreeViewItem child in root.Items.OfType<TreeViewItem>())
-                {
-                    if (child.Tag == key)
                     {
                         WorldTree.Focus();
                         child.IsSelected = true;
@@ -1508,12 +1849,105 @@ public partial class WorldEditorWindow : Window
         {
             if (root.Header?.ToString() == "Salas")
             {
+                root.IsExpanded = true;
                 foreach (TreeViewItem child in root.Items.OfType<TreeViewItem>())
                 {
                     if (child.Tag == room)
                     {
                         // Seleccionamos la sala en el árbol exactamente igual
                         // que si el usuario hubiese hecho clic en el TreeView.
+                        WorldTree.Focus();
+                        child.IsSelected = true;
+                        child.BringIntoView();
+                        child.Focus();
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Busca recursivamente un objeto en el árbol y lo selecciona, expandiendo todos los nodos padre.
+    /// </summary>
+    private bool FindAndSelectInTree(TreeViewItem node, object target)
+    {
+        // Verificar si este nodo contiene el objeto buscado
+        if (node.Tag == target)
+        {
+            WorldTree.Focus();
+            node.IsSelected = true;
+            node.BringIntoView();
+            node.Focus();
+            return true;
+        }
+
+        // Buscar recursivamente en los hijos
+        foreach (TreeViewItem child in node.Items.OfType<TreeViewItem>())
+        {
+            if (FindAndSelectInTree(child, target))
+            {
+                // Expandir este nodo ya que contiene el objeto buscado
+                node.IsExpanded = true;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void SelectObjectInTree(GameObject obj)
+    {
+        if (obj is null) return;
+
+        foreach (TreeViewItem root in WorldTree.Items)
+        {
+            if (root.Header?.ToString() == "Objetos")
+            {
+                root.IsExpanded = true;
+                FindAndSelectInTree(root, obj);
+                return;
+            }
+        }
+    }
+
+    private void SelectNpcInTree(Npc npc)
+    {
+        if (npc is null) return;
+
+        foreach (TreeViewItem root in WorldTree.Items)
+        {
+            if (root.Header?.ToString() == "NPCs")
+            {
+                root.IsExpanded = true;
+                foreach (TreeViewItem child in root.Items.OfType<TreeViewItem>())
+                {
+                    if (child.Tag == npc)
+                    {
+                        WorldTree.Focus();
+                        child.IsSelected = true;
+                        child.BringIntoView();
+                        child.Focus();
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    private void SelectQuestInTree(QuestDefinition quest)
+    {
+        if (quest is null) return;
+
+        foreach (TreeViewItem root in WorldTree.Items)
+        {
+            if (root.Header?.ToString() == "Misiones")
+            {
+                root.IsExpanded = true;
+                foreach (TreeViewItem child in root.Items.OfType<TreeViewItem>())
+                {
+                    if (child.Tag == quest)
+                    {
                         WorldTree.Focus();
                         child.IsSelected = true;
                         child.BringIntoView();

@@ -422,18 +422,6 @@
                     </Button>
 
                     <Button Style="{StaticResource CommandButtonStyle}"
-                            Click="AddKey_Click">
-                        <StackPanel Orientation="Horizontal"
-                                VerticalAlignment="Center">
-                            <TextBlock FontFamily="Segoe MDL2 Assets"
-                                    VerticalAlignment="Center"
-                                       Text="&#xE192;"
-                                       Margin="0,0,8,0"/>
-                            <TextBlock Text="Llave"/>
-                        </StackPanel>
-                    </Button>
-
-                    <Button Style="{StaticResource CommandButtonStyle}"
                             Click="AddObject_Click">
                         <StackPanel Orientation="Horizontal"
                                 VerticalAlignment="Center">
@@ -539,6 +527,12 @@
                                   SelectedItemChanged="WorldTree_SelectedItemChanged"
                                   KeyDown="WorldTree_KeyDown"
                                   MouseDoubleClick="WorldTree_MouseDoubleClick"
+                                  PreviewMouseLeftButtonDown="WorldTree_PreviewMouseLeftButtonDown"
+                                  PreviewMouseMove="WorldTree_PreviewMouseMove"
+                                  AllowDrop="True"
+                                  DragEnter="WorldTree_DragEnter"
+                                  DragOver="WorldTree_DragOver"
+                                  Drop="WorldTree_Drop"
                                   Background="#333333"
                                   BorderBrush="#555555">
                             <TreeView.ItemContainerStyle>

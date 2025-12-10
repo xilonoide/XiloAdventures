@@ -32,7 +32,7 @@ public class GameEngine
     public void LoadState(GameState newState)
     {
         _state = newState;
-        _doorService = new DoorService(_state.Doors, _state.Keys);
+        _doorService = new DoorService(_state.Doors, _state.Objects);
         _lastRealTime = DateTime.Now;
 
         WorldLoader.RebuildRoomIndexes(_state);
@@ -61,7 +61,7 @@ public class GameEngine
         _world = world;
         _sound = soundManager;
         _state = state;
-        _doorService = new DoorService(_state.Doors, _state.Keys);
+        _doorService = new DoorService(_state.Doors, _state.Objects);
 
         // Inicializar hora de juego al comenzar la partida si no viene informada.
         if (_state.GameTime == default)
@@ -99,6 +99,108 @@ public class GameEngine
 
     private Npc? FindNpcById(string id)
         => _state.Npcs.FirstOrDefault(n => n.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Find an object in the current room or player inventory by name
+    /// </summary>
+    private GameObject? FindObjectInRoomOrInventory(Room room, string name)
+    {
+        var allObjectIds = new List<string>(_state.InventoryObjectIds);
+        allObjectIds.AddRange(room.ObjectIds);
+
+        foreach (var objId in allObjectIds)
+        {
+            var obj = FindObjectById(objId);
+            if (obj != null && obj.Visible && obj.Name.Contains(name, StringComparison.OrdinalIgnoreCase))
+                return obj;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Helper methods for container objects
+    /// </summary>
+    private bool CanOpenContainer(GameObject container, out string message)
+    {
+        message = "";
+
+        if (!container.IsContainer)
+        {
+            message = $"{container.Name} no es un contenedor.";
+            return false;
+        }
+
+        if (!container.IsOpenable)
+        {
+            message = $"{container.Name} no se puede abrir.";
+            return false;
+        }
+
+        if (container.IsOpen)
+        {
+            message = $"{container.Name} ya está abierto.";
+            return false;
+        }
+
+        if (container.IsLocked)
+        {
+            message = $"{container.Name} está cerrado con llave.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool CanCloseContainer(GameObject container, out string message)
+    {
+        message = "";
+
+        if (!container.IsContainer)
+        {
+            message = $"{container.Name} no es un contenedor.";
+            return false;
+        }
+
+        if (!container.IsOpenable)
+        {
+            message = $"{container.Name} no se puede cerrar.";
+            return false;
+        }
+
+        if (!container.IsOpen)
+        {
+            message = $"{container.Name} ya está cerrado.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool CanUnlockContainer(GameObject container, string? keyId, out string message)
+    {
+        message = "";
+
+        if (!container.IsLocked)
+        {
+            message = $"{container.Name} no está cerrado con llave.";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(container.KeyId))
+        {
+            message = $"{container.Name} no tiene cerradura.";
+            return false;
+        }
+
+        if (keyId != container.KeyId)
+        {
+            message = "La llave no encaja.";
+            return false;
+        }
+
+        return true;
+    }
 
     /// <summary>
     /// Gets the room where the player is currently located.
@@ -239,6 +341,26 @@ public class GameEngine
 
             case "close":
                 sb.AppendLine(HandleClose(parsed));
+                break;
+
+            case "unlock":
+                sb.AppendLine(HandleUnlock(parsed));
+                break;
+
+            case "lock":
+                sb.AppendLine(HandleLock(parsed));
+                break;
+
+            case "put":
+                sb.AppendLine(HandlePutIn(parsed));
+                break;
+
+            case "get_from":
+                sb.AppendLine(HandleGetFrom(parsed));
+                break;
+
+            case "look_in":
+                sb.AppendLine(HandleLookIn(parsed));
                 break;
 
             case "inventory":
@@ -534,6 +656,18 @@ public class GameEngine
         if (string.IsNullOrEmpty(arg))
             return "¿Qué quieres abrir?";
 
+        // Primero intentar con objetos contenedores
+        var obj = FindObjectInRoomOrInventory(room, arg);
+        if (obj != null && obj.IsContainer)
+        {
+            if (CanOpenContainer(obj, out string message))
+            {
+                obj.IsOpen = true;
+                return $"Abres {obj.Name}.";
+            }
+            return message;
+        }
+
         // 1) Buscar puerta por nombre en la sala actual.
         var door = FindDoorInCurrentRoomByName(room, arg);
 
@@ -585,6 +719,18 @@ public class GameEngine
         if (string.IsNullOrEmpty(arg))
             return "¿Qué quieres cerrar?";
 
+        // Primero intentar con objetos contenedores
+        var obj = FindObjectInRoomOrInventory(room, arg);
+        if (obj != null && obj.IsContainer)
+        {
+            if (CanCloseContainer(obj, out string message))
+            {
+                obj.IsOpen = false;
+                return $"Cierras {obj.Name}.";
+            }
+            return message;
+        }
+
         var door = FindDoorInCurrentRoomByName(room, arg);
 
         if (door == null)
@@ -621,6 +767,181 @@ public class GameEngine
                 return "Aquí no hay ninguna puerta así.";
         }
     }
+
+    private string HandleUnlock(ParsedCommand parsed)
+    {
+        var room = CurrentRoom;
+        if (room == null)
+            return "Estás perdido.";
+
+        var arg = (parsed.DirectObject ?? string.Empty).Trim();
+        if (string.IsNullOrEmpty(arg))
+            return "¿Qué quieres desbloquear?";
+
+        var obj = FindObjectInRoomOrInventory(room, arg);
+        if (obj == null || !obj.IsContainer)
+            return "No hay ningún contenedor con ese nombre.";
+
+        // Buscar la llave en el inventario
+        var key = _state.InventoryObjectIds
+            .Select(FindObjectById)
+            .FirstOrDefault(k => k != null && k.Id == obj.KeyId);
+
+        if (CanUnlockContainer(obj, key?.Id, out string message))
+        {
+            obj.IsLocked = false;
+            return $"Desbloqueas {obj.Name} con {key?.Name}.";
+        }
+
+        return message;
+    }
+
+    private string HandleLock(ParsedCommand parsed)
+    {
+        var room = CurrentRoom;
+        if (room == null)
+            return "Estás perdido.";
+
+        var arg = (parsed.DirectObject ?? string.Empty).Trim();
+        if (string.IsNullOrEmpty(arg))
+            return "¿Qué quieres bloquear?";
+
+        var obj = FindObjectInRoomOrInventory(room, arg);
+        if (obj == null || !obj.IsContainer)
+            return "No hay ningún contenedor con ese nombre.";
+
+        if (obj.IsLocked)
+            return $"{obj.Name} ya está bloqueado.";
+
+        if (string.IsNullOrWhiteSpace(obj.KeyId))
+            return $"{obj.Name} no tiene cerradura.";
+
+        // Buscar la llave en el inventario
+        var key = _state.InventoryObjectIds
+            .Select(FindObjectById)
+            .FirstOrDefault(k => k != null && k.Id == obj.KeyId);
+
+        if (key == null)
+            return "No tienes la llave adecuada.";
+
+        obj.IsLocked = true;
+        return $"Bloqueas {obj.Name} con {key.Name}.";
+    }
+
+    private string HandlePutIn(ParsedCommand parsed)
+    {
+        var room = CurrentRoom;
+        if (room == null)
+            return "Estás perdido.";
+
+        // Necesitamos parsear "meter X en Y" - DirectObject es X, Preposition + IndirectObject es "en Y"
+        var objectName = (parsed.DirectObject ?? string.Empty).Trim();
+        var containerName = (parsed.IndirectObject ?? string.Empty).Trim();
+
+        if (string.IsNullOrEmpty(objectName))
+            return "¿Qué quieres meter?";
+
+        if (string.IsNullOrEmpty(containerName))
+            return "¿Dónde quieres meterlo?";
+
+        // Buscar el objeto a meter (debe estar en el inventario)
+        var objToInsert = _state.InventoryObjectIds
+            .Select(FindObjectById)
+            .FirstOrDefault(o => o != null && o.Visible && o.Name.Contains(objectName, StringComparison.OrdinalIgnoreCase));
+
+        if (objToInsert == null)
+            return "No tienes ese objeto.";
+
+        // Buscar el contenedor
+        var container = FindObjectInRoomOrInventory(room, containerName);
+        if (container == null || !container.IsContainer)
+            return "No hay ningún contenedor con ese nombre.";
+
+        if (container.IsOpenable && !container.IsOpen)
+            return $"{container.Name} está cerrado.";
+
+        if (container.MaxCapacity > 0 && container.ContainedObjectIds.Count >= container.MaxCapacity)
+            return $"{container.Name} está lleno.";
+
+        // Mover el objeto del inventario al contenedor
+        _state.InventoryObjectIds.Remove(objToInsert.Id);
+        container.ContainedObjectIds.Add(objToInsert.Id);
+        objToInsert.RoomId = null; // El objeto ya no está en una sala
+
+        return $"Metes {objToInsert.Name} en {container.Name}.";
+    }
+
+    private string HandleGetFrom(ParsedCommand parsed)
+    {
+        var room = CurrentRoom;
+        if (room == null)
+            return "Estás perdido.";
+
+        var objectName = (parsed.DirectObject ?? string.Empty).Trim();
+        var containerName = (parsed.IndirectObject ?? string.Empty).Trim();
+
+        if (string.IsNullOrEmpty(objectName))
+            return "¿Qué quieres sacar?";
+
+        if (string.IsNullOrEmpty(containerName))
+            return "¿De dónde quieres sacarlo?";
+
+        // Buscar el contenedor
+        var container = FindObjectInRoomOrInventory(room, containerName);
+        if (container == null || !container.IsContainer)
+            return "No hay ningún contenedor con ese nombre.";
+
+        if (container.IsOpenable && !container.IsOpen && !container.ContentsVisible)
+            return $"{container.Name} está cerrado.";
+
+        // Buscar el objeto dentro del contenedor
+        var objToExtract = container.ContainedObjectIds
+            .Select(FindObjectById)
+            .FirstOrDefault(o => o != null && o.Name.Contains(objectName, StringComparison.OrdinalIgnoreCase));
+
+        if (objToExtract == null)
+            return $"No hay ningún {objectName} en {container.Name}.";
+
+        // Mover el objeto del contenedor al inventario
+        container.ContainedObjectIds.Remove(objToExtract.Id);
+        _state.InventoryObjectIds.Add(objToExtract.Id);
+
+        return $"Sacas {objToExtract.Name} de {container.Name}.";
+    }
+
+    private string HandleLookIn(ParsedCommand parsed)
+    {
+        var room = CurrentRoom;
+        if (room == null)
+            return "Estás perdido.";
+
+        var containerName = (parsed.DirectObject ?? string.Empty).Trim();
+        if (string.IsNullOrEmpty(containerName))
+            return "¿Qué quieres mirar?";
+
+        var container = FindObjectInRoomOrInventory(room, containerName);
+        if (container == null || !container.IsContainer)
+            return "No hay ningún contenedor con ese nombre.";
+
+        if (container.IsOpenable && !container.IsOpen && !container.ContentsVisible)
+            return $"{container.Name} está cerrado y no puedes ver su interior.";
+
+        if (container.ContainedObjectIds.Count == 0)
+            return $"{container.Name} está vacío.";
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"Dentro de {container.Name} ves:");
+
+        foreach (var objId in container.ContainedObjectIds)
+        {
+            var obj = FindObjectById(objId);
+            if (obj != null)
+                sb.AppendLine($"- {obj.Name}");
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
     private string HandleTake(ParsedCommand parsed)
     {
         var room = CurrentRoom;

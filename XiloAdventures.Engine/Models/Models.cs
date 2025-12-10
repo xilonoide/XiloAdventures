@@ -7,6 +7,7 @@ namespace XiloAdventures.Engine.Models;
 public class WorldModel
 {
     public GameInfo Game { get; set; } = new();
+    public PlayerDefinition Player { get; set; } = new();
     public List<Room> Rooms { get; set; } = new();
     public List<GameObject> Objects { get; set; } = new();
     public List<Npc> Npcs { get; set; } = new();
@@ -16,7 +17,6 @@ public class WorldModel
     public List<EventRule> Events { get; set; } = new();
 
     public List<Door> Doors { get; set; } = new();
-    public List<KeyDefinition> Keys { get; set; } = new();
 
     /// <summary>
     /// Biblioteca de música del mundo (archivos compartidos entre salas).
@@ -50,6 +50,17 @@ public enum WeatherType
     Lluvioso,
     Nublado,
     Tormenta
+}
+
+public enum ObjectType
+{
+    Ninguno,        // Sin especificar
+    Arma,           // Arma
+    Armadura,       // Armadura
+    Comida,         // Comida
+    Bebida,         // Bebida
+    Ropa,           // Ropa
+    Llave           // Llave
 }
 
 public class GameInfo
@@ -131,11 +142,15 @@ public class Exit
     public string TargetRoomId { get; set; } = string.Empty;
 
     public bool IsLocked { get; set; }
-    public string? LockId { get; set; }
+
+    /// <summary>
+    /// ID del objeto (tipo Key) necesario para abrir esta salida.
+    /// </summary>
+    public string? KeyObjectId { get; set; }
 
     /// <summary>
     /// Si esta salida está asociada a una puerta física del mundo, su Id.
-    /// Si es null, la salida funciona como hasta ahora (solo con IsLocked/LockId).
+    /// Si es null, la salida funciona como hasta ahora (solo con IsLocked/KeyObjectId).
     /// </summary>
     public string? DoorId { get; set; }
 
@@ -151,13 +166,37 @@ public class GameObject
     public string Name { get; set; } = "Objeto sin nombre";
     public string Description { get; set; } = string.Empty;
 
+    public ObjectType Type { get; set; } = ObjectType.Ninguno;
+
     public bool CanTake { get; set; }
+
+    // Propiedades de contenedor
     public bool IsContainer { get; set; }
     public List<string> ContainedObjectIds { get; set; } = new();
-    public List<string> Tags { get; set; } = new();
+    public bool IsOpenable { get; set; } // Si el contenedor se puede abrir/cerrar
+    public bool IsOpen { get; set; } = true; // Estado actual (por defecto abierto)
+    public bool IsLocked { get; set; } // Si está bloqueado
 
-    public int BaseValue { get; set; }
-    public int Quality { get; set; }
+    /// <summary>
+    /// ID del objeto (tipo Key) necesario para abrir este contenedor.
+    /// </summary>
+    public string? KeyId { get; set; }
+
+    public bool ContentsVisible { get; set; } // Si el contenido es visible sin abrir (ej: estante vs cofre)
+
+    /// <summary>Capacidad máxima del contenedor en metros cúbicos (m³). -1 = ilimitado.</summary>
+    public double MaxCapacity { get; set; } = -1;
+
+    /// <summary>Volumen del objeto en metros cúbicos (m³).</summary>
+    public double Volume { get; set; } = 0;
+
+    /// <summary>Peso del objeto en gramos.</summary>
+    public int Weight { get; set; } = 0;
+
+    /// <summary>Precio del objeto en monedas.</summary>
+    public int Price { get; set; } = 0;
+
+    public List<string> Tags { get; set; } = new();
 
     /// <summary>Sala inicial donde se encuentra el objeto.</summary>
     public string? RoomId { get; set; }
@@ -282,6 +321,47 @@ public class PlayerStats
     public int Experience { get; set; } = 0;
 }
 
+/// <summary>
+/// Definición del jugador configurable desde el editor de mundos.
+/// Las características (Fuerza, Constitución, Inteligencia, Destreza, Carisma)
+/// deben sumar 100 puntos en total, con un mínimo de 10 cada una.
+/// </summary>
+public class PlayerDefinition
+{
+    public string Name { get; set; } = "Aventurero";
+
+    /// <summary>Edad en años (10-90).</summary>
+    public int Age { get; set; } = 25;
+
+    /// <summary>Peso en kg (50-150, incrementos de 5).</summary>
+    public int Weight { get; set; } = 70;
+
+    /// <summary>Altura en cm (50-220, incrementos de 5).</summary>
+    public int Height { get; set; } = 170;
+
+    /// <summary>Fuerza (mínimo 10, máximo según puntos disponibles).</summary>
+    public int Strength { get; set; } = 20;
+
+    /// <summary>Constitución (mínimo 10, máximo según puntos disponibles).</summary>
+    public int Constitution { get; set; } = 20;
+
+    /// <summary>Inteligencia (mínimo 10, máximo según puntos disponibles).</summary>
+    public int Intelligence { get; set; } = 20;
+
+    /// <summary>Destreza (mínimo 10, máximo según puntos disponibles).</summary>
+    public int Dexterity { get; set; } = 20;
+
+    /// <summary>Carisma (mínimo 10, máximo según puntos disponibles).</summary>
+    public int Charisma { get; set; } = 20;
+
+    /// <summary>
+    /// Calcula el total de puntos de características asignados.
+    /// Debería ser siempre 100.
+    /// </summary>
+    [Browsable(false)]
+    public int TotalAttributePoints => Strength + Constitution + Intelligence + Dexterity + Charisma;
+}
+
 public class GameState
 {
     public string WorldId { get; set; } = string.Empty;
@@ -304,7 +384,6 @@ public class GameState
     public List<EventRule> Events { get; set; } = new();
 
     public List<Door> Doors { get; set; } = new();
-    public List<KeyDefinition> Keys { get; set; } = new();
 
     public Dictionary<string, bool> Flags { get; set; } = new();
     public List<string> InventoryObjectIds { get; set; } = new();

@@ -25,14 +25,13 @@ public class Door
     /// <summary>Indica si actualmente la puerta está abierta.</summary>
     public bool IsOpen { get; set; }
 
-    /// <summary>Indica si la puerta tiene cerradura (LockId no nulo).</summary>
-    public bool HasLock { get; set; }
+    /// <summary>Indica si la puerta está bloqueada (necesita llave para abrir).</summary>
+    public bool IsLocked { get; set; }
 
     /// <summary>
-    /// Identificador lógico de la cerradura. Las llaves llevan una lista
-    /// de LockIds que son capaces de abrir/cerrar.
+    /// ID del objeto (tipo Key) necesario para abrir esta puerta.
     /// </summary>
-    public string? LockId { get; set; }
+    public string? KeyObjectId { get; set; }
 
     /// <summary>
     /// Desde qué lado se puede abrir/cerrar la puerta. Por defecto ambos lados.

@@ -88,7 +88,6 @@ public partial class MapPanel : Control
         _roomStartIconRects.Clear();
         _doorIconRects.Clear();
         _keyIconRects.Clear();
-        _keyIconKeyDefs.Clear();
 
         if (_world == null)
             return;
@@ -369,28 +368,6 @@ private void DrawConnections(DrawingContext dc)
             .ToDictionary(d => d.Id, d => d, StringComparer.OrdinalIgnoreCase);
     }
 
-    // Conjunto de LockIds que tienen al menos una llave asociada.
-    HashSet<string> locksWithKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-    var firstKeyByLockId = new Dictionary<string, KeyDefinition>(StringComparer.OrdinalIgnoreCase);
-    if (_world.Keys != null)
-    {
-        foreach (var key in _world.Keys)
-        {
-            if (key.LockIds == null)
-                continue;
-
-            foreach (var lockId in key.LockIds)
-            {
-                if (!string.IsNullOrWhiteSpace(lockId))
-                {
-                    locksWithKeys.Add(lockId);
-                    if (!firstKeyByLockId.ContainsKey(lockId))
-                        firstKeyByLockId[lockId] = key;
-                }
-            }
-        }
-    }
-
     Pen normalPen = new(new SolidColorBrush(Color.FromRgb(160, 160, 160)), 1.2);
     Pen selectedPen = new(new SolidColorBrush(Color.FromRgb(255, 220, 80)), 2.0);
 
@@ -601,39 +578,6 @@ private void DrawConnections(DrawingContext dc)
                     doorRect.Right - 4,
                     doorRect.Y + doorRect.Height / 2.0);
                 dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(240, 240, 240)), null, knobCenter, 1.5, 1.5);
-
-                // Icono de llave, si la puerta tiene cerradura y al menos una llave asociada.
-                if (door.HasLock && !string.IsNullOrWhiteSpace(door.LockId) &&
-                    locksWithKeys.Contains(door.LockId))
-                {
-                    const double keyIconSize = 12.0;
-                    const double keyIconMargin = 2.0;
-
-                    Rect keyRect = new(
-                        doorRect.Right + keyIconMargin,
-                        doorRect.Y + (doorRect.Height - keyIconSize) / 2.0,
-                        keyIconSize,
-                        keyIconSize);
-
-                    SolidColorBrush keyFill = doorFill; // mismo color que la puerta
-                    Pen keyPen = new Pen(new SolidColorBrush(Color.FromRgb(240, 240, 240)), 0.8);
-
-                dc.DrawRoundedRectangle(keyFill, keyPen, keyRect, 3, 3);
-
-                if (firstKeyByLockId.TryGetValue(door.LockId, out var keyDef))
-                {
-                    _keyIconRects[door.LockId] = keyRect;
-                    _keyIconKeyDefs[door.LockId] = keyDef;
-                }
-
-                // Un pequeño "diente" de llave dentro
-                    Point toothStart = new(keyRect.X + 3, keyRect.Y + keyRect.Height / 2.0);
-                    Point toothEnd = new(keyRect.Right - 3, keyRect.Y + keyRect.Height / 2.0);
-                    dc.DrawLine(new Pen(new SolidColorBrush(Color.FromRgb(240, 240, 240)), 1.2), toothStart, toothEnd);
-
-                    // Ampliamos el hit-test para cubrir también el icono de llave.
-                    hitRect = Rect.Union(hitRect, keyRect);
-                }
 
                 // Ampliamos el hit-test para cubrir también el icono de puerta.
                 hitRect = Rect.Union(hitRect, doorRect);

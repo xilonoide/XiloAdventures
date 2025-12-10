@@ -41,14 +41,6 @@ public partial class MapPanel : Control
                 return;
             }
 
-            var keyDouble = HitTestKeyIcon(pos);
-            if (keyDouble != null)
-            {
-                KeyDoubleClicked?.Invoke(keyDouble);
-                e.Handled = true;
-                return;
-            }
-
             var doubleClickRoom = HitTestRoom(pos);
             if (doubleClickRoom != null)
             {
@@ -1306,25 +1298,6 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
         return null;
     }
 
-    private KeyDefinition? HitTestKeyIcon(Point screenPoint)
-    {
-        if (_world == null || _keyIconRects.Count == 0)
-            return null;
-
-        foreach (var kvp in _keyIconRects.Reverse())
-        {
-            Rect rect = kvp.Value;
-            if (!rect.Contains(screenPoint))
-                continue;
-
-            string lockId = kvp.Key;
-            if (_keyIconKeyDefs.TryGetValue(lockId, out var keyDef))
-                return keyDef;
-        }
-
-        return null;
-    }
-
     private void ShowDoorContextMenu(Door door, Point screenPoint)
     {
         var menu = new ContextMenu();
@@ -1417,7 +1390,7 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
             if (outcome != null)
             {
                 MapEdited?.Invoke();
-                DoorCreated?.Invoke(outcome.Door, outcome.CreatedKey, outcome.CreatedObject);
+                DoorCreated?.Invoke(outcome.Door, outcome.CreatedObject);
                 InvalidateVisual();
             }
         }
@@ -1564,29 +1537,14 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
             return null;
 
         _world.Doors ??= new List<Door>();
-        _world.Keys ??= new List<KeyDefinition>();
         _world.Objects ??= new List<GameObject>();
 
         string doorId = GenerateUniqueDoorId();
         string doorName = $"Puerta {fromRoom.Name} - {targetRoom.Name}";
 
-        var door = new Door
-        {
-            Id = doorId,
-            Name = doorName,
-            Description = $"Puerta entre {fromRoom.Name} y {targetRoom.Name}",
-            RoomIdA = fromRoom.Id,
-            RoomIdB = targetRoom.Id,
-            IsOpen = data.IsOpen,
-            HasLock = data.WithKey,
-            LockId = data.WithKey ? GenerateUniqueLockId() : null,
-            OpenFromSide = DoorOpenSide.Both
-        };
-
-        KeyDefinition? createdKey = null;
         GameObject? createdObject = null;
 
-        if (data.WithKey && !string.IsNullOrWhiteSpace(door.LockId))
+        if (data.WithKey)
         {
             var selectedOption = data.SelectedKeyOption ?? BuildKeyOptions().First();
 
@@ -1604,12 +1562,20 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
                     createdObject = CreateKeyObjectForDoor(doorName);
                 }
             }
-
-            if (createdObject != null)
-            {
-                createdKey = EnsureKeyDefinition(createdObject, door.LockId);
-            }
         }
+
+        var door = new Door
+        {
+            Id = doorId,
+            Name = doorName,
+            Description = $"Puerta entre {fromRoom.Name} y {targetRoom.Name}",
+            RoomIdA = fromRoom.Id,
+            RoomIdB = targetRoom.Id,
+            IsOpen = data.IsOpen,
+            IsLocked = data.WithKey && createdObject != null,
+            KeyObjectId = createdObject?.Id,
+            OpenFromSide = DoorOpenSide.Both
+        };
 
         exit.DoorId = door.Id;
 
@@ -1622,7 +1588,7 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
 
         _world.Doors.Add(door);
 
-        return new DoorCreationOutcome(door, createdKey, createdObject);
+        return new DoorCreationOutcome(door, createdObject);
     }
 
     private GameObject CreateKeyObjectForDoor(string doorName)
@@ -1634,44 +1600,13 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
             Id = GenerateUniqueObjectId("obj_llave"),
             Name = $"Llave de {doorName}",
             Description = $"Llave que abre {doorName}.",
+            Type = ObjectType.Llave,
             CanTake = true,
             Visible = true
         };
 
         _world.Objects.Add(obj);
         return obj;
-    }
-
-    private KeyDefinition? EnsureKeyDefinition(GameObject keyObject, string lockId)
-    {
-        if (_world == null)
-            return null;
-
-        _world.Keys ??= new List<KeyDefinition>();
-
-        var existing = _world.Keys.FirstOrDefault(k =>
-            string.Equals(k.ObjectId, keyObject.Id, StringComparison.OrdinalIgnoreCase));
-
-        bool created = false;
-
-        if (existing == null)
-        {
-            existing = new KeyDefinition
-            {
-                Id = GenerateUniqueKeyId(),
-                ObjectId = keyObject.Id,
-                LockIds = new List<string>()
-            };
-            _world.Keys.Add(existing);
-            created = true;
-        }
-
-        if (!existing.LockIds.Any(l => string.Equals(l, lockId, StringComparison.OrdinalIgnoreCase)))
-        {
-            existing.LockIds.Add(lockId);
-        }
-
-        return created ? existing : null;
     }
 
     private string GenerateUniqueDoorId()
@@ -1686,64 +1621,6 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
         do
         {
             candidate = $"door_{index}";
-            index++;
-        } while (existing.Contains(candidate));
-
-        return candidate;
-    }
-
-    private string GenerateUniqueKeyId()
-    {
-        var existing = _world?.Keys != null
-            ? new HashSet<string>(_world.Keys.Where(k => !string.IsNullOrWhiteSpace(k.Id)).Select(k => k.Id), StringComparer.OrdinalIgnoreCase)
-            : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        int index = existing.Count + 1;
-        string candidate;
-
-        do
-        {
-            candidate = $"key_{index}";
-            index++;
-        } while (existing.Contains(candidate));
-
-        return candidate;
-    }
-
-    private string GenerateUniqueLockId()
-    {
-        var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        if (_world?.Doors != null)
-        {
-            foreach (var d in _world.Doors)
-            {
-                if (!string.IsNullOrWhiteSpace(d.LockId))
-                    existing.Add(d.LockId);
-            }
-        }
-
-        if (_world?.Keys != null)
-        {
-            foreach (var k in _world.Keys)
-            {
-                if (k.LockIds == null)
-                    continue;
-
-                foreach (var lockId in k.LockIds)
-                {
-                    if (!string.IsNullOrWhiteSpace(lockId))
-                        existing.Add(lockId);
-                }
-            }
-        }
-
-        int index = existing.Count + 1;
-        string candidate;
-
-        do
-        {
-            candidate = $"lock_{index}";
             index++;
         } while (existing.Contains(candidate));
 
@@ -1782,7 +1659,7 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
         public bool IsAutoNew { get; set; }
     }
 
-    private sealed record DoorCreationOutcome(Door Door, KeyDefinition? CreatedKey, GameObject? CreatedObject);
+    private sealed record DoorCreationOutcome(Door Door, GameObject? CreatedObject);
 
     private void CreateExitFromPendingPort(Room targetRoom)
     {
@@ -2373,5 +2250,91 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
         double cellY = Math.Round((position.Y - RoomBoxHeight/2) / RoomBoxHeight) * RoomBoxHeight + RoomBoxHeight/2;
         return new Point(cellX, cellY);
     }
+
+    #region Drag and Drop
+
+    private void MapPanel_DragEnter(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent("GameObject") || e.Data.GetDataPresent("Npc"))
+        {
+            e.Effects = DragDropEffects.Move;
+        }
+        else
+        {
+            e.Effects = DragDropEffects.None;
+        }
+        e.Handled = true;
+    }
+
+    private void MapPanel_DragOver(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent("GameObject") || e.Data.GetDataPresent("Npc"))
+        {
+            e.Effects = DragDropEffects.Move;
+        }
+        else
+        {
+            e.Effects = DragDropEffects.None;
+        }
+        e.Handled = true;
+    }
+
+    private void MapPanel_Drop(object sender, DragEventArgs e)
+    {
+        try
+        {
+            if (_world == null) return;
+
+            Point pos = e.GetPosition(this);
+            var targetRoom = HitTestRoom(pos);
+
+            if (targetRoom == null) return;
+
+            bool changed = false;
+
+            if (e.Data.GetDataPresent("GameObject"))
+            {
+                var gameObj = e.Data.GetData("GameObject") as GameObject;
+                if (gameObj != null)
+                {
+                    // Quitar del contenedor si estaba en uno
+                    foreach (var container in _world.Objects.Where(o => o.IsContainer))
+                    {
+                        if (container.ContainedObjectIds.Contains(gameObj.Id, StringComparer.OrdinalIgnoreCase))
+                        {
+                            container.ContainedObjectIds.Remove(gameObj.Id);
+                        }
+                    }
+
+                    gameObj.RoomId = targetRoom.Id;
+                    changed = true;
+                }
+            }
+            else if (e.Data.GetDataPresent("Npc"))
+            {
+                var npc = e.Data.GetData("Npc") as Npc;
+                if (npc != null)
+                {
+                    npc.RoomId = targetRoom.Id;
+                    changed = true;
+                }
+            }
+
+            if (changed)
+            {
+                MapEdited?.Invoke();
+                UpdateRoomRects();
+                InvalidateVisual();
+            }
+
+            e.Handled = true;
+        }
+        catch
+        {
+            // Ignorar errores
+        }
+    }
+
+    #endregion
 
 }

@@ -80,7 +80,6 @@ public class GameEngineTests
             },
             Npcs = new List<Npc>(),
             Doors = new List<Door>(),
-            Keys = new List<KeyDefinition>(),
             Quests = new List<QuestDefinition>()
         };
 

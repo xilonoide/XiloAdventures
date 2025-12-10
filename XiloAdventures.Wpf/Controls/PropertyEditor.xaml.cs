@@ -21,6 +21,14 @@ public partial class PropertyEditor : UserControl
     private PasswordBox? _encryptionPasswordBox;
     private object? _currentObject;
 
+    // Diccionario para rastrear elementos que deben mostrarse/ocultarse dinámicamente
+    private readonly Dictionary<string, UIElement> _propertyElements = new();
+    // Diccionario para rastrear las condiciones de visibilidad de cada propiedad
+    private readonly Dictionary<string, Func<bool>> _visibilityConditions = new();
+
+    // TextBlock para mostrar el total de puntos de características del jugador
+    private TextBlock? _attributesTotalLabel;
+
     public event Action<object?, string>? PropertyEdited;
 
     public PasswordBox? EncryptionPasswordBox => _encryptionPasswordBox;
@@ -28,6 +36,8 @@ public partial class PropertyEditor : UserControl
     public Func<IEnumerable<Room>>? GetRooms { get; set; }
 
     public Func<IEnumerable<MusicAsset>>? GetMusics { get; set; }
+
+    public Func<IEnumerable<GameObject>>? GetObjects { get; set; }
 
 
     public PropertyEditor()
@@ -44,7 +54,10 @@ public partial class PropertyEditor : UserControl
     {
         _currentObject = obj;
         _encryptionPasswordBox = null;
+        _attributesTotalLabel = null;
         RootPanel.Children.Clear();
+        _propertyElements.Clear();
+        _visibilityConditions.Clear();
 
         if (obj == null)
             return;
@@ -82,15 +95,49 @@ public partial class PropertyEditor : UserControl
             isFirst = false;
 
             // Header del grupo
-            var header = new TextBlock
+            // Si es PlayerDefinition y grupo Características, mostrar el total de puntos
+            if (obj is PlayerDefinition playerDef && group.Name == "⚔️ Características")
             {
-                Text = group.Name.ToUpper(),
-                FontSize = 11,
-                FontWeight = FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Color.FromRgb(0x66, 0xBB, 0xFF)),
-                Margin = new Thickness(0, isFirst ? 0 : 12, 0, 4)
-            };
-            RootPanel.Children.Add(header);
+                var headerPanel = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Margin = new Thickness(0, isFirst ? 0 : 12, 0, 4)
+                };
+
+                var headerText = new TextBlock
+                {
+                    Text = group.Name.ToUpper(),
+                    FontSize = 11,
+                    FontWeight = FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Color.FromRgb(0x66, 0xBB, 0xFF))
+                };
+                headerPanel.Children.Add(headerText);
+
+                var total = playerDef.TotalAttributePoints;
+                _attributesTotalLabel = new TextBlock
+                {
+                    Text = $" ({total}/100)",
+                    FontSize = 11,
+                    FontWeight = FontWeights.SemiBold,
+                    Foreground = GetAttributesTotalColor(total),
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                headerPanel.Children.Add(_attributesTotalLabel);
+
+                RootPanel.Children.Add(headerPanel);
+            }
+            else
+            {
+                var header = new TextBlock
+                {
+                    Text = group.Name.ToUpper(),
+                    FontSize = 11,
+                    FontWeight = FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Color.FromRgb(0x66, 0xBB, 0xFF)),
+                    Margin = new Thickness(0, isFirst ? 0 : 12, 0, 4)
+                };
+                RootPanel.Children.Add(header);
+            }
 
             // Propiedades del grupo
             foreach (var prop in group.Properties)
@@ -111,8 +158,8 @@ public partial class PropertyEditor : UserControl
             ["🎵 Multimedia"] = new(),
             ["🔗 Conexiones"] = new(),
             ["⚙️ Comportamiento"] = new(),
-            ["📦 Contenido"] = new(),
             ["📊 Estadísticas"] = new(),
+            ["⚔️ Características"] = new(),
             ["🔒 Seguridad"] = new(),
             ["🏷️ Otros"] = new()
         };
@@ -144,8 +191,8 @@ public partial class PropertyEditor : UserControl
             "🎵 Multimedia",
             "🔗 Conexiones",
             "⚙️ Comportamiento",
-            "📦 Contenido",
             "📊 Estadísticas",
+            "⚔️ Características",
             "🔒 Seguridad",
             "🏷️ Otros"
         };
@@ -176,19 +223,32 @@ public partial class PropertyEditor : UserControl
         if (name is "RoomId" or "RoomIdA" or "RoomIdB" or "StartRoomId" or "TargetRoomId" or "Direction")
             return "🔗 Conexiones";
 
-        // Comportamiento
-        if (name is "Visible" or "CanTake" or "IsContainer" or "IsLocked" or "IsIlluminated"
+        // Comportamiento (incluyendo propiedades de contenedor de GameObject que irán con sangría)
+        if (name is "Visible" or "CanTake" or "Type" or "IsContainer" or "IsOpenable" or "IsOpen"
+            or "IsLocked" or "ContentsVisible" or "IsIlluminated"
             or "IsInterior" or "Behavior" or "StartHour" or "StartWeather" or "MinutesPerGameHour"
             or "RequiredQuestId" or "RequiredQuestStatus")
             return "⚙️ Comportamiento";
 
-        // Contenido
-        if (name is "ContainedObjectIds" or "InventoryObjectIds" or "Objectives" or "KeyId" or "LockId" or "LockIds" or "DoorId" or "ObjectId")
-            return "📦 Contenido";
+        // Propiedades de contenedor de GameObject (se mostrarán con sangría dentro de Comportamiento)
+        if (obj is GameObject && name is "ContainedObjectIds" or "KeyId" or "MaxCapacity")
+            return "⚙️ Comportamiento";
+
+        // Otras propiedades de contenido que no son de GameObject
+        if (name is "InventoryObjectIds" or "Objectives" or "KeyObjectId" or "DoorId" or "ObjectId")
+            return "🏷️ Otros";
+
+        // PlayerDefinition: propiedades físicas
+        if (obj is PlayerDefinition && name is "Age" or "Weight" or "Height")
+            return "📊 Estadísticas";
+
+        // PlayerDefinition: características
+        if (obj is PlayerDefinition && name is "Strength" or "Constitution" or "Intelligence" or "Dexterity" or "Charisma")
+            return "⚔️ Características";
 
         // Estadísticas
         if (name is "Level" or "Strength" or "Dexterity" or "Intelligence" or "MaxHealth"
-            or "CurrentHealth" or "Gold" or "BaseValue" or "Quality" or "Stats")
+            or "CurrentHealth" or "Gold" or "Stats" or "Volume" or "Weight" or "Price")
             return "📊 Estadísticas";
 
         // Seguridad
@@ -228,12 +288,61 @@ public partial class PropertyEditor : UserControl
             "RoomIdB" => 3,
             "Direction" => 4,
             "TargetRoomId" => 5,
+
+            // Orden para propiedades de contenedor (GameObject)
+            "Type" => 10,
+            "CanTake" => 11,
+            "Visible" => 12,
+            "IsContainer" => 20,
+            "IsOpenable" => 21,
+            "IsOpen" => 22,
+            "IsLocked" => 23,
+            "KeyId" => 24,
+            "ContentsVisible" => 25,
+            "MaxCapacity" => 26,
+            "ContainedObjectIds" => 27,
+
+            // Estadísticas
+            "Volume" => 40,
+            "Weight" => 41,
+            "Price" => 42,
+
             _ => 99
         };
     }
 
     private void AddPropertyControl(object obj, PropertyInfo prop)
     {
+        // Determinar si necesita sangría
+        bool needsIndent = ShouldIndentProperty(obj, prop);
+        double leftMargin = needsIndent ? 20 : 0;
+
+        // Crear contenedor para la propiedad (puede tener borde si es un grupo)
+        Border? propertyContainer = null;
+        StackPanel containerPanel;
+
+        // Si es una propiedad agrupada (contenedor), crear un borde visual
+        if (needsIndent)
+        {
+            propertyContainer = new Border
+            {
+                BorderBrush = new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55)),
+                BorderThickness = new Thickness(2, 0, 0, 0),
+                Padding = new Thickness(10, 0, 0, 0),
+                Margin = new Thickness(8, 0, 0, 0)
+            };
+
+            containerPanel = new StackPanel();
+            propertyContainer.Child = containerPanel;
+        }
+        else
+        {
+            containerPanel = new StackPanel
+            {
+                Margin = new Thickness(leftMargin, 0, 0, 0)
+            };
+        }
+
         // Booleans: label y checkbox en la misma fila, centrados verticalmente.
         if (prop.PropertyType == typeof(bool))
         {
@@ -257,6 +366,9 @@ public partial class PropertyEditor : UserControl
                     if (_currentObject is not { } target) return;
                     prop.SetValue(target, true);
                     PropertyEdited?.Invoke(target, prop.Name);
+
+                    // Actualizar visibilidad de propiedades dependientes
+                    UpdatePropertyVisibility();
                 }
                 catch
                 {
@@ -271,6 +383,9 @@ public partial class PropertyEditor : UserControl
                     if (_currentObject is not { } target) return;
                     prop.SetValue(target, false);
                     PropertyEdited?.Invoke(target, prop.Name);
+
+                    // Actualizar visibilidad de propiedades dependientes
+                    UpdatePropertyVisibility();
                 }
                 catch
                 {
@@ -290,7 +405,23 @@ public partial class PropertyEditor : UserControl
             };
             panel.Children.Add(boolLabel);
 
-            RootPanel.Children.Add(panel);
+            containerPanel.Children.Add(panel);
+
+            // Agregar el contenedor al panel raíz
+            var elementToAdd = propertyContainer ?? (UIElement)containerPanel;
+            RootPanel.Children.Add(elementToAdd);
+
+            // Registrar el elemento para control de visibilidad
+            var visibilityCondition = GetVisibilityCondition(obj, prop);
+            if (visibilityCondition != null)
+            {
+                _propertyElements[prop.Name] = elementToAdd;
+                _visibilityConditions[prop.Name] = visibilityCondition;
+
+                // Aplicar visibilidad inicial
+                elementToAdd.Visibility = visibilityCondition() ? Visibility.Visible : Visibility.Collapsed;
+            }
+
             return;
         }
 
@@ -326,7 +457,7 @@ public partial class PropertyEditor : UserControl
             helpIcon.MouseLeftButtonUp += (_, _) => ShowParserDictionaryHelp();
             labelPanel.Children.Add(helpIcon);
 
-            RootPanel.Children.Add(labelPanel);
+            containerPanel.Children.Add(labelPanel);
         }
         else if (obj is Room && prop.Name == "MusicId" && prop.PropertyType == typeof(string))
         {
@@ -351,11 +482,11 @@ public partial class PropertyEditor : UserControl
             helpIcon.MouseLeftButtonUp += (_, _) => ShowMusicIdHelp();
             labelPanel.Children.Add(helpIcon);
 
-            RootPanel.Children.Add(labelPanel);
+            containerPanel.Children.Add(labelPanel);
         }
         else
         {
-            RootPanel.Children.Add(label);
+            containerPanel.Children.Add(label);
         }
 
         {
@@ -378,6 +509,23 @@ public partial class PropertyEditor : UserControl
                     combo.IsEnabled = false;
                 }
 
+                // Si es un GameObject con RoomId, verificar si está contenido en otro objeto
+                if (obj is GameObject gameObj && prop.Name == "RoomId")
+                {
+                    if (IsObjectContainedInAnother(gameObj))
+                    {
+                        // Deshabilitar el campo porque está contenido en otro objeto
+                        combo.IsEnabled = false;
+
+                        // Sincronizar con la sala del contenedor
+                        var container = FindContainerObject(gameObj);
+                        if (container != null)
+                        {
+                            gameObj.RoomId = container.RoomId;
+                        }
+                    }
+                }
+
                 var currentId = Convert.ToString(prop.GetValue(obj)) ?? string.Empty;
                 combo.SelectedValue = currentId;
 
@@ -390,6 +538,12 @@ public partial class PropertyEditor : UserControl
                         {
                             prop.SetValue(target, id);
                             PropertyEdited?.Invoke(target, prop.Name);
+
+                            // Si es un contenedor que cambió de sala, mover sus objetos contenidos
+                            if (target is GameObject containerObj && prop.Name == "RoomId")
+                            {
+                                UpdateContainedObjectsRoom(containerObj, id);
+                            }
                         }
                     }
                     catch
@@ -402,32 +556,92 @@ public partial class PropertyEditor : UserControl
             }
             else if (prop.PropertyType.IsEnum)
             {
-                var comboEnum = new ComboBox
+                // Caso especial para OpenFromSide de Door: mostrar nombres de salas
+                if (obj is Door door && prop.Name == "OpenFromSide" && GetRooms != null)
                 {
-                    Margin = new Thickness(0, 2, 0, 0),
-                    ItemsSource = Enum.GetValues(prop.PropertyType)
-                };
+                    var rooms = GetRooms().ToList();
+                    var roomA = rooms.FirstOrDefault(r => string.Equals(r.Id, door.RoomIdA, StringComparison.OrdinalIgnoreCase));
+                    var roomB = rooms.FirstOrDefault(r => string.Equals(r.Id, door.RoomIdB, StringComparison.OrdinalIgnoreCase));
 
-                comboEnum.SelectedItem = prop.GetValue(obj);
-
-                comboEnum.SelectionChanged += (_, _) =>
-                {
-                    try
+                    var openSideOptions = new List<OpenFromSideComboItem>
                     {
-                        if (_currentObject is not { } target) return;
-                        if (comboEnum.SelectedItem != null)
+                        new OpenFromSideComboItem
                         {
-                            prop.SetValue(target, comboEnum.SelectedItem);
-                            PropertyEdited?.Invoke(target, prop.Name);
+                            Value = DoorOpenSide.Both,
+                            DisplayName = "Ambas"
+                        },
+                        new OpenFromSideComboItem
+                        {
+                            Value = DoorOpenSide.FromAOnly,
+                            DisplayName = roomA != null ? roomA.Name : "Sala A"
+                        },
+                        new OpenFromSideComboItem
+                        {
+                            Value = DoorOpenSide.FromBOnly,
+                            DisplayName = roomB != null ? roomB.Name : "Sala B"
                         }
-                    }
-                    catch
-                    {
-                        // Ignorar errores
-                    }
-                };
+                    };
 
-                editor = comboEnum;
+                    var comboOpenSide = new ComboBox
+                    {
+                        Margin = new Thickness(0, 2, 0, 0),
+                        DisplayMemberPath = nameof(OpenFromSideComboItem.DisplayName),
+                        SelectedValuePath = nameof(OpenFromSideComboItem.Value),
+                        ItemsSource = openSideOptions
+                    };
+
+                    var currentValue = (DoorOpenSide)(prop.GetValue(obj) ?? DoorOpenSide.Both);
+                    comboOpenSide.SelectedValue = currentValue;
+
+                    comboOpenSide.SelectionChanged += (_, _) =>
+                    {
+                        try
+                        {
+                            if (_currentObject is not { } target) return;
+                            if (comboOpenSide.SelectedValue is DoorOpenSide value)
+                            {
+                                prop.SetValue(target, value);
+                                PropertyEdited?.Invoke(target, prop.Name);
+                            }
+                        }
+                        catch
+                        {
+                            // Ignorar errores
+                        }
+                    };
+
+                    editor = comboOpenSide;
+                }
+                else
+                {
+                    // Enum normal
+                    var comboEnum = new ComboBox
+                    {
+                        Margin = new Thickness(0, 2, 0, 0),
+                        ItemsSource = Enum.GetValues(prop.PropertyType)
+                    };
+
+                    comboEnum.SelectedItem = prop.GetValue(obj);
+
+                    comboEnum.SelectionChanged += (_, _) =>
+                    {
+                        try
+                        {
+                            if (_currentObject is not { } target) return;
+                            if (comboEnum.SelectedItem != null)
+                            {
+                                prop.SetValue(target, comboEnum.SelectedItem);
+                                PropertyEdited?.Invoke(target, prop.Name);
+                            }
+                        }
+                        catch
+                        {
+                            // Ignorar errores
+                        }
+                    };
+
+                    editor = comboEnum;
+                }
             }
             else if (obj is GameInfo && prop.Name == "MinutesPerGameHour" && prop.PropertyType == typeof(int))
             {
@@ -462,6 +676,122 @@ public partial class PropertyEditor : UserControl
                 };
 
                 editor = comboMinutes;
+            }
+            // PlayerDefinition: Age (10-90 de 1 en 1)
+            else if (obj is PlayerDefinition && prop.Name == "Age" && prop.PropertyType == typeof(int))
+            {
+                var comboAge = new ComboBox
+                {
+                    Margin = new Thickness(0, 2, 0, 0),
+                    IsEditable = false
+                };
+
+                for (int i = 10; i <= 90; i++)
+                    comboAge.Items.Add(i);
+
+                var currentAge = prop.GetValue(obj) is int a ? a : 25;
+                if (currentAge < 10 || currentAge > 90) currentAge = 25;
+                comboAge.SelectedItem = currentAge;
+
+                comboAge.SelectionChanged += (_, _) =>
+                {
+                    try
+                    {
+                        if (_currentObject is not { } target) return;
+                        if (comboAge.SelectedItem is int value)
+                        {
+                            prop.SetValue(target, value);
+                            PropertyEdited?.Invoke(target, prop.Name);
+                        }
+                    }
+                    catch
+                    {
+                        // Ignorar errores
+                    }
+                };
+
+                editor = comboAge;
+            }
+            // PlayerDefinition: Weight (50-150 de 5 en 5)
+            else if (obj is PlayerDefinition && prop.Name == "Weight" && prop.PropertyType == typeof(int))
+            {
+                var comboWeight = new ComboBox
+                {
+                    Margin = new Thickness(0, 2, 0, 0),
+                    IsEditable = false
+                };
+
+                for (int i = 50; i <= 150; i += 5)
+                    comboWeight.Items.Add(i);
+
+                var currentWeight = prop.GetValue(obj) is int w ? w : 70;
+                if (currentWeight < 50 || currentWeight > 150) currentWeight = 70;
+                // Ajustar al múltiplo de 5 más cercano
+                currentWeight = (currentWeight / 5) * 5;
+                comboWeight.SelectedItem = currentWeight;
+
+                comboWeight.SelectionChanged += (_, _) =>
+                {
+                    try
+                    {
+                        if (_currentObject is not { } target) return;
+                        if (comboWeight.SelectedItem is int value)
+                        {
+                            prop.SetValue(target, value);
+                            PropertyEdited?.Invoke(target, prop.Name);
+                        }
+                    }
+                    catch
+                    {
+                        // Ignorar errores
+                    }
+                };
+
+                editor = comboWeight;
+            }
+            // PlayerDefinition: Height (50-220 de 5 en 5)
+            else if (obj is PlayerDefinition && prop.Name == "Height" && prop.PropertyType == typeof(int))
+            {
+                var comboHeight = new ComboBox
+                {
+                    Margin = new Thickness(0, 2, 0, 0),
+                    IsEditable = false
+                };
+
+                for (int i = 50; i <= 220; i += 5)
+                    comboHeight.Items.Add(i);
+
+                var currentHeight = prop.GetValue(obj) is int h ? h : 170;
+                if (currentHeight < 50 || currentHeight > 220) currentHeight = 170;
+                // Ajustar al múltiplo de 5 más cercano
+                currentHeight = (currentHeight / 5) * 5;
+                comboHeight.SelectedItem = currentHeight;
+
+                comboHeight.SelectionChanged += (_, _) =>
+                {
+                    try
+                    {
+                        if (_currentObject is not { } target) return;
+                        if (comboHeight.SelectedItem is int value)
+                        {
+                            prop.SetValue(target, value);
+                            PropertyEdited?.Invoke(target, prop.Name);
+                        }
+                    }
+                    catch
+                    {
+                        // Ignorar errores
+                    }
+                };
+
+                editor = comboHeight;
+            }
+            // PlayerDefinition: Características (Strength, Constitution, Intelligence, Dexterity, Charisma)
+            else if (obj is PlayerDefinition playerDef &&
+                     prop.Name is "Strength" or "Constitution" or "Intelligence" or "Dexterity" or "Charisma" &&
+                     prop.PropertyType == typeof(int))
+            {
+                editor = CreateAttributeEditor(playerDef, prop);
             }
             else if (obj is GameInfo && prop.Name == "ParserDictionaryJson" && prop.PropertyType == typeof(string))
             {
@@ -768,7 +1098,54 @@ public partial class PropertyEditor : UserControl
                     string.Equals(prop.Name, "Description", StringComparison.OrdinalIgnoreCase) &&
                     (obj is Room || obj is GameObject || obj is Npc);
 
-                var tb = new TextBox
+                // Si es una propiedad de llave (KeyObjectId o KeyId), crear un ComboBox con objetos de tipo Llave
+                bool isKeyProperty =
+                    prop.PropertyType == typeof(string) &&
+                    (string.Equals(prop.Name, "KeyObjectId", StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(prop.Name, "KeyId", StringComparison.OrdinalIgnoreCase));
+
+                if (isKeyProperty && GetObjects != null)
+                {
+                    var keyObjects = GetObjects().Where(o => o.Type == ObjectType.Llave).ToList();
+
+                    // Crear lista de opciones con "(ninguna)" al principio
+                    var keyOptions = new List<KeyComboItem> { new KeyComboItem { Id = "", DisplayName = "(ninguna)" } };
+                    keyOptions.AddRange(keyObjects.Select(k => new KeyComboItem { Id = k.Id, DisplayName = k.Name }));
+
+                    var combo = new ComboBox
+                    {
+                        Margin = new Thickness(0, 2, 0, 0),
+                        DisplayMemberPath = nameof(KeyComboItem.DisplayName),
+                        SelectedValuePath = nameof(KeyComboItem.Id),
+                        ItemsSource = keyOptions
+                    };
+
+                    var currentKeyId = Convert.ToString(prop.GetValue(obj)) ?? string.Empty;
+                    combo.SelectedValue = currentKeyId;
+
+                    combo.SelectionChanged += (_, _) =>
+                    {
+                        try
+                        {
+                            if (_currentObject is not { } target) return;
+                            if (combo.SelectedValue is string keyId)
+                            {
+                                // Si es cadena vacía, guardar como null
+                                prop.SetValue(target, string.IsNullOrEmpty(keyId) ? null : keyId);
+                                PropertyEdited?.Invoke(target, prop.Name);
+                            }
+                        }
+                        catch
+                        {
+                            // Ignorar errores
+                        }
+                    };
+
+                    editor = combo;
+                }
+                else
+                {
+                    var tb = new TextBox
                 {
                     Text = text,
                     Margin = new Thickness(0, 2, 0, 0),
@@ -853,10 +1230,26 @@ public partial class PropertyEditor : UserControl
                     };
                 }
 
-                editor = tb;
+                    editor = tb;
+                }
             }
 
-            RootPanel.Children.Add(editor);
+            containerPanel.Children.Add(editor);
+
+            // Agregar el contenedor al panel raíz
+            var finalElement = propertyContainer ?? (UIElement)containerPanel;
+            RootPanel.Children.Add(finalElement);
+
+            // Registrar el elemento para control de visibilidad
+            var condition = GetVisibilityCondition(obj, prop);
+            if (condition != null)
+            {
+                _propertyElements[prop.Name] = finalElement;
+                _visibilityConditions[prop.Name] = condition;
+
+                // Aplicar visibilidad inicial
+                finalElement.Visibility = condition() ? Visibility.Visible : Visibility.Collapsed;
+            }
         }
     }
 
@@ -881,10 +1274,9 @@ public partial class PropertyEditor : UserControl
         ["Direction"] = "Dirección",
         ["IsIlluminated"] = "Iluminada",
         ["IsInterior"] = "Interior",
-        ["KeyId"] = "Llave",
+        ["KeyId"] = "Llave (ID objeto)",
+        ["KeyObjectId"] = "Llave (ID objeto)",
         ["ObjectId"] = "Objeto",
-        ["LockId"] = "Cerradura",
-        ["LockIds"] = "Cerraduras",
         ["DoorId"] = "Puerta",
         ["Tags"] = "Etiquetas",
         ["StartHour"] = "Hora inicial",
@@ -893,10 +1285,18 @@ public partial class PropertyEditor : UserControl
         ["RequiredQuestStatus"] = "Estado de misión requerido",
         ["Visible"] = "Visible",
         ["CanTake"] = "Se puede coger",
+        ["Type"] = "Tipo de objeto",
         ["IsContainer"] = "Es contenedor",
+        ["IsOpenable"] = "Se puede abrir/cerrar",
+        ["IsOpen"] = "Está abierto",
+        ["IsLocked"] = "Está bloqueado",
+        ["OpenFromSide"] = "Se abre desde",
+        ["ContentsVisible"] = "Contenido visible",
+        ["MaxCapacity"] = "Capacidad máxima (m³)",
+        ["Volume"] = "Volumen (m³)",
+        ["Weight"] = "Peso (g)",
+        ["Price"] = "Precio (monedas)",
         ["ContainedObjectIds"] = "Objetos contenidos",
-        ["BaseValue"] = "Valor base",
-        ["Quality"] = "Calidad",
         ["InventoryObjectIds"] = "Objetos en inventario",
         ["Dialogue"] = "Diálogo",
         ["Behavior"] = "Comportamiento",
@@ -935,12 +1335,20 @@ public partial class PropertyEditor : UserControl
         // Objeto
         ["GameObject.RoomId"] = "Sala",
         ["GameObject.CanTake"] = "Se puede coger",
+        ["GameObject.Type"] = "Tipo",
         ["GameObject.IsContainer"] = "Es contenedor",
+        ["GameObject.IsOpenable"] = "Se puede abrir/cerrar",
+        ["GameObject.IsOpen"] = "Está abierto",
+        ["GameObject.IsLocked"] = "Está bloqueado",
+        ["GameObject.ContentsVisible"] = "Contenido visible",
+        ["GameObject.MaxCapacity"] = "Capacidad máxima (m³)",
+        ["GameObject.Volume"] = "Volumen (m³)",
+        ["GameObject.Weight"] = "Peso (g)",
+        ["GameObject.Price"] = "Precio (monedas)",
         ["GameObject.ContainedObjectIds"] = "Objetos contenidos",
+        ["GameObject.KeyId"] = "Llave necesaria",
         ["GameObject.Tags"] = "Etiquetas",
         ["GameObject.Visible"] = "Visible",
-        ["GameObject.BaseValue"] = "Valor base",
-        ["GameObject.Quality"] = "Calidad",
 
         // NPC
         ["Npc.RoomId"] = "Sala",
@@ -969,6 +1377,21 @@ public partial class PropertyEditor : UserControl
         // Llave
         ["KeyDefinition.ObjectId"] = "Objeto",
         ["KeyDefinition.LockIds"] = "Cerraduras",
+
+        // Jugador
+        ["PlayerDefinition.Name"] = "Nombre",
+        ["PlayerDefinition.Age"] = "Edad (años)",
+        ["PlayerDefinition.Weight"] = "Peso (kg)",
+        ["PlayerDefinition.Height"] = "Altura (cm)",
+        ["PlayerDefinition.Strength"] = "Fuerza",
+        ["PlayerDefinition.Constitution"] = "Constitución",
+        ["PlayerDefinition.Intelligence"] = "Inteligencia",
+        ["PlayerDefinition.Dexterity"] = "Destreza",
+        ["PlayerDefinition.Charisma"] = "Carisma",
+        ["Constitution"] = "Constitución",
+        ["Charisma"] = "Carisma",
+        ["Age"] = "Edad",
+        ["Height"] = "Altura",
     };
 
     private static string GetDisplayLabel(PropertyInfo prop)
@@ -1091,6 +1514,235 @@ public partial class PropertyEditor : UserControl
             gameInfo.EncryptionKey = trimmed;
         }
     }
+
+    /// <summary>
+    /// Maneja el scroll con la rueda del ratón sobre el panel de propiedades
+    /// </summary>
+    private void RootPanel_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        // Obtener el ScrollViewer padre
+        var scrollViewer = MainScrollViewer;
+        if (scrollViewer == null) return;
+
+        // Calcular el nuevo offset (e.Delta es positivo cuando se hace scroll hacia arriba)
+        var delta = e.Delta > 0 ? -50 : 50;
+        scrollViewer.ScrollToVerticalOffset(scrollViewer.VerticalOffset + delta);
+
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// Actualiza la visibilidad de las propiedades según las condiciones definidas
+    /// </summary>
+    private void UpdatePropertyVisibility()
+    {
+        foreach (var kvp in _visibilityConditions)
+        {
+            if (_propertyElements.TryGetValue(kvp.Key, out var element))
+            {
+                var shouldBeVisible = kvp.Value();
+                element.Visibility = shouldBeVisible ? Visibility.Visible : Visibility.Collapsed;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Determina si una propiedad debe tener sangría (es una subpropiedad de otra)
+    /// </summary>
+    private bool ShouldIndentProperty(object obj, PropertyInfo prop)
+    {
+        if (obj is not GameObject) return false;
+
+        var name = prop.Name;
+
+        // Propiedades de contenedor (subpropiedades de IsContainer)
+        if (name is "IsOpenable" or "IsOpen" or "IsLocked" or "ContentsVisible"
+            or "MaxCapacity" or "ContainedObjectIds" or "KeyId")
+            return true;
+
+        return false;
+    }
+
+    /// <summary>
+    /// Obtiene la condición de visibilidad para una propiedad
+    /// </summary>
+    private Func<bool>? GetVisibilityCondition(object obj, PropertyInfo prop)
+    {
+        if (obj is not GameObject gameObject) return null;
+
+        var name = prop.Name;
+
+        // Propiedades que dependen de IsContainer Y otras condiciones
+        return name switch
+        {
+            // IsOpen solo visible si IsContainer = true Y IsOpenable = true
+            "IsOpen" => () => gameObject.IsContainer && gameObject.IsOpenable,
+
+            // KeyId solo visible si IsContainer = true Y IsLocked = true
+            "KeyId" => () => gameObject.IsContainer && gameObject.IsLocked,
+
+            // Propiedades de contenedor solo visibles si IsContainer = true
+            "IsOpenable" or "IsLocked" or "ContentsVisible" or "MaxCapacity" or "ContainedObjectIds"
+                => () => gameObject.IsContainer,
+
+            _ => null
+        };
+    }
+
+    /// <summary>
+    /// Determina si un objeto está contenido dentro de otro objeto
+    /// </summary>
+    private bool IsObjectContainedInAnother(GameObject obj)
+    {
+        if (GetObjects == null) return false;
+
+        var allObjects = GetObjects().ToList();
+        return allObjects.Any(container =>
+            container.IsContainer &&
+            container.ContainedObjectIds.Contains(obj.Id, StringComparer.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Encuentra el objeto contenedor de un objeto dado
+    /// </summary>
+    private GameObject? FindContainerObject(GameObject obj)
+    {
+        if (GetObjects == null) return null;
+
+        var allObjects = GetObjects().ToList();
+        return allObjects.FirstOrDefault(container =>
+            container.IsContainer &&
+            container.ContainedObjectIds.Contains(obj.Id, StringComparer.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Actualiza la sala de todos los objetos contenidos dentro de un contenedor
+    /// </summary>
+    private void UpdateContainedObjectsRoom(GameObject container, string? newRoomId)
+    {
+        if (!container.IsContainer || GetObjects == null) return;
+
+        var allObjects = GetObjects().ToList();
+        foreach (var containedId in container.ContainedObjectIds)
+        {
+            var containedObj = allObjects.FirstOrDefault(o =>
+                string.Equals(o.Id, containedId, StringComparison.OrdinalIgnoreCase));
+
+            if (containedObj != null)
+            {
+                containedObj.RoomId = newRoomId;
+                PropertyEdited?.Invoke(containedObj, nameof(GameObject.RoomId));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Crea el editor para una característica de PlayerDefinition con slider y validación.
+    /// Cada característica tiene un mínimo de 10 y un máximo de 100.
+    /// </summary>
+    private FrameworkElement CreateAttributeEditor(PlayerDefinition playerDef, PropertyInfo prop)
+    {
+        const int MinValue = 10;
+        const int MaxValue = 100;
+
+        var panel = new Grid
+        {
+            Margin = new Thickness(0, 2, 0, 0)
+        };
+        panel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        panel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var currentValue = prop.GetValue(playerDef) is int v ? v : 20;
+        if (currentValue < MinValue) currentValue = MinValue;
+        if (currentValue > MaxValue) currentValue = MaxValue;
+
+        var slider = new Slider
+        {
+            Minimum = MinValue,
+            Maximum = MaxValue,
+            Value = currentValue,
+            IsSnapToTickEnabled = true,
+            TickFrequency = 1,
+            SmallChange = 1,
+            LargeChange = 5,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        Grid.SetColumn(slider, 0);
+
+        var valueLabel = new TextBlock
+        {
+            Text = currentValue.ToString(),
+            Width = 30,
+            TextAlignment = TextAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(8, 0, 0, 0),
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(Color.FromRgb(0x66, 0xBB, 0xFF))
+        };
+        Grid.SetColumn(valueLabel, 1);
+
+        slider.ValueChanged += (_, args) =>
+        {
+            try
+            {
+                if (_currentObject is not PlayerDefinition target) return;
+
+                var newValue = (int)args.NewValue;
+                if (newValue < MinValue) newValue = MinValue;
+                if (newValue > MaxValue) newValue = MaxValue;
+
+                prop.SetValue(target, newValue);
+                valueLabel.Text = newValue.ToString();
+                PropertyEdited?.Invoke(target, prop.Name);
+
+                // Actualizar el total de características en el header
+                UpdateAttributesTotalLabel(target);
+            }
+            catch
+            {
+                // Ignorar errores
+            }
+        };
+
+        panel.Children.Add(slider);
+        panel.Children.Add(valueLabel);
+
+        return panel;
+    }
+
+    /// <summary>
+    /// Actualiza el label del total de características.
+    /// </summary>
+    private void UpdateAttributesTotalLabel(PlayerDefinition player)
+    {
+        if (_attributesTotalLabel == null) return;
+
+        var total = player.TotalAttributePoints;
+        _attributesTotalLabel.Text = $" ({total}/100)";
+        _attributesTotalLabel.Foreground = GetAttributesTotalColor(total);
+    }
+
+    /// <summary>
+    /// Obtiene el color del total de características según si es correcto, por encima o por debajo.
+    /// </summary>
+    private static Brush GetAttributesTotalColor(int total)
+    {
+        if (total == 100)
+            return Brushes.LimeGreen; // Verde - correcto
+        else if (total > 100)
+            return Brushes.Red; // Rojo - exceso
+        else
+            return Brushes.Yellow; // Amarillo - faltan puntos
+    }
+}
+
+/// <summary>
+/// Item para el ComboBox de selección de llaves.
+/// </summary>
+internal class KeyComboItem
+{
+    public string Id { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
 }
 
 /// <summary>
@@ -1099,5 +1751,14 @@ public partial class PropertyEditor : UserControl
 internal class MusicComboItem
 {
     public string Id { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Item para el ComboBox de selección de lado de apertura de puerta.
+/// </summary>
+internal class OpenFromSideComboItem
+{
+    public DoorOpenSide Value { get; set; }
     public string DisplayName { get; set; } = string.Empty;
 }

@@ -26,13 +26,6 @@ internal static class WorldEditorHelpers
 
         world.Doors?.Remove(door);
 
-        if (!string.IsNullOrWhiteSpace(door.LockId) && world.Keys != null)
-        {
-            world.Keys.RemoveAll(k =>
-                k.LockIds != null &&
-                k.LockIds.Any(l => string.Equals(l, door.LockId, StringComparison.OrdinalIgnoreCase)));
-        }
-
         return true;
     }
 
@@ -43,37 +36,42 @@ internal static class WorldEditorHelpers
 
         world.Objects.Remove(obj);
 
-        // Si el objeto era una llave física, eliminamos las definiciones de llave y limpiamos las puertas afectadas.
-        if (world.Keys != null && world.Keys.Count > 0)
+        // Si el objeto era una llave (Type == Llave), limpiar las puertas y contenedores que lo usan
+        if (obj.Type == ObjectType.Llave)
         {
-            var keysToRemove = world.Keys
-                .Where(k => string.Equals(k.ObjectId, obj.Id, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            if (keysToRemove.Count > 0)
+            // Limpiar puertas que usan esta llave
+            if (world.Doors != null)
             {
-                var lockIds = new HashSet<string>(
-                    keysToRemove
-                        .Where(k => k.LockIds != null)
-                        .SelectMany(k => k.LockIds!)
-                        .Where(l => !string.IsNullOrWhiteSpace(l)),
-                    StringComparer.OrdinalIgnoreCase);
-
-                if (world.Doors != null && lockIds.Count > 0)
+                foreach (var door in world.Doors)
                 {
-                    foreach (var door in world.Doors)
+                    if (string.Equals(door.KeyObjectId, obj.Id, StringComparison.OrdinalIgnoreCase))
                     {
-                        if (!string.IsNullOrWhiteSpace(door.LockId) && lockIds.Contains(door.LockId))
-                        {
-                            door.HasLock = false;
-                            door.LockId = null;
-                        }
+                        door.IsLocked = false;
+                        door.KeyObjectId = null;
                     }
                 }
+            }
 
-                foreach (var key in keysToRemove)
+            // Limpiar contenedores que usan esta llave
+            foreach (var container in world.Objects.Where(o => o.IsContainer))
+            {
+                if (string.Equals(container.KeyId, obj.Id, StringComparison.OrdinalIgnoreCase))
                 {
-                    world.Keys.Remove(key);
+                    container.IsLocked = false;
+                    container.KeyId = null;
+                }
+            }
+
+            // Limpiar salidas que usan esta llave
+            foreach (var room in world.Rooms)
+            {
+                foreach (var exit in room.Exits)
+                {
+                    if (string.Equals(exit.KeyObjectId, obj.Id, StringComparison.OrdinalIgnoreCase))
+                    {
+                        exit.IsLocked = false;
+                        exit.KeyObjectId = null;
+                    }
                 }
             }
         }
