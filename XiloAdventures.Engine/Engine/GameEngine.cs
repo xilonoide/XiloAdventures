@@ -689,6 +689,30 @@ public class GameEngine
     }
 
     /// <summary>
+    /// Describe las puertas de la sala actual con su estado.
+    /// </summary>
+    public string DescribeDoorsInCurrentRoom()
+    {
+        var room = CurrentRoom;
+        if (room == null)
+            return "No hay información de puertas.";
+
+        var doors = GetAllDoorsInRoom(room);
+        if (doors.Count == 0)
+            return "No hay puertas en esta sala.";
+
+        var sb = new StringBuilder();
+        foreach (var (door, direction) in doors)
+        {
+            var estado = door.IsOpen ? "abierta" : "cerrada";
+            var conLlave = door.IsLocked ? " (con llave)" : "";
+            sb.AppendLine($"- {door.Name} al {direction}: {estado}{conLlave}");
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
+    /// <summary>
     /// Generates a text summary of the player's stats.
     /// Includes the 5 characteristics and gold.
     /// </summary>

@@ -113,7 +113,7 @@ public class GameEngineTests
 
         // Assert
         Assert.Equal("room2", engine.State.CurrentRoomId);
-        Assert.Contains("north room", result.ToLowerInvariant());
+        Assert.Contains("north room", result.Message.ToLowerInvariant());
     }
 
     [Fact]
@@ -129,7 +129,7 @@ public class GameEngineTests
 
         // Assert
         Assert.Equal("room1", engine.State.CurrentRoomId);  // Didn't move
-        Assert.Contains("no puedes ir", result.ToLowerInvariant());
+        Assert.Contains("no puedes ir", result.Message.ToLowerInvariant());
     }
 
     [Fact]
@@ -144,7 +144,7 @@ public class GameEngineTests
         var result = engine.ProcessCommand("ir");
 
         // Assert
-        Assert.Contains("dónde", result.ToLowerInvariant());
+        Assert.Contains("dónde", result.Message.ToLowerInvariant());
     }
 
     #endregion
@@ -163,9 +163,9 @@ public class GameEngineTests
         var result = engine.ProcessCommand("mirar");
 
         // Assert
-        Assert.Contains("starting room", result.ToLowerInvariant());
-        Assert.Contains("espada", result.ToLowerInvariant());  // Should show objects
-        Assert.Contains("norte", result.ToLowerInvariant());   // Should show exits
+        Assert.Contains("starting room", result.Message.ToLowerInvariant());
+        Assert.Contains("espada", result.Message.ToLowerInvariant());  // Should show objects
+        Assert.Contains("norte", result.Message.ToLowerInvariant());   // Should show exits
     }
 
     [Fact]
@@ -203,7 +203,7 @@ public class GameEngineTests
 
         // Assert
         Assert.Contains("obj_sword", engine.State.InventoryObjectIds);
-        Assert.Contains("coges", result.ToLowerInvariant());
+        Assert.Contains("coges", result.Message.ToLowerInvariant());
     }
 
     [Fact]
@@ -221,7 +221,7 @@ public class GameEngineTests
 
         // Assert
         Assert.DoesNotContain("obj_rock", engine.State.InventoryObjectIds);
-        Assert.Contains("no puedes coger", result.ToLowerInvariant());
+        Assert.Contains("no puedes coger", result.Message.ToLowerInvariant());
     }
 
     [Fact]
@@ -237,7 +237,7 @@ public class GameEngineTests
 
         // Assert
         Assert.Empty(engine.State.InventoryObjectIds);
-        Assert.Contains("no ves eso", result.ToLowerInvariant());
+        Assert.Contains("no ves eso", result.Message.ToLowerInvariant());
     }
 
     [Fact]
@@ -255,7 +255,7 @@ public class GameEngineTests
 
         // Assert
         Assert.DoesNotContain("obj_sword", engine.State.InventoryObjectIds);
-        Assert.Contains("sueltas", result.ToLowerInvariant());
+        Assert.Contains("sueltas", result.Message.ToLowerInvariant());
     }
 
     [Fact]
@@ -270,7 +270,7 @@ public class GameEngineTests
         var result = engine.ProcessCommand("soltar espada");
 
         // Assert
-        Assert.Contains("no llevas eso", result.ToLowerInvariant());
+        Assert.Contains("no llevas eso", result.Message.ToLowerInvariant());
     }
 
     [Fact]
@@ -320,9 +320,9 @@ public class GameEngineTests
         var result = engine.ProcessCommand("ayuda");
 
         // Assert
-        Assert.Contains("comandos básicos", result.ToLowerInvariant());
-        Assert.Contains("mirar", result.ToLowerInvariant());
-        Assert.Contains("coger", result.ToLowerInvariant());
+        Assert.Contains("comandos básicos", result.Message.ToLowerInvariant());
+        Assert.Contains("mirar", result.Message.ToLowerInvariant());
+        Assert.Contains("coger", result.Message.ToLowerInvariant());
     }
 
     [Fact]
@@ -337,7 +337,7 @@ public class GameEngineTests
         var result = engine.ProcessCommand("inventario");
 
         // Assert
-        Assert.Contains("no llevas nada", result.ToLowerInvariant());
+        Assert.Contains("no llevas nada", result.Message.ToLowerInvariant());
     }
 
     [Fact]
@@ -352,7 +352,7 @@ public class GameEngineTests
         var result = engine.ProcessCommand("xyz123");
 
         // Assert
-        Assert.Contains("no entiendo", result.ToLowerInvariant());
+        Assert.Contains("no entiendo", result.Message.ToLowerInvariant());
     }
 
     #endregion

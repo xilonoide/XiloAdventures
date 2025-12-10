@@ -122,7 +122,6 @@ public partial class MainWindow : Window
 
             // Enviar al motor
             var result = _engine.ProcessCommand(cmd);
-            string? llmAnswer = null;
 
             // Si hubo error y la IA está activada, consultar a la IA
             if (_uiSettings.UseLlmForUnknownCommands && result.HasError)
@@ -130,19 +129,48 @@ public partial class MainWindow : Window
                 ShowLlmProgress(cmd);
                 try
                 {
-                    llmAnswer = await TryAskLlmForUnknownCommandAsync(cmd);
+                    var llmCommand = await TryAskLlmForUnknownCommandAsync(cmd);
+
+                    if (!string.IsNullOrWhiteSpace(llmCommand) &&
+                        !llmCommand.Equals("NO_ENTIENDO", StringComparison.OrdinalIgnoreCase) &&
+                        !llmCommand.Contains("NO_ENTIENDO"))
+                    {
+                        // La IA sugirió un comando válido, ejecutarlo
+                        var llmResult = _engine.ProcessCommand(llmCommand);
+
+                        if (!llmResult.HasError)
+                        {
+                            // El comando interpretado funcionó
+                            AppendText($"(Interpretado como: {llmCommand})");
+                            AppendText(llmResult.Message);
+                            result = llmResult; // Usar este resultado para el resto del flujo
+                        }
+                        else
+                        {
+                            // El comando sugerido tampoco funcionó
+                            AppendText(result.Message);
+                        }
+                    }
+                    else
+                    {
+                        // La IA no pudo interpretar el comando
+                        AppendText(result.Message);
+                    }
+                }
+                catch
+                {
+                    // Error con la IA, mostrar el mensaje original
+                    AppendText(result.Message);
                 }
                 finally
                 {
                     HideLlmProgress();
                 }
             }
-
-            if (!string.IsNullOrWhiteSpace(result.Message) && llmAnswer == null)
+            else if (!string.IsNullOrWhiteSpace(result.Message))
+            {
                 AppendText(result.Message);
-
-            if (!string.IsNullOrWhiteSpace(llmAnswer))
-                AppendText(llmAnswer);
+            }
 
             UpdateStatusPanel();
             UpdateRoomVisuals();
@@ -264,20 +292,50 @@ public partial class MainWindow : Window
     {
         // Le damos algo de contexto al modelo, pero mantenemos todo muy ligero.
         var roomDescription = _engine.DescribeCurrentRoom();
+        var inventory = _engine.DescribeInventory();
+        var doors = _engine.DescribeDoorsInCurrentRoom();
 
         var promptBuilder = new StringBuilder();
-        promptBuilder.AppendLine("Eres un asistente de ayuda para un juego de aventuras de texto en español.");
+        promptBuilder.AppendLine("Eres un intérprete de comandos para un juego de aventuras de texto en español.");
         promptBuilder.AppendLine("El parser interno del juego no ha entendido el comando del jugador.");
+        promptBuilder.AppendLine("Tu trabajo es interpretar lo que el jugador quiso decir y devolver un comando válido.");
         promptBuilder.AppendLine();
-        promptBuilder.AppendLine("Contexto del lugar donde está el jugador:");
+        promptBuilder.AppendLine("VERBOS VÁLIDOS que el juego entiende:");
+        promptBuilder.AppendLine("- mirar (sin objeto = describe la sala)");
+        promptBuilder.AppendLine("- examinar <objeto> (examina un objeto específico)");
+        promptBuilder.AppendLine("- ir <dirección> (norte, sur, este, oeste, arriba, abajo)");
+        promptBuilder.AppendLine("- coger <objeto>");
+        promptBuilder.AppendLine("- soltar <objeto>");
+        promptBuilder.AppendLine("- abrir puerta <dirección> (ej: abrir puerta norte)");
+        promptBuilder.AppendLine("- cerrar puerta <dirección>");
+        promptBuilder.AppendLine("- hablar <personaje>");
+        promptBuilder.AppendLine("- usar <objeto>");
+        promptBuilder.AppendLine("- dar <objeto> a <personaje>");
+        promptBuilder.AppendLine("- meter <objeto> en <contenedor>");
+        promptBuilder.AppendLine("- sacar <objeto> de <contenedor>");
+        promptBuilder.AppendLine("- inventario");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("CONTEXTO DE LA SALA ACTUAL:");
         promptBuilder.AppendLine(roomDescription);
         promptBuilder.AppendLine();
-        promptBuilder.AppendLine($"Comando que ha escrito el jugador: \"{originalCommand}\"");
+        promptBuilder.AppendLine("PUERTAS EN ESTA SALA:");
+        promptBuilder.AppendLine(doors);
         promptBuilder.AppendLine();
-        promptBuilder.AppendLine("Responde en UNA o DOS frases muy cortas, hablando de tú y directamente al jugador,");
-        promptBuilder.AppendLine("sugiriendo qué podría escribir el jugador (por ejemplo: mirar, examinar algo, ir norte, usar objeto...).");
-        promptBuilder.AppendLine("No inventes mecánicas nuevas ni resuelvas puzles enteros; solo da una pista o sugerencia de comandos válidos.");
-        promptBuilder.AppendLine("No hables del jugador como una tercera persona, tú estas hablandole directamente a él");
+        promptBuilder.AppendLine("INVENTARIO DEL JUGADOR:");
+        promptBuilder.AppendLine(inventory);
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine($"COMANDO DEL JUGADOR: \"{originalCommand}\"");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("INSTRUCCIONES:");
+        promptBuilder.AppendLine("1. Interpreta lo que el jugador quiso decir");
+        promptBuilder.AppendLine("2. Responde SOLO con el comando válido que crees que quiso escribir");
+        promptBuilder.AppendLine("3. Usa EXACTAMENTE los verbos de la lista de arriba");
+        promptBuilder.AppendLine("4. El objeto debe existir en la sala o inventario del jugador");
+        promptBuilder.AppendLine("5. Para puertas, usa 'abrir puerta <dirección>' o 'cerrar puerta <dirección>'");
+        promptBuilder.AppendLine("6. NO añadas explicaciones, solo el comando");
+        promptBuilder.AppendLine("7. Si no puedes interpretar el comando, responde: NO_ENTIENDO");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("Respuesta (solo el comando o NO_ENTIENDO):");
         return promptBuilder.ToString();
     }
 

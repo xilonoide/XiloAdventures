@@ -24,7 +24,7 @@ public class ParserTests
     {
         var parsed = Parser.Parse("examinar la espada!");
 
-        Assert.Equal("look", parsed.Verb);
+        Assert.Equal("examine", parsed.Verb);
         Assert.Equal("espada", parsed.DirectObject);
         Assert.Null(parsed.IndirectObject);
     }
