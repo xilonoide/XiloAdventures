@@ -42,6 +42,11 @@ public class WorldModel
     /// Estado del snap-to-grid en el editor (activado/desactivado).
     /// </summary>
     public bool SnapToGrid { get; set; } = true;
+
+    /// <summary>
+    /// Indica si usar IA para determinar géneros gramaticales al guardar.
+    /// </summary>
+    public bool UseLlmForGenders { get; set; } = false;
 }
 
 public enum WeatherType
@@ -61,6 +66,15 @@ public enum ObjectType
     Bebida,         // Bebida
     Ropa,           // Ropa
     Llave           // Llave
+}
+
+/// <summary>
+/// Género gramatical para artículos en español (el/la/los/las).
+/// </summary>
+public enum GrammaticalGender
+{
+    Masculine,  // el, los, un, unos
+    Feminine    // la, las, una, unas
 }
 
 public class GameInfo
@@ -167,6 +181,15 @@ public class GameObject
     public string Description { get; set; } = string.Empty;
 
     public ObjectType Type { get; set; } = ObjectType.Ninguno;
+
+    /// <summary>Género gramatical del objeto (para artículos: el/la).</summary>
+    public GrammaticalGender Gender { get; set; } = GrammaticalGender.Masculine;
+
+    /// <summary>Si el nombre del objeto es plural (para artículos: los/las).</summary>
+    public bool IsPlural { get; set; } = false;
+
+    /// <summary>Indica si el género y plural fueron establecidos manualmente (no sobrescribir con IA).</summary>
+    public bool GenderAndPluralSetManually { get; set; } = false;
 
     public bool CanTake { get; set; }
 

@@ -38,6 +38,15 @@ public class Door
     /// Afecta a los comandos de abrir/cerrar, no al movimiento una vez abierta.
     /// </summary>
     public DoorOpenSide OpenFromSide { get; set; } = DoorOpenSide.Both;
+
+    /// <summary>Género gramatical (el/la) para mensajes.</summary>
+    public GrammaticalGender Gender { get; set; } = GrammaticalGender.Feminine;
+
+    /// <summary>Indica si el nombre es plural (las puertas).</summary>
+    public bool IsPlural { get; set; } = false;
+
+    /// <summary>Indica si el género y plural fueron establecidos manualmente (no sobrescribir con IA).</summary>
+    public bool GenderAndPluralSetManually { get; set; } = false;
 }
 
 /// <summary>

@@ -44,6 +44,11 @@ public partial class PropertyEditor : UserControl
 
     public Func<IEnumerable<GameObject>>? GetObjects { get; set; }
 
+    /// <summary>
+    /// Indica si la IA está activada en el editor. Controla la visibilidad del checkbox de género/plural manual.
+    /// </summary>
+    public bool IsAiEnabled { get; set; }
+
 
     public PropertyEditor()
     {
@@ -75,7 +80,7 @@ public partial class PropertyEditor : UserControl
                 var browsable = p.GetCustomAttribute<BrowsableAttribute>();
                 return browsable == null || browsable.Browsable;
             })
-            .Where(p => p.Name != "Exits")
+            .Where(p => p.Name != "Exits" && p.Name != "GenderAndPluralSetManually")
             .ToList();
 
         // Agrupar propiedades por categoría
@@ -229,10 +234,14 @@ public partial class PropertyEditor : UserControl
             return "🔗 Conexiones";
 
         // Comportamiento (incluyendo propiedades de contenedor de GameObject que irán con sangría)
-        if (name is "Visible" or "CanTake" or "Type" or "IsContainer" or "IsOpenable" or "IsOpen"
+        if (name is "Visible" or "CanTake" or "Type" or "Gender" or "IsPlural" or "IsContainer" or "IsOpenable" or "IsOpen"
             or "IsLocked" or "ContentsVisible" or "IsIlluminated"
             or "IsInterior" or "Behavior" or "StartHour" or "StartWeather" or "MinutesPerGameHour"
-            or "RequiredQuestId" or "RequiredQuestStatus")
+            or "RequiredQuestId" or "RequiredQuestStatus" or "OpenFromSide")
+            return "⚙️ Comportamiento";
+
+        // Propiedades de llave de Door
+        if (obj is Door && name is "KeyObjectId")
             return "⚙️ Comportamiento";
 
         // Propiedades de contenedor de GameObject (se mostrarán con sangría dentro de Comportamiento)
@@ -298,6 +307,8 @@ public partial class PropertyEditor : UserControl
             "Type" => 10,
             "CanTake" => 11,
             "Visible" => 12,
+            "Gender" => 13,
+            "IsPlural" => 14,
             "IsContainer" => 20,
             "IsOpenable" => 21,
             "IsOpen" => 22,
@@ -370,6 +381,7 @@ public partial class PropertyEditor : UserControl
                 {
                     if (_currentObject is not { } target) return;
                     prop.SetValue(target, true);
+
                     PropertyEdited?.Invoke(target, prop.Name);
 
                     // Actualizar visibilidad de propiedades dependientes
@@ -410,6 +422,7 @@ public partial class PropertyEditor : UserControl
                     }
 
                     prop.SetValue(target, false);
+
                     PropertyEdited?.Invoke(target, prop.Name);
 
                     // Actualizar visibilidad de propiedades dependientes
@@ -639,6 +652,102 @@ public partial class PropertyEditor : UserControl
                     };
 
                     editor = comboOpenSide;
+                }
+                // Caso especial para GrammaticalGender de GameObject o Door: mostrar en español
+                else if ((obj is GameObject || obj is Door) && prop.Name == "Gender" && prop.PropertyType == typeof(GrammaticalGender))
+                {
+                    var genderOptions = new List<GenderComboItem>
+                    {
+                        new GenderComboItem { Value = GrammaticalGender.Masculine, DisplayName = "Masculino (el/un)" },
+                        new GenderComboItem { Value = GrammaticalGender.Feminine, DisplayName = "Femenino (la/una)" }
+                    };
+
+                    var comboGender = new ComboBox
+                    {
+                        Margin = new Thickness(0, 2, 0, 0),
+                        DisplayMemberPath = nameof(GenderComboItem.DisplayName),
+                        SelectedValuePath = nameof(GenderComboItem.Value),
+                        ItemsSource = genderOptions
+                    };
+
+                    var currentGender = (GrammaticalGender)(prop.GetValue(obj) ?? GrammaticalGender.Masculine);
+                    comboGender.SelectedValue = currentGender;
+
+                    // Crear un panel que contenga el combo y el checkbox de "no sobrescribir con IA"
+                    var genderPanel = new StackPanel();
+                    genderPanel.Children.Add(comboGender);
+
+                    // Checkbox para GenderAndPluralSetManually (solo visible si IA está activa)
+                    var manualCheckPanel = new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal,
+                        Margin = new Thickness(0, 6, 0, 0),
+                        Visibility = IsAiEnabled ? Visibility.Visible : Visibility.Collapsed
+                    };
+
+                    var manualCheck = new CheckBox
+                    {
+                        VerticalAlignment = VerticalAlignment.Center
+                    };
+
+                    // Obtener valor inicial
+                    var isManual = obj is GameObject go ? go.GenderAndPluralSetManually
+                        : obj is Door d && d.GenderAndPluralSetManually;
+                    manualCheck.IsChecked = isManual;
+
+                    // Handler del combo
+                    comboGender.SelectionChanged += (_, _) =>
+                    {
+                        try
+                        {
+                            if (_currentObject is not { } target) return;
+                            if (comboGender.SelectedValue is GrammaticalGender value)
+                            {
+                                prop.SetValue(target, value);
+                                PropertyEdited?.Invoke(target, prop.Name);
+                            }
+                        }
+                        catch
+                        {
+                            // Ignorar errores
+                        }
+                    };
+
+                    manualCheck.Checked += (_, _) =>
+                    {
+                        if (_currentObject is GameObject gameObj)
+                            gameObj.GenderAndPluralSetManually = true;
+                        else if (_currentObject is Door door)
+                            door.GenderAndPluralSetManually = true;
+                        PropertyEdited?.Invoke(_currentObject, "GenderAndPluralSetManually");
+                    };
+
+                    manualCheck.Unchecked += (_, _) =>
+                    {
+                        if (_currentObject is GameObject gameObj)
+                            gameObj.GenderAndPluralSetManually = false;
+                        else if (_currentObject is Door door)
+                            door.GenderAndPluralSetManually = false;
+                        PropertyEdited?.Invoke(_currentObject, "GenderAndPluralSetManually");
+                    };
+
+                    manualCheckPanel.Children.Add(manualCheck);
+                    manualCheckPanel.Children.Add(new TextBlock
+                    {
+                        Text = "No sobrescribir con IA",
+                        Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA)),
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Margin = new Thickness(6, 0, 0, 0),
+                        FontSize = 12
+                    });
+
+                    genderPanel.Children.Add(manualCheckPanel);
+
+                    // Registrar el panel del checkbox para control de visibilidad basado en IA
+                    _propertyElements["GenderAndPluralSetManually"] = manualCheckPanel;
+                    _visibilityConditions["GenderAndPluralSetManually"] = () => IsAiEnabled;
+
+                    editor = genderPanel;
                 }
                 else
                 {
@@ -1367,6 +1476,8 @@ public partial class PropertyEditor : UserControl
         ["Visible"] = "Visible",
         ["CanTake"] = "Se puede coger",
         ["Type"] = "Tipo de objeto",
+        ["Gender"] = "Género gramatical",
+        ["IsPlural"] = "Es plural",
         ["IsContainer"] = "Es contenedor",
         ["IsOpenable"] = "Se puede abrir/cerrar",
         ["IsOpen"] = "Está abierto",
@@ -1863,5 +1974,14 @@ internal class MusicComboItem
 internal class OpenFromSideComboItem
 {
     public DoorOpenSide Value { get; set; }
+    public string DisplayName { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Item para el ComboBox de selección de género gramatical.
+/// </summary>
+internal class GenderComboItem
+{
+    public GrammaticalGender Value { get; set; }
     public string DisplayName { get; set; } = string.Empty;
 }

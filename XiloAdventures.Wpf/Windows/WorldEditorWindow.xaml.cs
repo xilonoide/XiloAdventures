@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
@@ -40,7 +42,15 @@ public partial class WorldEditorWindow : Window
     private readonly string _baseTitle;
     private TreeViewItem? _gameTreeNode;
     private string? _initialWorldPath;
+    private bool _useLlmForGenders;
+    private bool _isInitializingCheckbox;
     public bool IsCanceled { get; private set; }
+
+    private static readonly HttpClient _httpClient = new()
+    {
+        BaseAddress = new Uri("http://localhost:11434/"),
+        Timeout = TimeSpan.FromSeconds(60)
+    };
 
     public WorldEditorWindow()
     {
@@ -126,6 +136,19 @@ public partial class WorldEditorWindow : Window
             // Sincronizar estado visual de los ToggleButtons
             ToggleGridButton.IsChecked = _world.ShowGrid;
             ToggleSnapButton.IsChecked = _world.SnapToGrid;
+
+            // Inicializar checkbox de IA sin disparar el evento
+            _isInitializingCheckbox = true;
+            _useLlmForGenders = _world.UseLlmForGenders;
+            UseLlmCheckBox.IsChecked = _useLlmForGenders;
+            PropertyEditor.IsAiEnabled = _useLlmForGenders;
+            _isInitializingCheckbox = false;
+
+            // Si la IA estaba activada en el mundo, iniciar Docker silenciosamente
+            if (_useLlmForGenders)
+            {
+                await EnsureDockerStartedForAiAsync();
+            }
 
             // Centrar en la sala inicial si es un mundo nuevo
             if (isNewWorld && startRoom != null)
@@ -1342,6 +1365,14 @@ public partial class WorldEditorWindow : Window
         if (!ValidateDoorKeys())
             return false;
 
+        // Si la IA está activada, determinar géneros gramaticales antes de guardar
+        if (_useLlmForGenders)
+        {
+            await ApplyLlmGendersAsync();
+            // Refrescar el PropertyEditor para mostrar los cambios del LLM
+            RefreshPropertyEditor();
+        }
+
         ShowPlayLoading("Guardando mundo...");
 
         try
@@ -1369,6 +1400,9 @@ public partial class WorldEditorWindow : Window
                     // Guardar estado del grid y snap-to-grid
                     _world.ShowGrid = MapPanel.IsGridVisible;
                     _world.SnapToGrid = MapPanel.IsSnapToGridEnabled;
+
+                    // Guardar configuración de IA
+                    _world.UseLlmForGenders = _useLlmForGenders;
                 }
 
                 Directory.CreateDirectory(AppPaths.WorldsFolder);
@@ -3039,6 +3073,263 @@ public partial class WorldEditorWindow : Window
         }
     }
 
+    #region LLM/IA para géneros gramaticales
+
+    /// <summary>
+    /// Llama al LLM para determinar el género gramatical y número (singular/plural) de objetos y puertas que no tienen valores manuales.
+    /// </summary>
+    private async Task ApplyLlmGendersAsync()
+    {
+        if (_world == null) return;
+
+        // Recopilar nombres de objetos y puertas que NO tienen género/plural manual
+        var itemsToAnalyze = new List<(string id, string name, string type)>();
+
+        foreach (var obj in _world.Objects.Where(o => !o.GenderAndPluralSetManually))
+        {
+            itemsToAnalyze.Add((obj.Id, obj.Name, "objeto"));
+        }
+
+        foreach (var door in _world.Doors.Where(d => !d.GenderAndPluralSetManually))
+        {
+            itemsToAnalyze.Add((door.Id, door.Name, "puerta"));
+        }
+
+        if (itemsToAnalyze.Count == 0)
+            return;
+
+        ShowPlayLoading("Analizando géneros con IA...");
+
+        try
+        {
+            // Construir prompt
+            var namesListBuilder = new StringBuilder();
+            for (int i = 0; i < itemsToAnalyze.Count; i++)
+            {
+                namesListBuilder.AppendLine($"{i + 1}. {itemsToAnalyze[i].name}");
+            }
+
+            var prompt = $@"Eres un experto en gramática española. Analiza los siguientes nombres de objetos/elementos de un juego de aventuras y determina su género gramatical (masculino o femenino) y si son singulares o plurales.
+
+NOMBRES A ANALIZAR:
+{namesListBuilder}
+
+INSTRUCCIONES:
+1. Para cada nombre, determina:
+   - Género: masculino (M) o femenino (F)
+   - Número: singular (S) o plural (P)
+2. Responde SOLO con una lista numerada con género y número separados por espacio, ejemplo:
+1. M S
+2. F S
+3. M P
+4. F P
+...
+
+NO añadas explicaciones, solo el número, género (M/F) y número gramatical (S/P).";
+
+            var requestBody = new
+            {
+                model = "llama3",
+                prompt = prompt,
+                stream = false,
+                options = new { temperature = 0.1 }
+            };
+
+            var json = JsonSerializer.Serialize(requestBody);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.PostAsync("api/generate", content);
+            if (!response.IsSuccessStatusCode)
+            {
+                // Si falla, simplemente no actualizamos los géneros
+                return;
+            }
+
+            var responseText = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(responseText);
+            var llmResponse = doc.RootElement.GetProperty("response").GetString() ?? "";
+
+            // Parsear respuesta
+            var lines = llmResponse.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            foreach (var line in lines)
+            {
+                var trimmed = line.Trim();
+                if (string.IsNullOrEmpty(trimmed)) continue;
+
+                // Formato esperado: "1. M S" o "1. F P"
+                var parts = trimmed.Split('.', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length < 2) continue;
+
+                if (!int.TryParse(parts[0].Trim(), out var index)) continue;
+                if (index < 1 || index > itemsToAnalyze.Count) continue;
+
+                var valuePart = parts[1].Trim().ToUpperInvariant();
+                var tokens = valuePart.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+                // Extraer género (M/F)
+                var gender = tokens.Length > 0 && tokens[0].StartsWith("M")
+                    ? GrammaticalGender.Masculine
+                    : GrammaticalGender.Feminine;
+
+                // Extraer número (S/P) - por defecto singular
+                var isPlural = tokens.Length > 1 && tokens[1].StartsWith("P");
+
+                var item = itemsToAnalyze[index - 1];
+
+                // Aplicar género y plural
+                if (item.type == "objeto")
+                {
+                    var obj = _world.Objects.FirstOrDefault(o => o.Id == item.id);
+                    if (obj != null && !obj.GenderAndPluralSetManually)
+                    {
+                        obj.Gender = gender;
+                        obj.IsPlural = isPlural;
+                    }
+                }
+                else if (item.type == "puerta")
+                {
+                    var door = _world.Doors.FirstOrDefault(d => d.Id == item.id);
+                    if (door != null && !door.GenderAndPluralSetManually)
+                    {
+                        door.Gender = gender;
+                        door.IsPlural = isPlural;
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Si hay error, simplemente no actualizamos los géneros
+        }
+        finally
+        {
+            HidePlayLoading();
+        }
+    }
+
+    private async void UseLlmCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_isInitializingCheckbox)
+            return;
+
+        if (UseLlmCheckBox.IsChecked == true)
+        {
+            var confirmDlg = new ConfirmWindow(
+                "Al activar la IA se iniciará Docker Desktop automáticamente.\n\n" +
+                "Si es la primera vez que la usas, se descargarán los modelos necesarios (puede tardar varios minutos dependiendo de tu conexión).\n\n" +
+                "Al guardar el mundo, la IA determinará el género gramatical (masculino/femenino) y número (singular/plural) de objetos y puertas que no hayan sido configurados manualmente.\n\n" +
+                "¿Deseas continuar?",
+                "Activar IA")
+            {
+                Owner = this
+            };
+
+            if (confirmDlg.ShowDialog() != true)
+            {
+                UseLlmCheckBox.IsChecked = false;
+                return;
+            }
+
+            var progressWindow = new DockerProgressWindow
+            {
+                Owner = this,
+                IncludeTts = false // En el editor solo necesitamos Ollama, no Coqui TTS
+            };
+
+            var result = await progressWindow.RunAsync().ConfigureAwait(true);
+
+            if (result.Canceled || !result.Success)
+            {
+                UseLlmCheckBox.IsChecked = false;
+                _useLlmForGenders = false;
+
+                if (!result.Canceled)
+                {
+                    new AlertWindow(
+                        "No se han podido iniciar los servicios de IA. Comprueba que Docker Desktop está instalado y en ejecución.",
+                        "Error")
+                    {
+                        Owner = this
+                    }.ShowDialog();
+                }
+                return;
+            }
+
+            _useLlmForGenders = true;
+            PropertyEditor.IsAiEnabled = true;
+        }
+        else
+        {
+            _useLlmForGenders = false;
+            PropertyEditor.IsAiEnabled = false;
+        }
+
+        // Refrescar el PropertyEditor para actualizar visibilidad del checkbox de género manual
+        RefreshPropertyEditor();
+    }
+
+    /// <summary>
+    /// Inicia Docker silenciosamente si la IA estaba activada en el mundo.
+    /// Si falla, desactiva la IA y muestra un mensaje.
+    /// </summary>
+    private async Task EnsureDockerStartedForAiAsync()
+    {
+        var progressWindow = new DockerProgressWindow
+        {
+            Owner = this,
+            IncludeTts = false // En el editor solo necesitamos Ollama, no Coqui TTS
+        };
+
+        var result = await progressWindow.RunAsync().ConfigureAwait(true);
+
+        if (result.Canceled || !result.Success)
+        {
+            // Desactivar la IA si Docker no se pudo iniciar
+            _isInitializingCheckbox = true;
+            UseLlmCheckBox.IsChecked = false;
+            _isInitializingCheckbox = false;
+            _useLlmForGenders = false;
+            PropertyEditor.IsAiEnabled = false;
+
+            if (!result.Canceled)
+            {
+                new AlertWindow(
+                    "No se han podido iniciar los servicios de IA. La IA ha sido desactivada.\n\n" +
+                    "Comprueba que Docker Desktop está instalado y en ejecución.",
+                    "Error")
+                {
+                    Owner = this
+                }.ShowDialog();
+            }
+        }
+    }
+
+    private void RefreshPropertyEditor()
+    {
+        // Guardar el objeto actual y refrescarlo para actualizar la visibilidad del checkbox
+        var currentObject = PropertyEditor.GetCurrentObject();
+        if (currentObject != null)
+        {
+            PropertyEditor.SetObject(currentObject);
+        }
+    }
+
+    private void LlmHelpIcon_Click(object sender, MouseButtonEventArgs e)
+    {
+        new AlertWindow(
+            "IA para géneros gramaticales\n\n" +
+            "Cuando está activada, al guardar el mundo la IA determinará automáticamente el género gramatical (masculino/femenino) de:\n" +
+            "• Objetos (ej: \"la espada\", \"el cofre\")\n" +
+            "• Puertas (ej: \"la puerta\", \"el portón\")\n\n" +
+            "Esto permite que los mensajes del juego usen los artículos correctos.\n\n" +
+            "IMPORTANTE: Si configuras manualmente el género de un objeto o puerta, la IA no lo sobrescribirá.",
+            "Ayuda")
+        {
+            Owner = this
+        }.ShowDialog();
+    }
+
+    #endregion
 }
 
 

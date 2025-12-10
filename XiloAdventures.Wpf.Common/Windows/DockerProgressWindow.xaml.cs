@@ -36,6 +36,12 @@ public partial class DockerProgressWindow : Window
     private int _logStepCounter = 1;
     private TaskCompletionSource<DockerProgressResult>? _tcs;
 
+    /// <summary>
+    /// Si es false, no se iniciará el contenedor de Coqui TTS (solo Ollama).
+    /// Por defecto es true para mantener compatibilidad.
+    /// </summary>
+    public bool IncludeTts { get; set; } = true;
+
     public DockerProgressWindow()
     {
         InitializeComponent();
@@ -64,7 +70,7 @@ public partial class DockerProgressWindow : Window
 
             try
             {
-                await DockerService.EnsureAllAsync(progress, _cts.Token).ConfigureAwait(true);
+                await DockerService.EnsureAllAsync(progress, _cts.Token, IncludeTts).ConfigureAwait(true);
                 if (_cts.IsCancellationRequested)
                 {
                     return;

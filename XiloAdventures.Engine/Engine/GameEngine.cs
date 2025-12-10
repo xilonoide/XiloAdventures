@@ -118,6 +118,36 @@ public class GameEngine
         return char.ToLower(name[0]) + name[1..];
     }
 
+    /// <summary>Devuelve el artículo definido (el/la/los/las) según género y número.</summary>
+    private static string Article(GameObject obj) => obj.Gender switch
+    {
+        GrammaticalGender.Feminine when obj.IsPlural => "las",
+        GrammaticalGender.Feminine => "la",
+        GrammaticalGender.Masculine when obj.IsPlural => "los",
+        _ => "el"
+    };
+
+    /// <summary>Devuelve el artículo indefinido (un/una/unos/unas) según género y número.</summary>
+    private static string IndefiniteArticle(GameObject obj) => obj.Gender switch
+    {
+        GrammaticalGender.Feminine when obj.IsPlural => "unas",
+        GrammaticalGender.Feminine => "una",
+        GrammaticalGender.Masculine when obj.IsPlural => "unos",
+        _ => "un"
+    };
+
+    /// <summary>Devuelve "el/la + nombre" en minúsculas.</summary>
+    private static string WithArticle(GameObject obj) => $"{Article(obj)} {Low(obj.Name)}";
+
+    /// <summary>Devuelve "El/La + nombre" con mayúscula inicial.</summary>
+    private static string WithArticleCap(GameObject obj) => Cap($"{Article(obj)} {Low(obj.Name)}");
+
+    /// <summary>Devuelve "un/una + nombre" en minúsculas.</summary>
+    private static string WithIndefiniteArticle(GameObject obj) => $"{IndefiniteArticle(obj)} {Low(obj.Name)}";
+
+    /// <summary>Devuelve "Un/Una + nombre" con mayúscula inicial.</summary>
+    private static string WithIndefiniteArticleCap(GameObject obj) => Cap($"{IndefiniteArticle(obj)} {Low(obj.Name)}");
+
     /// <summary>
     /// Find an object in the current room or player inventory by name
     /// </summary>
@@ -1212,7 +1242,7 @@ public class GameEngine
                 .Sum(o => o!.Volume);
 
             if (currentVolume + objToInsert.Volume > container.MaxCapacity)
-                return CommandResult.Error($"{Cap(objToInsert.Name)} no cabe en {Low(container.Name)}.");
+                return CommandResult.Error($"{WithArticleCap(objToInsert)} no cabe en {WithArticle(container)}.");
         }
 
         // Mover el objeto al contenedor (desde inventario o sala)
@@ -1222,7 +1252,7 @@ public class GameEngine
         container.ContainedObjectIds.Add(objToInsert.Id);
         objToInsert.RoomId = null; // El objeto ya no está en una sala
 
-        return CommandResult.Success($"Metes {Low(objToInsert.Name)} en {Low(container.Name)}.");
+        return CommandResult.Success($"Metes {WithArticle(objToInsert)} en {WithArticle(container)}.");
     }
 
     private CommandResult HandleGetFrom(ParsedCommand parsed)
@@ -1254,13 +1284,13 @@ public class GameEngine
             .FirstOrDefault(o => o != null && o.Name.Contains(objectName, StringComparison.OrdinalIgnoreCase));
 
         if (objToExtract == null)
-            return CommandResult.Error($"No hay ningún {objectName} en {Low(container.Name)}.");
+            return CommandResult.Error($"No hay ningún {objectName} en {WithArticle(container)}.");
 
         // Mover el objeto del contenedor a la sala
         container.ContainedObjectIds.Remove(objToExtract.Id);
         objToExtract.RoomId = room.Id;
 
-        return CommandResult.Success($"Sacas {Low(objToExtract.Name)} de {Low(container.Name)}.");
+        return CommandResult.Success($"Sacas {WithArticle(objToExtract)} de {WithArticle(container)}.");
     }
 
     private CommandResult HandleLookIn(ParsedCommand parsed)
@@ -1284,7 +1314,7 @@ public class GameEngine
             return CommandResult.Success($"{Cap(container.Name)} está vacío.");
 
         var sb = new StringBuilder();
-        sb.AppendLine($"Dentro de {Low(container.Name)} ves:");
+        sb.AppendLine($"Dentro de {WithArticle(container)} ves:");
 
         foreach (var objId in container.ContainedObjectIds)
         {
@@ -1316,7 +1346,7 @@ public class GameEngine
             if (!string.IsNullOrWhiteSpace(obj.Description))
                 sb.Append(obj.Description);
             else
-                sb.Append($"No ves nada especial en {Low(obj.Name)}.");
+                sb.Append($"No ves nada especial en {WithArticle(obj)}.");
 
             // Si es contenedor, añadir información adicional
             if (obj.IsContainer)
@@ -1371,7 +1401,12 @@ public class GameEngine
         {
             var sb = new StringBuilder();
             if (!string.IsNullOrWhiteSpace(door.Description))
+            {
                 sb.Append(door.Description);
+                // Añadir punto si la descripción no termina con signo de puntuación
+                if (!door.Description.EndsWith('.') && !door.Description.EndsWith('!') && !door.Description.EndsWith('?'))
+                    sb.Append('.');
+            }
             else
                 sb.Append($"Es {Low(door.Name)}.");
 
@@ -1415,7 +1450,7 @@ public class GameEngine
 
         room.ObjectIds.RemoveAll(id => id.Equals(obj.Id, StringComparison.OrdinalIgnoreCase));
 
-        return CommandResult.Success($"Coges {Low(obj.Name)}.");
+        return CommandResult.Success($"Coges {WithArticle(obj)}.");
     }
 
     private CommandResult HandleTakeAll(string arg, Room room)
@@ -1448,7 +1483,7 @@ public class GameEngine
                 _state.InventoryObjectIds.Add(obj.Id);
 
             room.ObjectIds.RemoveAll(id => id.Equals(obj.Id, StringComparison.OrdinalIgnoreCase));
-            sb.AppendLine($"Coges {Low(obj.Name)}.");
+            sb.AppendLine($"Coges {WithArticle(obj)}.");
         }
 
         if (sb.Length == 0)
@@ -1482,7 +1517,7 @@ public class GameEngine
 
         obj.RoomId = room.Id;
 
-        return CommandResult.Success($"Sueltas {Low(obj.Name)}.");
+        return CommandResult.Success($"Sueltas {WithArticle(obj)}.");
     }
 
     private CommandResult HandleTalk(ParsedCommand parsed)

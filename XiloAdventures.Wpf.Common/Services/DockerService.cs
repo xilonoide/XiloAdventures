@@ -14,7 +14,7 @@ public static class DockerService
     private const string OllamaContainerName = "xilo-ollama";
     private const string TtsContainerName = "xilo-tts";
 
-    public static async Task EnsureAllAsync(IProgress<string>? progress = null, CancellationToken cancellationToken = default)
+    public static async Task EnsureAllAsync(IProgress<string>? progress = null, CancellationToken cancellationToken = default, bool includeTts = true)
     {
         await _lock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -30,8 +30,11 @@ public static class DockerService
             progress?.Report("Descargando modelo llama3 (si es necesario)...");
             await EnsureLlamaModelAsync(progress, cancellationToken).ConfigureAwait(false);
 
-            progress?.Report("Preparando servidor de voz (Coqui TTS)...");
-            await EnsureTtsAsync(progress, cancellationToken).ConfigureAwait(false);
+            if (includeTts)
+            {
+                progress?.Report("Preparando servidor de voz (Coqui TTS)...");
+                await EnsureTtsAsync(progress, cancellationToken).ConfigureAwait(false);
+            }
         }
         finally
         {

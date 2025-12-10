@@ -36,6 +36,7 @@ public partial class MainWindow : Window
 
     private readonly List<string> _commandHistory = new();
     private int _commandHistoryIndex = -1;
+    private bool _isInitializingCheckbox;
 
     public MainWindow(WorldModel world, GameState state, SoundManager soundManager, UiSettings uiSettings, bool isRunningFromEditor = false)
     {
@@ -65,8 +66,10 @@ public partial class MainWindow : Window
         UpdateStatusPanel();
         UpdateRoomVisuals();
 
-        // Inicializar checkbox de IA
+        // Inicializar checkbox de IA sin disparar el evento
+        _isInitializingCheckbox = true;
         UseLlmCheckBox.IsChecked = _uiSettings.UseLlmForUnknownCommands;
+        _isInitializingCheckbox = false;
     }
 
     private void ApplyUiSettings()
@@ -720,6 +723,10 @@ public partial class MainWindow : Window
 
     private async void UseLlmCheckBox_Changed(object sender, RoutedEventArgs e)
     {
+        // Ignorar durante la inicialización
+        if (_isInitializingCheckbox)
+            return;
+
         if (UseLlmCheckBox.IsChecked == true)
         {
             // El usuario está activando la IA: pedir confirmación

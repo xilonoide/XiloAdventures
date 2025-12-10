@@ -340,6 +340,28 @@
             <Border DockPanel.Dock="Top"
                     Background="#2B2B2B"
                     Padding="12,8">
+                <DockPanel LastChildFill="True">
+                    <!-- IA checkbox a la derecha -->
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0,0,0">
+                        <CheckBox x:Name="UseLlmCheckBox"
+                                  VerticalAlignment="Center"
+                                  Checked="UseLlmCheckBox_Changed"
+                                  Unchecked="UseLlmCheckBox_Changed"
+                                  Margin="0,0,8,0"/>
+                        <TextBlock Text="IA (géneros)"
+                                   Foreground="White"
+                                   VerticalAlignment="Center"
+                                   FontSize="14"/>
+                        <TextBlock Text="?"
+                                   Foreground="Yellow"
+                                   FontWeight="Bold"
+                                   Margin="8,0,0,0"
+                                   Cursor="Hand"
+                                   VerticalAlignment="Center"
+                                   ToolTip="Ayuda sobre IA en el editor"
+                                   MouseLeftButtonUp="LlmHelpIcon_Click"/>
+                    </StackPanel>
+
                 <WrapPanel VerticalAlignment="Center">
                     <Button x:Name="SaveButton"
                             Style="{StaticResource CommandButtonStyle}"
@@ -462,6 +484,7 @@
                         </StackPanel>
                     </Button>
                 </WrapPanel>
+                </DockPanel>
             </Border>
 
             <Grid Margin="4">
