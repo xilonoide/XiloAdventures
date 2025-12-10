@@ -86,14 +86,6 @@ public partial class MapPanel : Control
 
         if (e.ChangedButton == MouseButton.Right)
         {
-            var doorHit = HitTestDoorIcon(pos);
-            if (doorHit != null)
-            {
-                ShowDoorContextMenu(doorHit, pos);
-                e.Handled = true;
-                return;
-            }
-
             var roomHit = HitTestRoom(pos);
             if (roomHit != null)
             {
@@ -1294,22 +1286,6 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
         return null;
     }
 
-    private void ShowDoorContextMenu(Door door, Point screenPoint)
-    {
-        var menu = new ContextMenu();
-
-        var createKeyItem = new MenuItem
-        {
-            Header = "Crear llave para esta puerta..."
-        };
-        createKeyItem.Click += (_, _) => DoorKeyRequested?.Invoke(door);
-
-        menu.Items.Add(createKeyItem);
-
-        menu.PlacementTarget = this;
-        menu.Placement = PlacementMode.MousePoint;
-        menu.IsOpen = true;
-    }
 
     private void PromptCreateDoor(Room room, int exitIndex)
     {

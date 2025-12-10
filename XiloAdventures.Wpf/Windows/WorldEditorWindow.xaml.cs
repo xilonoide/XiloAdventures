@@ -326,7 +326,11 @@ public partial class WorldEditorWindow : Window
             // Añadir puertas que conectan con esta sala como hijas
             foreach (var door in _world.Doors.Where(d => d.RoomIdA == room.Id || d.RoomIdB == room.Id))
             {
-                roomNode.Items.Add(new TreeViewItem { Header = door.Name, Tag = door, Foreground = Brushes.White });
+                // Buscar la dirección de la puerta en las salidas de esta sala
+                var exit = room.Exits?.FirstOrDefault(e => e.DoorId == door.Id);
+                var dirAbbrev = exit != null ? GetDirectionAbbreviation(exit.Direction) : null;
+                var header = !string.IsNullOrEmpty(dirAbbrev) ? $"({dirAbbrev}) {door.Name}" : door.Name;
+                roomNode.Items.Add(new TreeViewItem { Header = header, Tag = door, Foreground = Brushes.White });
             }
 
             roomsRoot.Items.Add(roomNode);
@@ -1276,6 +1280,59 @@ public partial class WorldEditorWindow : Window
     }
 
     /// <summary>
+    /// Valida que el mundo tenga al menos una sala y que el jugador esté asignado a una sala existente.
+    /// </summary>
+    private bool ValidateWorldMinimumRequirements()
+    {
+        if (_world == null)
+            return false;
+
+        // Debe haber al menos una sala
+        if (_world.Rooms.Count == 0)
+        {
+            new AlertWindow(
+                "El mundo debe tener al menos una sala.\n\n" +
+                "Añade una sala antes de guardar.",
+                "Mundo incompleto")
+            {
+                Owner = this
+            }.ShowDialog();
+            return false;
+        }
+
+        // El jugador debe tener una sala inicial válida
+        var startRoomId = _world.Game.StartRoomId;
+        if (string.IsNullOrWhiteSpace(startRoomId))
+        {
+            new AlertWindow(
+                "Debes asignar una sala inicial al jugador.\n\n" +
+                "Selecciona el nodo 'Juego' y configura la propiedad 'Sala inicial'.",
+                "Mundo incompleto")
+            {
+                Owner = this
+            }.ShowDialog();
+            SelectGameTreeNode();
+            return false;
+        }
+
+        // La sala inicial debe existir
+        if (!_world.Rooms.Any(r => r.Id == startRoomId))
+        {
+            new AlertWindow(
+                $"La sala inicial '{startRoomId}' no existe en el mundo.\n\n" +
+                "Selecciona una sala inicial válida en las propiedades del juego.",
+                "Mundo incompleto")
+            {
+                Owner = this
+            }.ShowDialog();
+            SelectGameTreeNode();
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// Selecciona el nodo Jugador en el árbol.
     /// </summary>
     private void SelectPlayerInTree()
@@ -1303,7 +1360,9 @@ public partial class WorldEditorWindow : Window
     }
 
     /// <summary>
-    /// Valida que todas las puertas con cerradura tengan una llave asignada.
+    /// Valida que todas las puertas tengan coherencia entre cerradura y llave.
+    /// - Puerta con cerradura debe tener llave asignada.
+    /// - Puerta con llave asignada debe tener cerradura activa.
     /// Retorna true si es válido, false si no lo es.
     /// </summary>
     private bool ValidateDoorKeys()
@@ -1311,6 +1370,7 @@ public partial class WorldEditorWindow : Window
         if (_world?.Doors == null)
             return true;
 
+        // Puertas con cerradura pero sin llave
         var doorsWithoutKey = _world.Doors
             .Where(d => d.IsLocked && string.IsNullOrWhiteSpace(d.KeyObjectId))
             .ToList();
@@ -1327,9 +1387,30 @@ public partial class WorldEditorWindow : Window
                 Owner = this
             }.ShowDialog();
 
-            // Seleccionar la primera puerta sin llave
             SelectDoorInTree(doorsWithoutKey[0]);
             PropertyEditor.SetObject(doorsWithoutKey[0]);
+            return false;
+        }
+
+        // Puertas con llave asignada pero sin cerradura activa
+        var doorsWithKeyNoLock = _world.Doors
+            .Where(d => !d.IsLocked && !string.IsNullOrWhiteSpace(d.KeyObjectId))
+            .ToList();
+
+        if (doorsWithKeyNoLock.Count > 0)
+        {
+            var doorNames = string.Join("\n• ", doorsWithKeyNoLock.Select(d =>
+                string.IsNullOrWhiteSpace(d.Name) ? d.Id : d.Name));
+
+            new AlertWindow(
+                $"Las siguientes puertas tienen llave asignada pero no tienen cerradura activa:\n\n• {doorNames}\n\nActiva la cerradura o quita la llave asignada.",
+                "Puertas con llave sin cerradura")
+            {
+                Owner = this
+            }.ShowDialog();
+
+            SelectDoorInTree(doorsWithKeyNoLock[0]);
+            PropertyEditor.SetObject(doorsWithKeyNoLock[0]);
             return false;
         }
 
@@ -1362,6 +1443,10 @@ public partial class WorldEditorWindow : Window
 
         // Aplicar validaciones pendientes del PropertyEditor antes de guardar
         PropertyEditor.ApplyPendingValidations();
+
+        // Validar requisitos mínimos del mundo
+        if (!ValidateWorldMinimumRequirements())
+            return false;
 
         // Validar clave de encriptación
         if (!ValidateEncryptionKey())
@@ -1441,6 +1526,10 @@ public partial class WorldEditorWindow : Window
     {
         // Aplicar validaciones pendientes del PropertyEditor antes de guardar
         PropertyEditor.ApplyPendingValidations();
+
+        // Validar requisitos mínimos del mundo
+        if (!ValidateWorldMinimumRequirements())
+            return;
 
         if (!ValidateEncryptionKey())
             return;
@@ -1547,53 +1636,6 @@ public partial class WorldEditorWindow : Window
 
         PushUndoSnapshot();
         SetDirty(true);
-    }
-
-    private void AddExit_Click(object sender, RoutedEventArgs e)
-    {
-        if (WorldTree.SelectedItem is TreeViewItem item && item.Tag is Room room)
-        {
-            var dlg = new AddExitWindow(_world.Rooms, room)
-            {
-                Owner = this
-            };
-
-            var result = dlg.ShowDialog();
-            if (result == true)
-            {
-                var direction = dlg.SelectedDirection;
-
-                if (RoomHasExitInDirection(room, direction))
-                {
-                    new AlertWindow(
-                        $"La sala '{room.Name}' ya tiene una salida en dirección '{NormalizeDirectionForRoom(direction)}'.",
-                        "Xilo Adventures")
-                    {
-                        Owner = this
-                    }.ShowDialog();
-                }
-                else
-                {
-                    room.Exits.Add(new Exit
-                    {
-                        Direction = direction,
-                        TargetRoomId = dlg.SelectedTargetRoomId
-                    });
-
-                    MapPanel.InvalidateVisual();
-                    PropertyEditor.SetObject(room);
-                    PushUndoSnapshot();
-                    SetDirty(true);
-                }
-            }
-        }
-        else
-        {
-            new AlertWindow("Selecciona primero una sala en el árbol.", "Xilo Adventures")
-            {
-                Owner = this
-            }.ShowDialog();
-        }
     }
 
     private void AddDoor_Click(object sender, RoutedEventArgs e)
@@ -1711,6 +1753,28 @@ public partial class WorldEditorWindow : Window
             "arriba" or "subir" => "arriba",
             "abajo" or "bajar" => "abajo",
             _ => direction.Trim()
+        };
+    }
+
+    private static string? GetDirectionAbbreviation(string? direction)
+    {
+        if (string.IsNullOrWhiteSpace(direction))
+            return null;
+
+        var key = direction.Trim().ToLowerInvariant();
+        return key switch
+        {
+            "n" or "norte" => "N",
+            "s" or "sur" => "S",
+            "e" or "este" => "E",
+            "o" or "oeste" => "O",
+            "ne" or "noreste" => "NE",
+            "no" or "noroeste" => "NO",
+            "se" or "sureste" => "SE",
+            "so" or "suroeste" => "SO",
+            "arriba" or "subir" => "AR",
+            "abajo" or "bajar" => "AB",
+            _ => null
         };
     }
 

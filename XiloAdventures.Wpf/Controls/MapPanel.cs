@@ -89,7 +89,6 @@ public partial class MapPanel : Control
 
     public event Action<Room>? RoomClicked;
     public event Action<Door>? DoorClicked;
-    public event Action<Door>? DoorKeyRequested;
     public event Action<Door, GameObject?>? DoorCreated;
     public event Action<Door>? DoorDoubleClicked;
     public event Action<Room>? RoomDoubleClicked;

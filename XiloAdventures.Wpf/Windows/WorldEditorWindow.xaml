@@ -437,18 +437,6 @@
                     </Button>
 
                     <Button Style="{StaticResource CommandButtonStyle}"
-                            Click="AddExit_Click">
-                        <StackPanel Orientation="Horizontal"
-                                VerticalAlignment="Center">
-                            <TextBlock FontFamily="Segoe MDL2 Assets"
-                                    VerticalAlignment="Center"
-                                       Text="&#xE75D;"
-                                       Margin="0,0,8,0"/>
-                            <TextBlock Text="Salida"/>
-                        </StackPanel>
-                    </Button>
-
-                    <Button Style="{StaticResource CommandButtonStyle}"
                             Click="AddObject_Click">
                         <StackPanel Orientation="Horizontal"
                                 VerticalAlignment="Center">

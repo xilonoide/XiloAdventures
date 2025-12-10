@@ -399,7 +399,7 @@ public partial class PropertyEditor : UserControl
                 {
                     if (_currentObject is not { } target) return;
 
-                    // Si es una puerta y se desmarca IsLocked (Cerradura), preguntar si eliminar la llave
+                    // Si es una puerta y se desmarca IsLocked (Cerradura), limpiar llave y preguntar si eliminarla
                     if (target is Door door && prop.Name == "IsLocked" && !string.IsNullOrEmpty(door.KeyObjectId))
                     {
                         var keyId = door.KeyObjectId;
@@ -427,6 +427,12 @@ public partial class PropertyEditor : UserControl
 
                     // Actualizar visibilidad de propiedades dependientes
                     UpdatePropertyVisibility();
+
+                    // Si es una puerta, refrescar el PropertyEditor para mostrar el combo de llave en "(ninguna)"
+                    if (target is Door && prop.Name == "IsLocked")
+                    {
+                        SetObject(target);
+                    }
                 }
                 catch
                 {
@@ -1329,6 +1335,15 @@ public partial class PropertyEditor : UserControl
                                 // Si es cadena vacía, guardar como null
                                 prop.SetValue(target, string.IsNullOrEmpty(keyId) ? null : keyId);
                                 PropertyEdited?.Invoke(target, prop.Name);
+
+                                // Si es una puerta y se selecciona una llave, activar IsLocked automáticamente
+                                if (target is Door door && !string.IsNullOrEmpty(keyId) && !door.IsLocked)
+                                {
+                                    door.IsLocked = true;
+                                    PropertyEdited?.Invoke(target, "IsLocked");
+                                    // Refrescar el PropertyEditor para mostrar el cambio
+                                    SetObject(target);
+                                }
                             }
                         }
                         catch
