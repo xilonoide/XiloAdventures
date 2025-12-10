@@ -142,6 +142,147 @@ public partial class MapPanel : Control
             {
                 var (portRoom, portDirection) = portHit.Value;
 
+                // Si ya estamos editando una salida, este click finaliza la edición
+                if (_isEditingExit && _editingExitRoom != null)
+                {
+                    // Intentar reasignar la salida al puerto clicado
+                    if (_editingExitRoom.Exits != null &&
+                        _editingExitIndex >= 0 && _editingExitIndex < _editingExitRoom.Exits.Count)
+                    {
+                        var editingExit = _editingExitRoom.Exits[_editingExitIndex];
+                        string currentDirection = editingExit.Direction;
+
+                        if (_editingExitIsOrigin)
+                        {
+                            // Estamos editando el ORIGEN: cambiar la dirección de la salida o mover a otra sala
+                            // El destino se mantiene, solo cambia desde qué puerto/sala sale
+
+                            // Validar que no es el mismo puerto de origen
+                            bool isSameOriginPort = ReferenceEquals(portRoom, _editingExitRoom) &&
+                                                   string.Equals(NormalizeDirectionLabel(portDirection),
+                                                                NormalizeDirectionLabel(currentDirection),
+                                                                StringComparison.OrdinalIgnoreCase);
+
+                            if (!isSameOriginPort)
+                            {
+                                // Verificar que el nuevo puerto no esté ocupado por otra salida
+                                var portExistingExit = FindExitInDirection(portRoom, portDirection);
+
+                                // Solo permitir si el puerto está completamente libre
+                                bool portIsFree = !portExistingExit.HasValue;
+
+                                if (portIsFree)
+                                {
+                                    if (ReferenceEquals(portRoom, _editingExitRoom))
+                                    {
+                                        // Caso 1: Misma sala, cambiar solo la dirección
+                                        editingExit.Direction = portDirection;
+                                        MapEdited?.Invoke();
+                                    }
+                                    else
+                                    {
+                                        // Caso 2: Otra sala, mover la salida de una sala a otra
+                                        // Eliminar la salida de la sala origen antigua
+                                        _editingExitRoom.Exits.RemoveAt(_editingExitIndex);
+
+                                        // Crear nueva salida en la nueva sala con el mismo destino
+                                        if (portRoom.Exits == null)
+                                            portRoom.Exits = new List<Exit>();
+
+                                        portRoom.Exits.Add(new Exit
+                                        {
+                                            Direction = portDirection,
+                                            TargetRoomId = editingExit.TargetRoomId
+                                        });
+
+                                        MapEdited?.Invoke();
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // Estamos editando el DESTINO: cambiar el destino de la salida
+                            // Además, ajustar la dirección de origen para que la línea llegue al puerto específico donde se soltó
+
+                            // Validar que no es el mismo puerto de origen
+                            bool isSameOriginPort = ReferenceEquals(portRoom, _editingExitRoom) &&
+                                                   string.Equals(NormalizeDirectionLabel(portDirection),
+                                                                NormalizeDirectionLabel(currentDirection),
+                                                                StringComparison.OrdinalIgnoreCase);
+
+                            if (!isSameOriginPort)
+                            {
+                                // Cambiar la sala destino
+                                editingExit.TargetRoomId = portRoom.Id;
+
+                                // Ajustar la dirección de la salida para que la línea llegue al puerto donde se soltó
+                                // El puerto de destino debe ser el opuesto de la dirección de origen
+                                // Por ejemplo: si se suelta en puerto "norte", la dirección debe ser "sur"
+                                string targetPortNormalized = NormalizeDirectionLabel(portDirection);
+                                string newOriginDirection = GetOppositeDirection(targetPortNormalized);
+
+                                // Verificar que el nuevo puerto de origen no esté ocupado
+                                var newOriginPortExit = FindExitInDirection(_editingExitRoom, newOriginDirection);
+
+                                if (!newOriginPortExit.HasValue ||
+                                    string.IsNullOrWhiteSpace(newOriginPortExit.Value.exit.TargetRoomId) ||
+                                    newOriginPortExit.Value.index == _editingExitIndex) // Es la misma salida que estamos editando
+                                {
+                                    // El puerto de origen está libre o es la misma salida, cambiar la dirección
+                                    editingExit.Direction = newOriginDirection;
+                                }
+                                // Si el puerto de origen está ocupado, solo cambiar el destino sin cambiar la dirección
+
+                                MapEdited?.Invoke();
+                            }
+                        }
+                    }
+
+                    // Limpiar estado de edición
+                    _isEditingExit = false;
+                    _editingExitRoom = null;
+                    _editingExitIndex = -1;
+                    _editingExitOriginalTarget = null;
+                    _editingExitIsOrigin = false;
+                    InvalidateVisual();
+                    return;
+                }
+
+                // Verificar si este puerto ya tiene una salida SALIENTE (origen de la línea)
+                var existingExit = FindExitInDirection(portRoom, portDirection);
+
+                if (existingExit.HasValue && !string.IsNullOrWhiteSpace(existingExit.Value.exit.TargetRoomId))
+                {
+                    // Si el puerto tiene una salida saliente, iniciar modo de reedición del ORIGEN
+                    // La línea se queda anclada al destino y el origen sigue al mouse
+                    _isEditingExit = true;
+                    _editingExitRoom = portRoom;
+                    _editingExitIndex = existingExit.Value.index;
+                    _editingExitOriginalTarget = existingExit.Value.exit.TargetRoomId;
+                    _editingExitIsOrigin = true; // Editando el origen
+                    _connectionCurrentMouseScreen = pos;
+                    InvalidateVisual();
+                    return;
+                }
+
+                // Si no hay salida saliente, buscar si este puerto es el DESTINO visual de alguna salida
+                // (es decir, alguna otra sala tiene una salida que apunta a esta sala)
+                var incomingExit = FindIncomingExitToPort(portRoom, portDirection);
+                if (incomingExit.HasValue)
+                {
+                    // Este puerto es el destino de una línea desde otra sala
+                    // Permitir reeditar el DESTINO de esa salida
+                    _isEditingExit = true;
+                    _editingExitRoom = incomingExit.Value.room;
+                    _editingExitIndex = incomingExit.Value.exitIndex;
+                    _editingExitOriginalTarget = incomingExit.Value.exit.TargetRoomId;
+                    _editingExitIsOrigin = false; // Editando el destino
+                    _connectionCurrentMouseScreen = pos;
+                    InvalidateVisual();
+                    return;
+                }
+
                 if (_connectionStart == null || string.IsNullOrEmpty(_pendingPortDirection))
                 {
                     // Empezamos una conexión desde este puerto.
@@ -316,6 +457,15 @@ public partial class MapPanel : Control
             return;
         }
 
+        // Actualizar línea durante edición de salida (sin necesidad de mantener presionado)
+        if (_isEditingExit)
+        {
+            _connectionCurrentMouseScreen = pos;
+            InvalidateVisual();
+            return;
+        }
+
+        // Actualizar línea durante creación de nueva conexión (requiere botón presionado)
         if (_connectionStart != null && e.LeftButton == MouseButtonState.Pressed)
         {
             _connectionCurrentMouseScreen = pos;
@@ -437,6 +587,25 @@ public partial class MapPanel : Control
 
         if (e.ChangedButton == MouseButton.Left)
         {
+            // Cancelar edición si se hace click en zona vacía
+            if (_isEditingExit)
+            {
+                // Verificar si el click fue en un puerto (ya manejado en OnMouseDown)
+                // Si llegamos aquí, fue click en zona vacía, cancelamos la edición
+                var portHit = HitTestPort(pos);
+                if (!portHit.HasValue)
+                {
+                    // Cancelar edición sin cambios
+                    _isEditingExit = false;
+                    _editingExitRoom = null;
+                    _editingExitIndex = -1;
+                    _editingExitOriginalTarget = null;
+                    _editingExitIsOrigin = false;
+                    InvalidateVisual();
+                    return;
+                }
+            }
+
             // Finalizar conexión si estaba activa
             if (_connectionStart != null)
             {
@@ -603,6 +772,19 @@ public partial class MapPanel : Control
     if (_world == null)
         return;
 
+    // ESC -> Cancelar edición de salida en curso
+    if (e.Key == Key.Escape && _isEditingExit)
+    {
+        _isEditingExit = false;
+        _editingExitRoom = null;
+        _editingExitIndex = -1;
+        _editingExitOriginalTarget = null;
+        _editingExitIsOrigin = false;
+        InvalidateVisual();
+        e.Handled = true;
+        return;
+    }
+
     // Ctrl + A -> seleccionar todas las salas y todas las salidas del mapa.
     if (e.Key == Key.A && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
     {
@@ -630,9 +812,19 @@ public partial class MapPanel : Control
         return;
     }
 
-    // Supr -> eliminar las salidas seleccionadas (líneas) del mapa.
+    // Supr -> eliminar las salas o salidas seleccionadas del mapa.
     if (e.Key == Key.Delete)
     {
+        // Prioridad: si hay salas seleccionadas, eliminar salas
+        if (_selectedRoomIds.Count > 0)
+        {
+            // Notificar al WorldEditorWindow para que elimine las salas
+            RoomsDeleteRequested?.Invoke(_selectedRoomIds.ToList());
+            e.Handled = true;
+            return;
+        }
+
+        // Si no hay salas seleccionadas, eliminar salidas seleccionadas
         if (_selectedExits.Count > 0)
         {
             // Agrupar por sala para eliminar sin desordenar índices.
@@ -979,6 +1171,85 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
                     Room? room = _world.Rooms.FirstOrDefault(r => r.Id == roomId);
                     if (room != null)
                         return (room, direction);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Busca si existe una salida en la dirección indicada para una sala.
+    /// </summary>
+    private (Exit exit, int index)? FindExitInDirection(Room room, string direction)
+    {
+        if (room?.Exits == null || room.Exits.Count == 0 || string.IsNullOrWhiteSpace(direction))
+            return null;
+
+        string normalizedDir = NormalizeDirectionLabel(direction);
+
+        for (int i = 0; i < room.Exits.Count; i++)
+        {
+            var exit = room.Exits[i];
+            if (exit == null || string.IsNullOrWhiteSpace(exit.Direction))
+                continue;
+
+            // Primero intentamos normalizar la dirección completa
+            string exitNormalizedDir = NormalizeDirectionLabel(exit.Direction);
+
+            if (string.Equals(exitNormalizedDir, normalizedDir, StringComparison.OrdinalIgnoreCase))
+            {
+                return (exit, i);
+            }
+
+            // Si no coincide, intentamos con solo la primera dirección (por si hay varias separadas)
+            string singleDir = GetSingleDirectionLabel(exit.Direction);
+            string singleNormalized = NormalizeDirectionLabel(singleDir);
+
+            if (string.Equals(singleNormalized, normalizedDir, StringComparison.OrdinalIgnoreCase))
+            {
+                return (exit, i);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Busca si existe una salida desde otra sala que tenga como destino visual este puerto.
+    /// Por ejemplo, si Sala2 tiene salida al "este" hacia Sala3, el puerto visual de destino
+    /// en Sala3 es "oeste" (opuesto de "este").
+    /// </summary>
+    private (Room room, Exit exit, int exitIndex)? FindIncomingExitToPort(Room targetRoom, string targetPort)
+    {
+        if (_world?.Rooms == null || targetRoom == null || string.IsNullOrWhiteSpace(targetPort))
+            return null;
+
+        string normalizedTargetPort = NormalizeDirectionLabel(targetPort);
+
+        foreach (var room in _world.Rooms)
+        {
+            if (room?.Exits == null || room.Exits.Count == 0)
+                continue;
+
+            for (int i = 0; i < room.Exits.Count; i++)
+            {
+                var exit = room.Exits[i];
+                if (exit == null || string.IsNullOrWhiteSpace(exit.TargetRoomId) || string.IsNullOrWhiteSpace(exit.Direction))
+                    continue;
+
+                // Verificar si esta salida apunta a la sala objetivo
+                if (!string.Equals(exit.TargetRoomId, targetRoom.Id, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                // Calcular el puerto visual de destino (opuesto a la dirección de la salida)
+                string exitDirection = NormalizeDirectionLabel(exit.Direction);
+                string oppositeDirection = GetOppositeDirection(exitDirection);
+
+                // Verificar si el puerto opuesto coincide con el puerto clicado
+                if (string.Equals(oppositeDirection, normalizedTargetPort, StringComparison.OrdinalIgnoreCase))
+                {
+                    return (room, exit, i);
                 }
             }
         }

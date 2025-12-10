@@ -438,7 +438,17 @@ private void DrawConnections(DrawingContext dc)
             bool isSelected = _selectedExits.Contains(exitKey);
             Pen linePen = isSelected ? selectedPen : normalPen;
 
-            dc.DrawLine(linePen, fromPoint, toPoint);
+            // No dibujar la línea de la salida que se está editando actualmente
+            // (se dibuja por separado en DrawPendingConnection con línea punteada)
+            bool isBeingEdited = _isEditingExit &&
+                                 _editingExitRoom != null &&
+                                 ReferenceEquals(_editingExitRoom, room) &&
+                                 _editingExitIndex == i;
+
+            if (!isBeingEdited)
+            {
+                dc.DrawLine(linePen, fromPoint, toPoint);
+            }
 
             // Rectángulo de hit test que cubre toda la línea de la salida,
             // con un pequeño margen para facilitar el click.
@@ -510,7 +520,7 @@ private void DrawConnections(DrawingContext dc)
                  (singleSelectedRoomId == room.Id || singleSelectedRoomId == target.Id)) &&
                 !labeledConnections.Contains(key);
 
-            if (canDrawLabel)
+            if (canDrawLabel && !isBeingEdited)
             {
                 labeledConnections.Add(key);
 
@@ -559,7 +569,7 @@ private void DrawConnections(DrawingContext dc)
                       string.Equals(d.RoomIdA, target.Id, StringComparison.OrdinalIgnoreCase))));
             }
 
-            if (door != null)
+            if (door != null && !isBeingEdited)
             {
                 const double doorIconWidth = 14.0;
                 const double doorIconHeight = 14.0;
@@ -629,7 +639,11 @@ private void DrawConnections(DrawingContext dc)
                 hitRect = Rect.Union(hitRect, doorRect);
             }
 
-            _exitHitRects[exitKey] = hitRect;
+            // No agregar hit test para la salida que se está editando
+            if (!isBeingEdited)
+            {
+                _exitHitRects[exitKey] = hitRect;
+            }
         }
     }
 }
@@ -666,35 +680,76 @@ private void DrawSelectionRectangle(DrawingContext dc)
 
     private void DrawPendingConnection(DrawingContext dc)
     {
-        if (_world == null || _connectionStart == null)
+        if (_world == null)
             return;
 
         Point fromScreen;
+        Point toScreen;
+        bool hasConnection = false;
 
-        if (_roomRects.TryGetValue(_connectionStart.Id, out var fromRect))
+        // Dibujar línea cuando se está editando una salida existente
+        if (_isEditingExit && _editingExitRoom != null &&
+            _editingExitRoom.Exits != null &&
+            _editingExitIndex >= 0 && _editingExitIndex < _editingExitRoom.Exits.Count)
         {
-            if (!string.IsNullOrEmpty(_pendingPortDirection))
+            var exit = _editingExitRoom.Exits[_editingExitIndex];
+
+            if (_editingExitIsOrigin)
             {
-                string normDir = NormalizeDirectionLabel(_pendingPortDirection);
-                fromScreen = GetPortPointForDirection(fromRect, normDir);
+                // Editando el ORIGEN: la línea va desde el mouse hasta el puerto destino
+                fromScreen = _connectionCurrentMouseScreen;
+
+                // Encontrar el destino actual
+                var targetRoom = _world.Rooms.FirstOrDefault(r => r.Id == exit.TargetRoomId);
+                if (targetRoom != null && _roomRects.TryGetValue(targetRoom.Id, out var targetRect))
+                {
+                    string normDir = NormalizeDirectionLabel(exit.Direction);
+                    string oppositeDir = GetOppositeDirection(normDir);
+                    toScreen = GetPortPointForDirection(targetRect, oppositeDir);
+                    hasConnection = true;
+                }
             }
             else
             {
-                fromScreen = new Point(
-                    fromRect.X + fromRect.Width / 2.0,
-                    fromRect.Y + fromRect.Height / 2.0);
+                // Editando el DESTINO: la línea va desde el puerto origen hasta el mouse
+                if (_roomRects.TryGetValue(_editingExitRoom.Id, out var editRect))
+                {
+                    string normDir = NormalizeDirectionLabel(exit.Direction);
+                    fromScreen = GetPortPointForDirection(editRect, normDir);
+                    toScreen = _connectionCurrentMouseScreen;
+                    hasConnection = true;
+                }
             }
         }
-        else if (_roomPositions.TryGetValue(_connectionStart.Id, out var fromCenterLogical))
+        // Dibujar línea cuando se está creando una nueva conexión
+        else if (_connectionStart != null)
         {
-            fromScreen = LogicalToScreen(fromCenterLogical);
-        }
-        else
-        {
-            return;
+            if (_roomRects.TryGetValue(_connectionStart.Id, out var fromRect))
+            {
+                if (!string.IsNullOrEmpty(_pendingPortDirection))
+                {
+                    string normDir = NormalizeDirectionLabel(_pendingPortDirection);
+                    fromScreen = GetPortPointForDirection(fromRect, normDir);
+                }
+                else
+                {
+                    fromScreen = new Point(
+                        fromRect.X + fromRect.Width / 2.0,
+                        fromRect.Y + fromRect.Height / 2.0);
+                }
+                toScreen = _connectionCurrentMouseScreen;
+                hasConnection = true;
+            }
+            else if (_roomPositions.TryGetValue(_connectionStart.Id, out var fromCenterLogical))
+            {
+                fromScreen = LogicalToScreen(fromCenterLogical);
+                toScreen = _connectionCurrentMouseScreen;
+                hasConnection = true;
+            }
         }
 
-        Point toScreen = _connectionCurrentMouseScreen;
+        if (!hasConnection)
+            return;
 
         Pen pen = new(new SolidColorBrush(Color.FromRgb(0, 200, 255)), 1.5)
         {

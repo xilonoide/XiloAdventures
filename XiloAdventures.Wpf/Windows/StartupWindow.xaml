@@ -27,41 +27,6 @@
                        FontSize="18"
                        Margin="0,0,0,10"
                        VerticalAlignment="Center"/>
-
-            <StackPanel Grid.Column="1"
-                        Orientation="Horizontal"
-                        HorizontalAlignment="Right"
-                        Margin="0,0,0,10"
-                        VerticalAlignment="Center">
-                <CheckBox x:Name="SoundCheckBox"
-                          Content="Sonido"
-                          FontSize="14"
-                          VerticalContentAlignment="Center"
-                          Margin="0,0,20,0"
-                          VerticalAlignment="Center"
-                          Foreground="White"/>
-
-                <StackPanel Orientation="Horizontal"
-                            VerticalAlignment="Center">
-                    <CheckBox x:Name="LlmCheckBox"
-                              Content="Usar IA"
-                              FontSize="14"
-                              VerticalContentAlignment="Center"
-                              VerticalAlignment="Center"
-                              Foreground="White"/>
-                    <TextBlock Text="?"
-                               Margin="6,0,0,0"
-                               Foreground="Yellow"
-                               FontWeight="Bold"
-                               Cursor="Hand"
-                               VerticalAlignment="Center"
-                               MouseLeftButtonUp="LlmInfoIcon_MouseLeftButtonUp">
-                        <TextBlock.ToolTip>
-                            <TextBlock Text="Activa la IA para que el juego entienda mejor comandos complejos o mal escritos. Haz clic para más detalles." />
-                        </TextBlock.ToolTip>
-                    </TextBlock>
-                </StackPanel>
-            </StackPanel>
         </Grid>
 
         <ListBox x:Name="WorldsList"

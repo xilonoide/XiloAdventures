@@ -22,6 +22,8 @@ namespace XiloAdventures.Wpf.Windows;
 
 public partial class WorldEditorWindow : Window
 {
+    public static RoutedCommand ToggleGridCommand = new RoutedCommand();
+    public static RoutedCommand ToggleSnapCommand = new RoutedCommand();
 
     private WorldModel _world = new();
     private string? _currentPath;
@@ -57,6 +59,7 @@ public partial class WorldEditorWindow : Window
         MapPanel.AddObjectToRoomRequested += MapPanel_AddObjectToRoomRequested;
         MapPanel.AddNpcToRoomRequested += MapPanel_AddNpcToRoomRequested;
         MapPanel.EmptyMapDoubleClicked += MapPanel_EmptyMapDoubleClicked;
+        MapPanel.RoomsDeleteRequested += MapPanel_RoomsDeleteRequested;
 
         Loaded += Window_Loaded;
     }
@@ -70,6 +73,9 @@ public partial class WorldEditorWindow : Window
     {
         LoadingOverlay.Visibility = Visibility.Visible;
         await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Render);
+
+        bool isNewWorld = false;
+        Room? startRoom = null;
 
         try
         {
@@ -90,7 +96,7 @@ public partial class WorldEditorWindow : Window
                 _world.Game.StartRoomId = "sala_inicio";
 
                 _world.Rooms.Clear();
-                var startRoom = new Room
+                startRoom = new Room
                 {
                     Id = "sala_inicio",
                     Name = "Sala inicial",
@@ -98,6 +104,7 @@ public partial class WorldEditorWindow : Window
                 };
                 _world.Rooms.Add(startRoom);
                 _currentPath = null;
+                isNewWorld = true;
             }
 
             MapPanel.SetWorld(_world);
@@ -113,10 +120,16 @@ public partial class WorldEditorWindow : Window
             ToggleGridButton.IsChecked = _world.ShowGrid;
             ToggleSnapButton.IsChecked = _world.SnapToGrid;
 
+            // Centrar en la sala inicial si es un mundo nuevo
+            if (isNewWorld && startRoom != null)
+            {
+                MapPanel.CenterOnRoom(startRoom);
+            }
+
             // Centrar en la sala inicial si se cargó un mundo existente
             if (!string.IsNullOrWhiteSpace(_initialWorldPath) && System.IO.File.Exists(_initialWorldPath))
             {
-                var startRoom = _world.Rooms.FirstOrDefault(r => r.Id == _world.Game.StartRoomId);
+                startRoom = _world.Rooms.FirstOrDefault(r => r.Id == _world.Game.StartRoomId);
                 if (startRoom != null)
                 {
                     MapPanel.CenterOnRoom(startRoom);
@@ -578,6 +591,9 @@ public partial class WorldEditorWindow : Window
         MapPanel.SetWorld(_world);
         BuildTree();
         ResetUndoRedo();
+
+        // Centrar el mapa en la sala inicial
+        MapPanel.CenterOnRoom(startRoom);
     }
 
     private void OpenMenu_Click(object sender, RoutedEventArgs e)
@@ -2020,13 +2036,89 @@ public partial class WorldEditorWindow : Window
         };
         _world.Rooms.Add(room);
 
+        // Encontrar la posición libre más cercana, considerando snap-to-grid si está activado
+        Point freePosition = MapPanel.FindNearestFreePosition(logicalPos);
+
         // Establecer la posición de la sala en el mapa
-        MapPanel.SetRoomPosition(room.Id, logicalPos);
+        MapPanel.SetRoomPosition(room.Id, freePosition);
 
         MapPanel.SetWorld(_world);
         BuildTree();
         SelectRoomInTree(room);
 
+        PushUndoSnapshot();
+        SetDirty(true);
+    }
+
+    private void MapPanel_RoomsDeleteRequested(List<string> roomIds)
+    {
+        if (roomIds == null || roomIds.Count == 0)
+            return;
+
+        // Buscar las salas correspondientes
+        var roomsToDelete = new List<Room>();
+        foreach (var roomId in roomIds)
+        {
+            var room = _world.Rooms.FirstOrDefault(r => string.Equals(r.Id, roomId, StringComparison.OrdinalIgnoreCase));
+            if (room != null)
+                roomsToDelete.Add(room);
+        }
+
+        if (roomsToDelete.Count == 0)
+            return;
+
+        // Mostrar confirmación
+        string message = roomsToDelete.Count == 1
+            ? $"¿Eliminar la sala '{roomsToDelete[0].Name}'?"
+            : $"¿Eliminar {roomsToDelete.Count} salas seleccionadas?";
+
+        var dlg = new ConfirmWindow(message, "Confirmar eliminación")
+        {
+            Owner = this
+        };
+
+        if (dlg.ShowDialog() != true)
+            return;
+
+        // Eliminar cada sala
+        foreach (var room in roomsToDelete)
+        {
+            // Quitar salidas que apunten a esta sala
+            foreach (var r in _world.Rooms)
+            {
+                r.Exits.RemoveAll(ex => string.Equals(ex.TargetRoomId, room.Id, StringComparison.OrdinalIgnoreCase));
+            }
+
+            // Quitar puertas que conecten con esta sala
+            if (_world.Doors != null)
+            {
+                _world.Doors.RemoveAll(d =>
+                    string.Equals(d.RoomIdA, room.Id, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(d.RoomIdB, room.Id, StringComparison.OrdinalIgnoreCase));
+            }
+
+            // Desasociar objetos y NPCs de esta sala
+            foreach (var obj in _world.Objects.Where(o => string.Equals(o.RoomId, room.Id, StringComparison.OrdinalIgnoreCase)))
+            {
+                obj.RoomId = null;
+            }
+
+            foreach (var npc in _world.Npcs.Where(n => string.Equals(n.RoomId, room.Id, StringComparison.OrdinalIgnoreCase)))
+            {
+                npc.RoomId = null;
+            }
+
+            // Limpiar sala de inicio si era esta
+            if (string.Equals(_world.Game.StartRoomId, room.Id, StringComparison.OrdinalIgnoreCase))
+            {
+                _world.Game.StartRoomId = string.Empty;
+            }
+
+            _world.Rooms.Remove(room);
+        }
+
+        BuildTree();
+        MapPanel.SetWorld(_world);
         PushUndoSnapshot();
         SetDirty(true);
     }
@@ -2049,6 +2141,18 @@ public partial class WorldEditorWindow : Window
         }
     }
 
+    private void ToggleGrid_Executed(object sender, ExecutedRoutedEventArgs e)
+    {
+        ToggleGridButton.IsChecked = !ToggleGridButton.IsChecked;
+        MapPanel.SetGridVisibility(ToggleGridButton.IsChecked ?? false);
+    }
+
+    private void ToggleSnap_Executed(object sender, ExecutedRoutedEventArgs e)
+    {
+        ToggleSnapButton.IsChecked = !ToggleSnapButton.IsChecked;
+        MapPanel.SetSnapToGrid(ToggleSnapButton.IsChecked ?? false);
+    }
+
     private bool IsDotNet8SdkInstalled()
     {
         try
@@ -2067,11 +2171,23 @@ public partial class WorldEditorWindow : Window
             if (process == null)
                 return false;
 
+            process.WaitForExit(5000);
             var output = process.StandardOutput.ReadToEnd();
-            process.WaitForExit();
 
-            // Buscar si hay algún SDK que empiece con "8."
-            return output.Contains("8.0.");
+            // Buscar SDK 8.x o superior
+            return output.Split('\n').Any(line =>
+            {
+                var trimmed = line.Trim();
+                if (string.IsNullOrEmpty(trimmed))
+                    return false;
+
+                var parts = trimmed.Split('.');
+                if (parts.Length > 0 && int.TryParse(parts[0], out var majorVersion))
+                {
+                    return majorVersion >= 8;
+                }
+                return false;
+            });
         }
         catch
         {

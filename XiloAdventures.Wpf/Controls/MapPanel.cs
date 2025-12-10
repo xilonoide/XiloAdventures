@@ -77,6 +77,13 @@ public partial class MapPanel : Control
     private Room? _connectionStart;
     private Point _connectionCurrentMouseScreen;
 
+    // Reedición de salidas existentes (arrastrar desde puerto con salida)
+    private bool _isEditingExit;
+    private Room? _editingExitRoom;
+    private int _editingExitIndex;
+    private string? _editingExitOriginalTarget;
+    private bool _editingExitIsOrigin; // true = editando origen, false = editando destino
+
     // Para distinguir click de arrastre
     private Point _mouseDownScreen;
     private Room? _mouseDownRoom;
@@ -95,6 +102,7 @@ public partial class MapPanel : Control
 
     public event Action<Room>? AddObjectToRoomRequested;
     public event Action<Room>? AddNpcToRoomRequested;
+    public event Action<List<string>>? RoomsDeleteRequested;
 
     static MapPanel()
     {
@@ -146,6 +154,11 @@ public partial class MapPanel : Control
         _selectedRoomIds.Clear();
         _selectedExits.Clear();
         _connectionStart = null;
+        _isEditingExit = false;
+        _editingExitRoom = null;
+        _editingExitIndex = -1;
+        _editingExitOriginalTarget = null;
+        _editingExitIsOrigin = false;
         _keyIconRects.Clear();
         _keyIconKeyDefs.Clear();
         HideIconTooltip();
@@ -353,6 +366,27 @@ public partial class MapPanel : Control
     public void SetSnapToGrid(bool enabled)
     {
         _snapToGrid = enabled;
+    }
+
+    /// <summary>
+    /// Encuentra la posición libre más cercana para una nueva sala, considerando el snap-to-grid si está activado.
+    /// </summary>
+    /// <param name="desiredPosition">La posición deseada inicial</param>
+    /// <returns>La posición libre más cercana donde se puede colocar la sala</returns>
+    public Point FindNearestFreePosition(Point desiredPosition)
+    {
+        // Si snap-to-grid está activado, ajustar primero a la celda más cercana
+        Point candidate = _snapToGrid ? SnapToGridCell(desiredPosition) : desiredPosition;
+
+        // Asegurar que está dentro del mapa
+        candidate = ClampRoomCenterToMap(candidate);
+
+        // Si no hay colisión con ninguna sala existente, usar esta posición
+        if (!HasCollisionWithOtherRooms(string.Empty, candidate, RoomSpacingMargin, null))
+            return candidate;
+
+        // Si hay colisión, buscar la posición libre más cercana
+        return FindNearestNonCollidingPosition(string.Empty, candidate, RoomSpacingMargin);
     }
 
 }
