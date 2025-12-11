@@ -209,7 +209,7 @@ public class ScriptEngine
 
             ["Condition_IsQuestStatus"] = async (node, ctx) =>
             {
-                var questId = GetPropertyValue<string>(node, "QuestId", "");
+                var questId = GetPropertyValue<string>(node, "QuestId", "") ?? "";
                 var statusStr = GetPropertyValue<string>(node, "Status", "NotStarted");
 
                 var currentStatus = ctx.GameState.Quests.TryGetValue(questId, out var state)
@@ -235,7 +235,7 @@ public class ScriptEngine
 
             ["Condition_CompareCounter"] = async (node, ctx) =>
             {
-                var counterName = GetPropertyValue<string>(node, "CounterName", "");
+                var counterName = GetPropertyValue<string>(node, "CounterName", "") ?? "";
                 var op = GetPropertyValue<string>(node, "Operator", "==");
                 var compareValue = GetPropertyValue<int>(node, "Value", 0);
 
@@ -381,7 +381,7 @@ public class ScriptEngine
                     npc.RoomId = roomId;
                     var newRoom = ctx.GameState.Rooms.FirstOrDefault(r =>
                         string.Equals(r.Id, roomId, StringComparison.OrdinalIgnoreCase));
-                    if (newRoom != null && !newRoom.NpcIds.Any(id =>
+                    if (newRoom != null && !string.IsNullOrEmpty(npcId) && !newRoom.NpcIds.Any(id =>
                         string.Equals(id, npcId, StringComparison.OrdinalIgnoreCase)))
                     {
                         newRoom.NpcIds.Add(npcId);

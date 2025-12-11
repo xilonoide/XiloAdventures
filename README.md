@@ -8,6 +8,8 @@
 ![Estado](https://img.shields.io/badge/Estado-Activo-success)
 ![Tests](https://img.shields.io/badge/Tests-45%20passing-brightgreen)
 
+[![Donar](https://img.shields.io/badge/❤️_¡Se_aceptan_donaciones!-PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://www.paypal.me/xmasmusicsoft)
+
 XiloAdventures es un ecosistema completo para crear y jugar aventuras conversacionales en C# (.NET 8) con editor visual WPF y cliente de juego. Todo el contenido (salas, objetos, música, imágenes) viaja dentro de un único archivo `.xaw` cifrado y comprimido.
 
 ---
@@ -160,3 +162,11 @@ El editor permite exportar mundos como ejecutables `.exe` standalone (~80-100 MB
 ## Licencia
 
 Consulta el archivo `LICENSE` para términos y condiciones.
+
+---
+
+<p align="center">
+  <a href="https://www.paypal.me/xmasmusicsoft">
+    <img src="https://img.shields.io/badge/❤️_¡Se_aceptan_donaciones!-PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white" alt="Donar">
+  </a>
+</p>

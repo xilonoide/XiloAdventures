@@ -586,6 +586,14 @@ public partial class StartupWindow : Window
         return null;
     }
 
+    private void DonateLink_Click(object sender, MouseButtonEventArgs e)
+    {
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = "https://www.paypal.me/xmasmusicsoft",
+            UseShellExecute = true
+        });
+    }
 }
 
 

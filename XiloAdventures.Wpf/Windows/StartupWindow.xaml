@@ -27,6 +27,29 @@
                        FontSize="18"
                        Margin="0,0,0,10"
                        VerticalAlignment="Center"/>
+
+            <!-- Donaciones -->
+            <Border Grid.Column="1"
+                    Background="#3a5a3a"
+                    CornerRadius="4"
+                    Padding="10,6"
+                    Margin="0,0,0,10"
+                    Cursor="Hand"
+                    VerticalAlignment="Center"
+                    MouseLeftButtonUp="DonateLink_Click">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <TextBlock Text="&#x2764;"
+                               FontSize="14"
+                               Foreground="#FF6B6B"
+                               VerticalAlignment="Center"
+                               Margin="0,0,8,0"/>
+                    <TextBlock FontSize="12"
+                               Foreground="#90EE90"
+                               VerticalAlignment="Center">
+                        <Run FontWeight="SemiBold">¡Se aceptan donaciones!</Run>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
         </Grid>
 
         <ListBox x:Name="WorldsList"

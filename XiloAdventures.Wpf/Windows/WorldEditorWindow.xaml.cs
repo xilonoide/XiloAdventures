@@ -1621,6 +1621,24 @@ public partial class WorldEditorWindow : Window
         SetDirty(true);
     }
 
+    private void PromptGeneratorMenu_Click(object sender, RoutedEventArgs e)
+    {
+        var promptWindow = new PromptGeneratorWindow
+        {
+            Owner = this
+        };
+        promptWindow.ShowDialog();
+    }
+
+    private void AboutMenu_Click(object sender, RoutedEventArgs e)
+    {
+        var aboutWindow = new AboutWindow
+        {
+            Owner = this
+        };
+        aboutWindow.ShowDialog();
+    }
+
     private void AddRoom_Click(object sender, RoutedEventArgs e)
     {
         var index = _world.Rooms.Count + 1;

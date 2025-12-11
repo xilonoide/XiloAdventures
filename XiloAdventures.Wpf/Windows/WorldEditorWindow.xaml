@@ -348,6 +348,32 @@
                         </MenuItem.Icon>
                     </MenuItem>
                 </MenuItem>
+                <MenuItem Header="Ayuda"
+                        Style="{StaticResource TopMenuItemStyle}">
+                    <MenuItem Header="Prompt generador de mundos"
+                            Click="PromptGeneratorMenu_Click"
+                            Style="{StaticResource SubMenuItemStyle}">
+                        <MenuItem.Icon>
+                            <TextBlock FontFamily="Segoe MDL2 Assets"
+                                    VerticalAlignment="Center"
+                                    Text="&#xE943;"
+                                    FontSize="18"
+                                    Margin="2"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator Background="#555555"/>
+                    <MenuItem Header="Acerca de..."
+                            Click="AboutMenu_Click"
+                            Style="{StaticResource SubMenuItemStyle}">
+                        <MenuItem.Icon>
+                            <TextBlock FontFamily="Segoe MDL2 Assets"
+                                    VerticalAlignment="Center"
+                                    Text="&#xE946;"
+                                    FontSize="18"
+                                    Margin="2"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                </MenuItem>
             </Menu>
 
             <Border DockPanel.Dock="Top"
