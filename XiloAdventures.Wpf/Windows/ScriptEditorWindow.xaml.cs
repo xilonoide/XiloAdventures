@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using XiloAdventures.Engine.Models;
 
@@ -10,13 +12,25 @@ namespace XiloAdventures.Wpf.Windows;
 
 public partial class ScriptEditorWindow : Window
 {
+    // Routed commands for toggle operations
+    public static readonly RoutedCommand ToggleGridCommand = new();
+    public static readonly RoutedCommand ToggleSnapCommand = new();
+
     private readonly WorldModel _world;
     private readonly string _ownerType;
     private readonly string _ownerId;
     private readonly string _ownerName;
     private ScriptDefinition _script;
     private ScriptNode? _selectedNode;
-    private bool _isDirty;
+
+    // Undo/Redo support
+    private readonly ScriptUndoRedoManager _undoRedo = new(50);
+    private bool _isRestoringSnapshot;
+
+    // Clipboard for copy/paste
+    private List<ScriptNode>? _nodesClipboard;
+    private List<NodeConnection>? _connectionsClipboard;
+    private bool _clipboardIsCut;
 
     // Providers para selectores de entidades
     public Func<IEnumerable<Room>>? GetRooms { get; set; }
@@ -58,7 +72,11 @@ public partial class ScriptEditorWindow : Window
         ToggleGridButton.IsChecked = ScriptPanel.IsGridVisible;
         ToggleSnapButton.IsChecked = ScriptPanel.IsSnapToGridEnabled;
 
+        Loaded += ScriptEditorWindow_Loaded;
         Closing += ScriptEditorWindow_Closing;
+
+        // Initial undo snapshot
+        PushUndoSnapshot();
     }
 
     private static string GetOwnerTypeDisplayName(string ownerType)
@@ -88,6 +106,8 @@ public partial class ScriptEditorWindow : Window
         return script;
     }
 
+    #region Script Panel Events
+
     private void ScriptPanel_NodeSelected(ScriptNode node)
     {
         _selectedNode = node;
@@ -102,7 +122,10 @@ public partial class ScriptEditorWindow : Window
 
     private void ScriptPanel_ScriptEdited()
     {
-        _isDirty = true;
+        if (!_isRestoringSnapshot)
+        {
+            PushUndoSnapshot();
+        }
     }
 
     private void ScriptPanel_NodeDoubleClicked(ScriptNode node)
@@ -114,8 +137,263 @@ public partial class ScriptEditorWindow : Window
     private void ScriptNameTextBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         _script.Name = ScriptNameTextBox.Text;
-        _isDirty = true;
+        if (!_isRestoringSnapshot)
+        {
+            PushUndoSnapshot();
+        }
     }
+
+    #endregion
+
+    #region Undo/Redo
+
+    private void PushUndoSnapshot()
+    {
+        var snapshot = CreateSnapshot();
+        _undoRedo.Push(snapshot);
+        CommandManager.InvalidateRequerySuggested();
+    }
+
+    private ScriptSnapshot CreateSnapshot()
+    {
+        // Serialize the current script state
+        var options = new JsonSerializerOptions { WriteIndented = false };
+        var nodesJson = JsonSerializer.Serialize(_script.Nodes, options);
+        var connectionsJson = JsonSerializer.Serialize(_script.Connections, options);
+
+        return new ScriptSnapshot
+        {
+            Name = _script.Name,
+            NodesJson = nodesJson,
+            ConnectionsJson = connectionsJson
+        };
+    }
+
+    private void RestoreSnapshot(ScriptSnapshot snapshot)
+    {
+        _isRestoringSnapshot = true;
+        try
+        {
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+            _script.Name = snapshot.Name;
+            _script.Nodes = JsonSerializer.Deserialize<List<ScriptNode>>(snapshot.NodesJson, options) ?? new();
+            _script.Connections = JsonSerializer.Deserialize<List<NodeConnection>>(snapshot.ConnectionsJson, options) ?? new();
+
+            // Normalize properties dictionaries
+            foreach (var node in _script.Nodes)
+            {
+                var normalizedProps = new Dictionary<string, object?>(
+                    node.Properties, StringComparer.OrdinalIgnoreCase);
+                node.Properties = normalizedProps;
+            }
+
+            ScriptNameTextBox.Text = _script.Name;
+            ScriptPanel.SetScript(_script, _ownerType);
+            _selectedNode = null;
+            UpdatePropertiesPanel();
+        }
+        finally
+        {
+            _isRestoringSnapshot = false;
+        }
+    }
+
+    private void Undo_CanExecute(object sender, CanExecuteRoutedEventArgs e)
+    {
+        e.CanExecute = _undoRedo.CanUndo;
+        e.Handled = true;
+    }
+
+    private void Undo_Executed(object sender, ExecutedRoutedEventArgs e)
+    {
+        var snapshot = _undoRedo.Undo();
+        if (snapshot != null)
+        {
+            RestoreSnapshot(snapshot);
+        }
+    }
+
+    private void Redo_CanExecute(object sender, CanExecuteRoutedEventArgs e)
+    {
+        e.CanExecute = _undoRedo.CanRedo;
+        e.Handled = true;
+    }
+
+    private void Redo_Executed(object sender, ExecutedRoutedEventArgs e)
+    {
+        var snapshot = _undoRedo.Redo();
+        if (snapshot != null)
+        {
+            RestoreSnapshot(snapshot);
+        }
+    }
+
+    #endregion
+
+    #region Cut/Copy/Paste
+
+    private void CutCopyCommand_CanExecute(object sender, CanExecuteRoutedEventArgs e)
+    {
+        var selected = ScriptPanel.GetSelectedNodes();
+        e.CanExecute = selected != null && selected.Any();
+        e.Handled = true;
+    }
+
+    private void PasteCommand_CanExecute(object sender, CanExecuteRoutedEventArgs e)
+    {
+        e.CanExecute = _nodesClipboard != null && _nodesClipboard.Count > 0;
+        e.Handled = true;
+    }
+
+    private void CutCommand_Executed(object sender, ExecutedRoutedEventArgs e)
+    {
+        var selected = ScriptPanel.GetSelectedNodes().ToList();
+        if (selected.Count == 0) return;
+
+        CopyNodesToClipboard(selected);
+        _clipboardIsCut = true;
+
+        // Remove the cut nodes
+        var selectedIds = selected.Select(n => n.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        _script.Nodes.RemoveAll(n => selectedIds.Contains(n.Id));
+        _script.Connections.RemoveAll(c =>
+            selectedIds.Contains(c.FromNodeId) || selectedIds.Contains(c.ToNodeId));
+
+        ScriptPanel.SetScript(_script, _ownerType);
+        ScriptPanel.ClearSelection();
+        PushUndoSnapshot();
+    }
+
+    private void CopyCommand_Executed(object sender, ExecutedRoutedEventArgs e)
+    {
+        var selected = ScriptPanel.GetSelectedNodes().ToList();
+        if (selected.Count == 0) return;
+
+        CopyNodesToClipboard(selected);
+        _clipboardIsCut = false;
+    }
+
+    private void PasteCommand_Executed(object sender, ExecutedRoutedEventArgs e)
+    {
+        if (_nodesClipboard == null || _nodesClipboard.Count == 0) return;
+
+        // Create new nodes from clipboard with new IDs
+        var idMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var newNodes = new List<ScriptNode>();
+
+        foreach (var node in _nodesClipboard)
+        {
+            var newId = Guid.NewGuid().ToString();
+            idMap[node.Id] = newId;
+
+            var newNode = new ScriptNode
+            {
+                Id = newId,
+                NodeType = node.NodeType,
+                Category = node.Category,
+                X = node.X + 40, // Offset for visibility
+                Y = node.Y + 40,
+                Comment = node.Comment,
+                Properties = new Dictionary<string, object?>(node.Properties, StringComparer.OrdinalIgnoreCase)
+            };
+            newNodes.Add(newNode);
+        }
+
+        // Create new connections
+        if (_connectionsClipboard != null)
+        {
+            foreach (var conn in _connectionsClipboard)
+            {
+                if (idMap.TryGetValue(conn.FromNodeId, out var newFromId) &&
+                    idMap.TryGetValue(conn.ToNodeId, out var newToId))
+                {
+                    var newConn = new NodeConnection
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        FromNodeId = newFromId,
+                        FromPortName = conn.FromPortName,
+                        ToNodeId = newToId,
+                        ToPortName = conn.ToPortName
+                    };
+                    _script.Connections.Add(newConn);
+                }
+            }
+        }
+
+        // Add new nodes to script
+        foreach (var node in newNodes)
+        {
+            _script.Nodes.Add(node);
+        }
+
+        // Update the panel and select the new nodes
+        ScriptPanel.SetScript(_script, _ownerType);
+        ScriptPanel.SelectNodes(newNodes.Select(n => n.Id));
+        PushUndoSnapshot();
+
+        // If it was a cut operation, clear the clipboard
+        if (_clipboardIsCut)
+        {
+            _nodesClipboard = null;
+            _connectionsClipboard = null;
+        }
+    }
+
+    private void CopyNodesToClipboard(List<ScriptNode> nodes)
+    {
+        var options = new JsonSerializerOptions { WriteIndented = false };
+
+        // Clone nodes
+        var nodesJson = JsonSerializer.Serialize(nodes, options);
+        _nodesClipboard = JsonSerializer.Deserialize<List<ScriptNode>>(nodesJson, options) ?? new();
+
+        // Clone connections between selected nodes
+        var nodeIds = nodes.Select(n => n.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var relevantConnections = _script.Connections
+            .Where(c => nodeIds.Contains(c.FromNodeId) && nodeIds.Contains(c.ToNodeId))
+            .ToList();
+
+        var connJson = JsonSerializer.Serialize(relevantConnections, options);
+        _connectionsClipboard = JsonSerializer.Deserialize<List<NodeConnection>>(connJson, options) ?? new();
+    }
+
+    #endregion
+
+    #region Grid/Snap Commands
+
+    private void ToggleGrid_Executed(object sender, ExecutedRoutedEventArgs e)
+    {
+        ScriptPanel.ToggleGridVisibility();
+        ToggleGridButton.IsChecked = ScriptPanel.IsGridVisible;
+    }
+
+    private void ToggleSnap_Executed(object sender, ExecutedRoutedEventArgs e)
+    {
+        ScriptPanel.ToggleSnapToGrid();
+        ToggleSnapButton.IsChecked = ScriptPanel.IsSnapToGridEnabled;
+    }
+
+    private void ToggleGridButton_Click(object sender, RoutedEventArgs e)
+    {
+        ScriptPanel.ToggleGridVisibility();
+        ToggleGridButton.IsChecked = ScriptPanel.IsGridVisible;
+    }
+
+    private void ToggleSnapButton_Click(object sender, RoutedEventArgs e)
+    {
+        ScriptPanel.ToggleSnapToGrid();
+        ToggleSnapButton.IsChecked = ScriptPanel.IsSnapToGridEnabled;
+    }
+
+    private void CenterView_Click(object sender, RoutedEventArgs e)
+    {
+        ScriptPanel.CenterView();
+    }
+
+    #endregion
+
+    #region Properties Panel
 
     private void UpdatePropertiesPanel()
     {
@@ -128,6 +406,7 @@ public partial class ScriptEditorWindow : Window
                 Text = "Selecciona un nodo para ver sus propiedades",
                 Foreground = new SolidColorBrush(Color.FromRgb(150, 150, 150)),
                 FontStyle = FontStyles.Italic,
+                FontSize = 14,
                 TextWrapping = TextWrapping.Wrap
             };
             PropertiesPanel.Children.Add(noSelectionText);
@@ -170,7 +449,7 @@ public partial class ScriptEditorWindow : Window
         var header = new TextBlock
         {
             Text = text.ToUpper(),
-            FontSize = 10,
+            FontSize = 12,
             FontWeight = FontWeights.SemiBold,
             Foreground = new SolidColorBrush(Color.FromRgb(150, 150, 150)),
             Margin = new Thickness(0, 8, 0, 4)
@@ -183,6 +462,7 @@ public partial class ScriptEditorWindow : Window
         var value = new TextBlock
         {
             Text = text,
+            FontSize = 14,
             Foreground = Brushes.White,
             Margin = new Thickness(0, 0, 0, 4)
         };
@@ -195,7 +475,7 @@ public partial class ScriptEditorWindow : Window
         {
             Text = text,
             Foreground = new SolidColorBrush(Color.FromRgb(120, 120, 120)),
-            FontSize = 11,
+            FontSize = 13,
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 0, 0, 4)
         };
@@ -221,7 +501,7 @@ public partial class ScriptEditorWindow : Window
         {
             Text = propDef.DisplayName,
             Foreground = new SolidColorBrush(Color.FromRgb(200, 200, 200)),
-            FontSize = 11,
+            FontSize = 13,
             Margin = new Thickness(0, 0, 0, 2)
         };
         panel.Children.Add(label);
@@ -251,7 +531,7 @@ public partial class ScriptEditorWindow : Window
             combo.SelectionChanged += (s, e) =>
             {
                 _selectedNode.Properties[propDef.Name] = combo.SelectedItem?.ToString();
-                _isDirty = true;
+                PushUndoSnapshot();
                 ScriptPanel.InvalidateVisual();
             };
 
@@ -269,13 +549,13 @@ public partial class ScriptEditorWindow : Window
             check.Checked += (s, e) =>
             {
                 _selectedNode.Properties[propDef.Name] = true;
-                _isDirty = true;
+                PushUndoSnapshot();
             };
 
             check.Unchecked += (s, e) =>
             {
                 _selectedNode.Properties[propDef.Name] = false;
-                _isDirty = true;
+                PushUndoSnapshot();
             };
 
             editor = check;
@@ -292,12 +572,12 @@ public partial class ScriptEditorWindow : Window
                 Padding = new Thickness(6, 4, 6, 4)
             };
 
-            textBox.TextChanged += (s, e) =>
+            textBox.LostFocus += (s, e) =>
             {
                 if (int.TryParse(textBox.Text, out var intValue))
                 {
                     _selectedNode.Properties[propDef.Name] = intValue;
-                    _isDirty = true;
+                    PushUndoSnapshot();
                 }
             };
 
@@ -315,12 +595,12 @@ public partial class ScriptEditorWindow : Window
                 Padding = new Thickness(6, 4, 6, 4)
             };
 
-            textBox.TextChanged += (s, e) =>
+            textBox.LostFocus += (s, e) =>
             {
                 if (float.TryParse(textBox.Text, out var floatValue))
                 {
                     _selectedNode.Properties[propDef.Name] = floatValue;
-                    _isDirty = true;
+                    PushUndoSnapshot();
                 }
             };
 
@@ -346,10 +626,10 @@ public partial class ScriptEditorWindow : Window
                 MinHeight = propDef.Name == "Message" ? 60 : 0
             };
 
-            textBox.TextChanged += (s, e) =>
+            textBox.LostFocus += (s, e) =>
             {
                 _selectedNode.Properties[propDef.Name] = textBox.Text;
-                _isDirty = true;
+                PushUndoSnapshot();
             };
 
             editor = textBox;
@@ -405,7 +685,7 @@ public partial class ScriptEditorWindow : Window
             if (combo.SelectedItem is ComboBoxItem selected)
             {
                 _selectedNode!.Properties[propDef.Name] = selected.Tag?.ToString();
-                _isDirty = true;
+                PushUndoSnapshot();
             }
         };
 
@@ -426,54 +706,24 @@ public partial class ScriptEditorWindow : Window
             MinHeight = 40
         };
 
-        textBox.TextChanged += (s, e) =>
+        textBox.LostFocus += (s, e) =>
         {
             if (_selectedNode != null)
             {
                 _selectedNode.Comment = string.IsNullOrWhiteSpace(textBox.Text) ? null : textBox.Text;
-                _isDirty = true;
+                PushUndoSnapshot();
             }
         };
 
         PropertiesPanel.Children.Add(textBox);
     }
 
-    // Toolbar handlers
-    private void ToggleGrid_Click(object sender, RoutedEventArgs e)
-    {
-        ScriptPanel.ToggleGridVisibility();
-        ToggleGridButton.IsChecked = ScriptPanel.IsGridVisible;
-    }
+    #endregion
 
-    private void ToggleSnap_Click(object sender, RoutedEventArgs e)
+    private void ScriptEditorWindow_Loaded(object sender, RoutedEventArgs e)
     {
-        ScriptPanel.ToggleSnapToGrid();
-        ToggleSnapButton.IsChecked = ScriptPanel.IsSnapToGridEnabled;
-    }
-
-    private void CenterView_Click(object sender, RoutedEventArgs e)
-    {
+        // Centrar la vista automáticamente al abrir
         ScriptPanel.CenterView();
-    }
-
-    private void ZoomIn_Click(object sender, RoutedEventArgs e)
-    {
-        ScriptPanel.ZoomIn();
-    }
-
-    private void ZoomOut_Click(object sender, RoutedEventArgs e)
-    {
-        ScriptPanel.ZoomOut();
-    }
-
-    private void ResetZoom_Click(object sender, RoutedEventArgs e)
-    {
-        ScriptPanel.ResetZoom();
-    }
-
-    private void DeleteSelected_Click(object sender, RoutedEventArgs e)
-    {
-        ScriptPanel.RemoveSelectedNodes();
     }
 
     private void ScriptEditorWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -486,5 +736,66 @@ public partial class ScriptEditorWindow : Window
         {
             _world.Scripts.Remove(_script);
         }
+    }
+}
+
+/// <summary>
+/// Snapshot of script state for undo/redo
+/// </summary>
+public class ScriptSnapshot
+{
+    public string Name { get; set; } = "";
+    public string NodesJson { get; set; } = "";
+    public string ConnectionsJson { get; set; } = "";
+}
+
+/// <summary>
+/// Simple undo/redo manager for scripts
+/// </summary>
+public class ScriptUndoRedoManager
+{
+    private readonly List<ScriptSnapshot> _undoStack = new();
+    private readonly List<ScriptSnapshot> _redoStack = new();
+    private readonly int _maxSize;
+
+    public ScriptUndoRedoManager(int maxSize = 50)
+    {
+        _maxSize = maxSize;
+    }
+
+    public bool CanUndo => _undoStack.Count > 1;
+    public bool CanRedo => _redoStack.Count > 0;
+
+    public void Push(ScriptSnapshot snapshot)
+    {
+        _undoStack.Add(snapshot);
+        _redoStack.Clear();
+
+        while (_undoStack.Count > _maxSize)
+        {
+            _undoStack.RemoveAt(0);
+        }
+    }
+
+    public ScriptSnapshot? Undo()
+    {
+        if (_undoStack.Count <= 1) return null;
+
+        var current = _undoStack[^1];
+        _undoStack.RemoveAt(_undoStack.Count - 1);
+        _redoStack.Add(current);
+
+        return _undoStack[^1];
+    }
+
+    public ScriptSnapshot? Redo()
+    {
+        if (_redoStack.Count == 0) return null;
+
+        var snapshot = _redoStack[^1];
+        _redoStack.RemoveAt(_redoStack.Count - 1);
+        _undoStack.Add(snapshot);
+
+        return snapshot;
     }
 }

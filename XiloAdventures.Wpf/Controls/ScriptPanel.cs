@@ -175,6 +175,16 @@ public partial class ScriptPanel : Control
         NodeSelected?.Invoke(node);
     }
 
+    public void SelectNodes(IEnumerable<string> nodeIds)
+    {
+        _selectedNodeIds.Clear();
+        foreach (var id in nodeIds)
+        {
+            _selectedNodeIds.Add(id);
+        }
+        InvalidateVisual();
+    }
+
     public void ClearSelection()
     {
         _selectedNodeIds.Clear();
