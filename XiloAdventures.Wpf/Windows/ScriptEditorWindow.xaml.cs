@@ -12,10 +12,6 @@ namespace XiloAdventures.Wpf.Windows;
 
 public partial class ScriptEditorWindow : Window
 {
-    // Routed commands for toggle operations
-    public static readonly RoutedCommand ToggleGridCommand = new();
-    public static readonly RoutedCommand ToggleSnapCommand = new();
-
     private readonly WorldModel _world;
     private readonly string _ownerType;
     private readonly string _ownerId;
@@ -34,6 +30,11 @@ public partial class ScriptEditorWindow : Window
 
     // Para evitar recursión en el selector de scripts
     private bool _isChangingScript;
+
+    // Entidad actualmente seleccionada en el árbol
+    private object? _selectedEntity;
+    private string _selectedEntityType = "";
+    private string _selectedEntityId = "";
 
     // Providers para selectores de entidades
     public Func<IEnumerable<Room>>? GetRooms { get; set; }
@@ -74,6 +75,10 @@ public partial class ScriptEditorWindow : Window
         // Estado inicial de toggles
         ToggleGridButton.IsChecked = ScriptPanel.IsGridVisible;
         ToggleSnapButton.IsChecked = ScriptPanel.IsSnapToGridEnabled;
+
+        // Configurar entidad seleccionada inicial
+        _selectedEntityType = ownerType;
+        _selectedEntityId = ownerId;
 
         Loaded += ScriptEditorWindow_Loaded;
         Closing += ScriptEditorWindow_Closing;
@@ -128,7 +133,127 @@ public partial class ScriptEditorWindow : Window
         if (!_isRestoringSnapshot)
         {
             PushUndoSnapshot();
+            UpdateCurrentEntityTreeColor();
+            UpdateDiagnosticPanel();
         }
+    }
+
+    private void UpdateDiagnosticPanel()
+    {
+        DiagnosticPanel.Children.Clear();
+
+        // Si no hay nodos, mostrar mensaje vacío
+        if (_script.Nodes.Count == 0)
+        {
+            DiagnosticIcon.Foreground = new SolidColorBrush(Color.FromRgb(150, 150, 150));
+            AddDiagnosticMessage("Script vacío", Color.FromRgb(150, 150, 150));
+            return;
+        }
+
+        var validation = ScriptValidator.Validate(_script);
+
+        if (validation.IsValid)
+        {
+            // Verde - script válido
+            DiagnosticIcon.Foreground = new SolidColorBrush(Color.FromRgb(100, 220, 100));
+            AddDiagnosticMessage("✓ Script válido", Color.FromRgb(100, 220, 100));
+        }
+        else
+        {
+            // Amarillo/Rojo - script con problemas
+            DiagnosticIcon.Foreground = new SolidColorBrush(Color.FromRgb(255, 180, 80));
+
+            if (!validation.HasEvent)
+            {
+                AddDiagnosticMessage("✗ Falta evento", Color.FromRgb(255, 100, 100));
+            }
+            else
+            {
+                AddDiagnosticMessage("✓ Tiene evento", Color.FromRgb(100, 220, 100));
+            }
+
+            if (!validation.HasAction)
+            {
+                AddDiagnosticMessage("✗ Falta acción", Color.FromRgb(255, 100, 100));
+            }
+            else
+            {
+                AddDiagnosticMessage("✓ Tiene acción", Color.FromRgb(100, 220, 100));
+            }
+
+            if (validation.HasEvent && validation.HasAction && !validation.IsConnected)
+            {
+                AddDiagnosticMessage("✗ Sin conexión", Color.FromRgb(255, 180, 80));
+            }
+            else if (validation.HasEvent && validation.HasAction)
+            {
+                AddDiagnosticMessage("✓ Conectado", Color.FromRgb(100, 220, 100));
+            }
+
+            // Mostrar nodos con datos incompletos
+            if (validation.IncompleteNodes.Count > 0)
+            {
+                AddDiagnosticMessage("", Color.FromRgb(60, 60, 60)); // Separador
+                AddDiagnosticMessage("Datos faltantes:", Color.FromRgb(255, 180, 80));
+
+                foreach (var incomplete in validation.IncompleteNodes)
+                {
+                    var propsText = string.Join(", ", incomplete.MissingProperties);
+                    AddDiagnosticMessage($"  • {incomplete.NodeDisplayName}", Color.FromRgb(255, 140, 100));
+                    AddDiagnosticMessage($"     {propsText}", Color.FromRgb(200, 150, 100), 10);
+                }
+            }
+            else
+            {
+                AddDiagnosticMessage("✓ Datos completos", Color.FromRgb(100, 220, 100));
+            }
+        }
+    }
+
+    private void AddDiagnosticMessage(string message, Color color, int fontSize = 12)
+    {
+        var text = new TextBlock
+        {
+            Text = message,
+            Foreground = new SolidColorBrush(color),
+            FontSize = fontSize,
+            Margin = new Thickness(0, 1, 0, 1),
+            TextWrapping = TextWrapping.Wrap
+        };
+        DiagnosticPanel.Children.Add(text);
+    }
+
+    private void UpdateCurrentEntityTreeColor()
+    {
+        var treeItem = FindTreeItemForEntity(_selectedEntityType, _selectedEntityId);
+        if (treeItem == null) return;
+
+        treeItem.Foreground = GetEntityScriptColor(_selectedEntityType, _selectedEntityId);
+    }
+
+    private TreeViewItem? FindTreeItemForEntity(string entityType, string entityId)
+    {
+        return FindTreeItemRecursive(EntityTree.Items, entityType, entityId);
+    }
+
+    private TreeViewItem? FindTreeItemRecursive(ItemCollection items, string entityType, string entityId)
+    {
+        foreach (var item in items)
+        {
+            if (item is TreeViewItem tvi)
+            {
+                if (tvi.Tag is (string type, string id, object _) &&
+                    type == entityType && id == entityId)
+                {
+                    return tvi;
+                }
+
+                // Buscar en hijos
+                var found = FindTreeItemRecursive(tvi.Items, entityType, entityId);
+                if (found != null) return found;
+            }
+        }
+        return null;
     }
 
     private void ScriptPanel_NodeDoubleClicked(ScriptNode node)
@@ -365,16 +490,25 @@ public partial class ScriptEditorWindow : Window
 
     #region Grid/Snap Commands
 
-    private void ToggleGrid_Executed(object sender, ExecutedRoutedEventArgs e)
+    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        ScriptPanel.ToggleGridVisibility();
-        ToggleGridButton.IsChecked = ScriptPanel.IsGridVisible;
-    }
+        // Ignorar hotkeys si el foco está en un TextBox
+        if (Keyboard.FocusedElement is TextBox)
+            return;
 
-    private void ToggleSnap_Executed(object sender, ExecutedRoutedEventArgs e)
-    {
-        ScriptPanel.ToggleSnapToGrid();
-        ToggleSnapButton.IsChecked = ScriptPanel.IsSnapToGridEnabled;
+        switch (e.Key)
+        {
+            case Key.G:
+                ScriptPanel.ToggleGridVisibility();
+                ToggleGridButton.IsChecked = ScriptPanel.IsGridVisible;
+                e.Handled = true;
+                break;
+            case Key.H:
+                ScriptPanel.ToggleSnapToGrid();
+                ToggleSnapButton.IsChecked = ScriptPanel.IsSnapToGridEnabled;
+                e.Handled = true;
+                break;
+        }
     }
 
     private void ToggleGridButton_Click(object sender, RoutedEventArgs e)
@@ -543,6 +677,8 @@ public partial class ScriptEditorWindow : Window
                     _selectedNode.Properties[propDef.Name] = selected.Tag?.ToString();
                     PushUndoSnapshot();
                     ScriptPanel.InvalidateVisual();
+                    UpdateDiagnosticPanel();
+                    UpdateCurrentEntityTreeColor();
                 }
             };
 
@@ -561,12 +697,16 @@ public partial class ScriptEditorWindow : Window
             {
                 _selectedNode.Properties[propDef.Name] = true;
                 PushUndoSnapshot();
+                UpdateDiagnosticPanel();
+                UpdateCurrentEntityTreeColor();
             };
 
             check.Unchecked += (s, e) =>
             {
                 _selectedNode.Properties[propDef.Name] = false;
                 PushUndoSnapshot();
+                UpdateDiagnosticPanel();
+                UpdateCurrentEntityTreeColor();
             };
 
             editor = check;
@@ -589,6 +729,8 @@ public partial class ScriptEditorWindow : Window
                 {
                     _selectedNode.Properties[propDef.Name] = intValue;
                     PushUndoSnapshot();
+                    UpdateDiagnosticPanel();
+                    UpdateCurrentEntityTreeColor();
                 }
             };
 
@@ -612,6 +754,8 @@ public partial class ScriptEditorWindow : Window
                 {
                     _selectedNode.Properties[propDef.Name] = floatValue;
                     PushUndoSnapshot();
+                    UpdateDiagnosticPanel();
+                    UpdateCurrentEntityTreeColor();
                 }
             };
 
@@ -641,6 +785,8 @@ public partial class ScriptEditorWindow : Window
             {
                 _selectedNode.Properties[propDef.Name] = textBox.Text;
                 PushUndoSnapshot();
+                UpdateDiagnosticPanel();
+                UpdateCurrentEntityTreeColor();
             };
 
             editor = textBox;
@@ -695,6 +841,8 @@ public partial class ScriptEditorWindow : Window
             {
                 _selectedNode!.Properties[propDef.Name] = selected.Tag?.ToString();
                 PushUndoSnapshot();
+                UpdateDiagnosticPanel();
+                UpdateCurrentEntityTreeColor();
             }
         };
 
@@ -731,12 +879,254 @@ public partial class ScriptEditorWindow : Window
 
     private void ScriptEditorWindow_Loaded(object sender, RoutedEventArgs e)
     {
+        // Construir el árbol de entidades
+        BuildEntityTree();
+
         // Poblar el selector de scripts
         PopulateScriptSelector();
+
+        // Actualizar panel de diagnóstico
+        UpdateDiagnosticPanel();
 
         // Centrar la vista automáticamente al abrir
         ScriptPanel.CenterView();
     }
+
+    #region Entity Tree
+
+    private void BuildEntityTree()
+    {
+        EntityTree.Items.Clear();
+        TreeViewItem? nodeToSelect = null;
+
+        // Nodo Juego
+        var gameId = _world.Game?.Id ?? "game";
+        var gameNode = new TreeViewItem
+        {
+            Header = "Juego",
+            Tag = ("Game", gameId, _world.Game),
+            Foreground = GetEntityScriptColor("Game", gameId)
+        };
+        EntityTree.Items.Add(gameNode);
+
+        // Seleccionar si es la entidad inicial
+        if (_selectedEntityType == "Game")
+        {
+            nodeToSelect = gameNode;
+            _selectedEntity = _world.Game;
+        }
+
+        // Nodo Salas
+        var roomsRoot = new TreeViewItem { Header = "Salas", Foreground = Brushes.White };
+        foreach (var room in _world.Rooms.OrderBy(r => r.Name))
+        {
+            var roomNode = new TreeViewItem
+            {
+                Header = room.Name,
+                Tag = ("Room", room.Id, room),
+                Foreground = GetEntityScriptColor("Room", room.Id)
+            };
+
+            // Añadir puertas como hijas
+            if (_world.Doors != null)
+            {
+                foreach (var door in _world.Doors.Where(d => d.RoomIdA == room.Id || d.RoomIdB == room.Id))
+                {
+                    var doorNode = new TreeViewItem
+                    {
+                        Header = $"🚪 {door.Name}",
+                        Tag = ("Door", door.Id, door),
+                        Foreground = GetEntityScriptColor("Door", door.Id)
+                    };
+                    roomNode.Items.Add(doorNode);
+
+                    if (_selectedEntityType == "Door" && _selectedEntityId == door.Id)
+                    {
+                        nodeToSelect = doorNode;
+                        _selectedEntity = door;
+                        roomNode.IsExpanded = true;
+                        roomsRoot.IsExpanded = true;
+                    }
+                }
+            }
+
+            roomsRoot.Items.Add(roomNode);
+
+            if (_selectedEntityType == "Room" && _selectedEntityId == room.Id)
+            {
+                nodeToSelect = roomNode;
+                _selectedEntity = room;
+                roomsRoot.IsExpanded = true;
+            }
+        }
+        EntityTree.Items.Add(roomsRoot);
+
+        // Nodo Objetos
+        var objectsRoot = new TreeViewItem { Header = "Objetos", Foreground = Brushes.White };
+        foreach (var obj in _world.Objects.OrderBy(o => o.Name))
+        {
+            var objNode = new TreeViewItem
+            {
+                Header = obj.Name,
+                Tag = ("GameObject", obj.Id, obj),
+                Foreground = GetEntityScriptColor("GameObject", obj.Id)
+            };
+            objectsRoot.Items.Add(objNode);
+
+            if (_selectedEntityType == "GameObject" && _selectedEntityId == obj.Id)
+            {
+                nodeToSelect = objNode;
+                _selectedEntity = obj;
+                objectsRoot.IsExpanded = true;
+            }
+        }
+        EntityTree.Items.Add(objectsRoot);
+
+        // Nodo NPCs
+        var npcsRoot = new TreeViewItem { Header = "NPCs", Foreground = Brushes.White };
+        foreach (var npc in _world.Npcs.OrderBy(n => n.Name))
+        {
+            var npcNode = new TreeViewItem
+            {
+                Header = npc.Name,
+                Tag = ("Npc", npc.Id, npc),
+                Foreground = GetEntityScriptColor("Npc", npc.Id)
+            };
+            npcsRoot.Items.Add(npcNode);
+
+            if (_selectedEntityType == "Npc" && _selectedEntityId == npc.Id)
+            {
+                nodeToSelect = npcNode;
+                _selectedEntity = npc;
+                npcsRoot.IsExpanded = true;
+            }
+        }
+        EntityTree.Items.Add(npcsRoot);
+
+        // Nodo Misiones
+        var questsRoot = new TreeViewItem { Header = "Misiones", Foreground = Brushes.White };
+        foreach (var quest in _world.Quests.OrderBy(q => q.Name))
+        {
+            var questNode = new TreeViewItem
+            {
+                Header = quest.Name,
+                Tag = ("Quest", quest.Id, quest),
+                Foreground = GetEntityScriptColor("Quest", quest.Id)
+            };
+            questsRoot.Items.Add(questNode);
+
+            if (_selectedEntityType == "Quest" && _selectedEntityId == quest.Id)
+            {
+                nodeToSelect = questNode;
+                _selectedEntity = quest;
+                questsRoot.IsExpanded = true;
+            }
+        }
+        EntityTree.Items.Add(questsRoot);
+
+        // Seleccionar y dar foco al nodo después de que el layout se actualice
+        if (nodeToSelect != null)
+        {
+            var node = nodeToSelect;
+            Dispatcher.InvokeAsync(() =>
+            {
+                node.IsSelected = true;
+                node.Focus();
+                node.BringIntoView();
+            }, System.Windows.Threading.DispatcherPriority.Loaded);
+        }
+    }
+
+    private bool HasScripts(string ownerType, string ownerId)
+    {
+        return _world.Scripts.Any(s =>
+            s.OwnerType == ownerType &&
+            s.OwnerId == ownerId &&
+            (s.Nodes.Count > 0 || s.Connections.Count > 0));
+    }
+
+    /// <summary>
+    /// Obtiene el color del texto en el árbol según el estado de validación de los scripts
+    /// Blanco = sin scripts, Amarillo = script incompleto, Verde = script válido
+    /// </summary>
+    private Brush GetEntityScriptColor(string ownerType, string ownerId)
+    {
+        var entityScripts = _world.Scripts
+            .Where(s => s.OwnerType == ownerType &&
+                        s.OwnerId == ownerId &&
+                        (s.Nodes.Count > 0 || s.Connections.Count > 0))
+            .ToList();
+
+        if (entityScripts.Count == 0)
+        {
+            return Brushes.White; // Sin scripts
+        }
+
+        // Verificar si al menos un script es válido
+        var hasValidScript = entityScripts.Any(s => ScriptValidator.Validate(s).IsValid);
+
+        if (hasValidScript)
+        {
+            return new SolidColorBrush(Color.FromRgb(100, 220, 100)); // Verde - válido
+        }
+        else
+        {
+            return new SolidColorBrush(Color.FromRgb(255, 220, 100)); // Amarillo - incompleto
+        }
+    }
+
+    private void EntityTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+    {
+        if (EntityTree.SelectedItem is not TreeViewItem item) return;
+        if (item.Tag is not (string entityType, string entityId, object entity)) return;
+
+        // Guardar el script actual antes de cambiar
+        SaveCurrentScript();
+
+        // Actualizar la entidad seleccionada
+        _selectedEntity = entity;
+        _selectedEntityType = entityType;
+        _selectedEntityId = entityId;
+
+        // Actualizar la paleta de nodos según el tipo de entidad
+        NodePalette.SetOwnerType(entityType);
+
+        // Buscar o crear el primer script de esta entidad
+        var entityScript = _world.Scripts.FirstOrDefault(s =>
+            s.OwnerType == entityType && s.OwnerId == entityId);
+
+        if (entityScript == null)
+        {
+            // Crear un nuevo script para esta entidad
+            var entityName = GetEntityName(entity);
+            entityScript = new ScriptDefinition
+            {
+                Name = $"Script de {entityName}",
+                OwnerType = entityType,
+                OwnerId = entityId
+            };
+            _world.Scripts.Add(entityScript);
+        }
+
+        // Cambiar al script de la entidad
+        SwitchToScript(entityScript);
+    }
+
+    private static string GetEntityName(object entity)
+    {
+        return entity switch
+        {
+            GameInfo game => game.Title ?? "Juego",
+            Room room => room.Name ?? room.Id,
+            Door door => door.Name ?? door.Id,
+            Npc npc => npc.Name ?? npc.Id,
+            GameObject obj => obj.Name ?? obj.Id,
+            QuestDefinition quest => quest.Name ?? quest.Id,
+            _ => "Entidad"
+        };
+    }
+
+    #endregion
 
     #region New/Delete Script
 
@@ -745,16 +1135,19 @@ public partial class ScriptEditorWindow : Window
         // Guardar el script actual
         SaveCurrentScript();
 
+        // Usar la entidad actualmente seleccionada
+        var entityName = _selectedEntity != null ? GetEntityName(_selectedEntity) : _ownerName;
+
         // Contar scripts existentes para esta entidad
         var existingCount = _world.Scripts
-            .Count(s => s.OwnerType == _script.OwnerType && s.OwnerId == _script.OwnerId);
+            .Count(s => s.OwnerType == _selectedEntityType && s.OwnerId == _selectedEntityId);
 
         // Crear nuevo script
         var newScript = new ScriptDefinition
         {
-            Name = $"Script {existingCount + 1} de {_ownerName}",
-            OwnerType = _script.OwnerType,
-            OwnerId = _script.OwnerId
+            Name = $"Script {existingCount + 1} de {entityName}",
+            OwnerType = _selectedEntityType,
+            OwnerId = _selectedEntityId
         };
 
         _world.Scripts.Add(newScript);
@@ -767,7 +1160,7 @@ public partial class ScriptEditorWindow : Window
     {
         // Contar scripts de esta entidad
         var entityScripts = _world.Scripts
-            .Where(s => s.OwnerType == _script.OwnerType && s.OwnerId == _script.OwnerId)
+            .Where(s => s.OwnerType == _selectedEntityType && s.OwnerId == _selectedEntityId)
             .ToList();
 
         if (entityScripts.Count <= 1 && (_script.Nodes.Count > 0 || _script.Connections.Count > 0))
@@ -801,11 +1194,12 @@ public partial class ScriptEditorWindow : Window
         else
         {
             // Crear un nuevo script vacío si se eliminó el último
+            var entityName = _selectedEntity != null ? GetEntityName(_selectedEntity) : _ownerName;
             var newScript = new ScriptDefinition
             {
-                Name = $"Script de {_ownerName}",
-                OwnerType = _ownerType,
-                OwnerId = _ownerId
+                Name = $"Script de {entityName}",
+                OwnerType = _selectedEntityType,
+                OwnerId = _selectedEntityId
             };
             _world.Scripts.Add(newScript);
             SwitchToScript(newScript);
@@ -823,81 +1217,26 @@ public partial class ScriptEditorWindow : Window
         {
             ScriptSelectorCombo.Items.Clear();
 
-            // Scripts de la misma entidad (excepto el actual)
-            var sameEntityScripts = _world.Scripts
-                .Where(s => s.Id != _script.Id && s.OwnerType == _script.OwnerType && s.OwnerId == _script.OwnerId)
+            // Solo scripts de la entidad seleccionada (excepto el actual)
+            var entityScripts = _world.Scripts
+                .Where(s => s.Id != _script.Id &&
+                            s.OwnerType == _selectedEntityType &&
+                            s.OwnerId == _selectedEntityId)
                 .OrderBy(s => s.Name)
                 .ToList();
 
-            if (sameEntityScripts.Count > 0)
+            foreach (var script in entityScripts)
             {
-                var sameEntityHeader = new ComboBoxItem
+                var item = new ComboBoxItem
                 {
-                    Content = "MISMA ENTIDAD",
-                    IsEnabled = false,
-                    Foreground = new SolidColorBrush(Color.FromRgb(100, 180, 100)),
-                    FontSize = 11,
-                    FontWeight = FontWeights.SemiBold
+                    Content = script.Name,
+                    Tag = script,
+                    Foreground = Brushes.White
                 };
-                ScriptSelectorCombo.Items.Add(sameEntityHeader);
-
-                foreach (var script in sameEntityScripts)
-                {
-                    var item = new ComboBoxItem
-                    {
-                        Content = $"  {script.Name}",
-                        Tag = script,
-                        Foreground = Brushes.White
-                    };
-                    ScriptSelectorCombo.Items.Add(item);
-                }
+                ScriptSelectorCombo.Items.Add(item);
             }
 
-            // Otros scripts agrupados por tipo de propietario
-            var otherScripts = _world.Scripts
-                .Where(s => s.Id != _script.Id && !(s.OwnerType == _script.OwnerType && s.OwnerId == _script.OwnerId))
-                .ToList();
-
-            if (otherScripts.Count > 0)
-            {
-                if (sameEntityScripts.Count > 0)
-                {
-                    ScriptSelectorCombo.Items.Add(new Separator());
-                }
-
-                var grouped = otherScripts
-                    .GroupBy(s => s.OwnerType)
-                    .OrderBy(g => GetOwnerTypeSortOrder(g.Key));
-
-                foreach (var group in grouped)
-                {
-                    // Header del grupo
-                    var header = new ComboBoxItem
-                    {
-                        Content = GetOwnerTypeDisplayName(group.Key).ToUpper(),
-                        IsEnabled = false,
-                        Foreground = new SolidColorBrush(Color.FromRgb(150, 150, 150)),
-                        FontSize = 11,
-                        FontWeight = FontWeights.SemiBold
-                    };
-                    ScriptSelectorCombo.Items.Add(header);
-
-                    // Scripts del grupo
-                    foreach (var script in group.OrderBy(s => s.Name))
-                    {
-                        var ownerName = GetOwnerName(script.OwnerType, script.OwnerId);
-                        var item = new ComboBoxItem
-                        {
-                            Content = $"  {script.Name} ({ownerName})",
-                            Tag = script,
-                            Foreground = Brushes.White
-                        };
-                        ScriptSelectorCombo.Items.Add(item);
-                    }
-                }
-            }
-
-            // Si no hay scripts, mostrar mensaje
+            // Si no hay otros scripts, mostrar mensaje
             if (ScriptSelectorCombo.Items.Count == 0)
             {
                 var emptyItem = new ComboBoxItem
@@ -1017,6 +1356,9 @@ public partial class ScriptEditorWindow : Window
         // Actualizar el selector
         PopulateScriptSelector();
 
+        // Actualizar panel de diagnóstico
+        UpdateDiagnosticPanel();
+
         // Centrar vista
         ScriptPanel.CenterView();
     }
@@ -1035,20 +1377,16 @@ public partial class ScriptEditorWindow : Window
             return;
         }
 
-        // Verificar si hay nodos pero ningún evento
-        var hasEventNode = _script.Nodes.Any(n =>
-        {
-            var typeDef = NodeTypeRegistry.GetNodeType(n.NodeType);
-            return typeDef?.Category == NodeCategory.Event;
-        });
+        // Validar el script
+        var validation = ScriptValidator.Validate(_script);
 
-        if (!hasEventNode && _script.Nodes.Count > 0)
+        if (validation.HasErrors)
         {
+            var errorMessages = string.Join("\n\n", validation.Errors.Select(e => $"• {e}"));
+
             var shouldSave = DarkConfirmDialog.Show(
-                "Script sin evento",
-                "Este script no tiene ningún nodo de evento.\n\n" +
-                "Sin un evento, el script nunca se ejecutará.\n\n" +
-                "¿Deseas guardar de todas formas?",
+                "Script incompleto",
+                $"El script tiene los siguientes problemas:\n\n{errorMessages}\n\n¿Deseas guardar de todas formas?",
                 this);
 
             if (!shouldSave)

@@ -445,7 +445,7 @@ public static class NodeTypeRegistry
             },
             Properties = new[]
             {
-                new NodePropertyDefinition { Name = "FlagName", DisplayName = "Nombre del Flag", DataType = "string" }
+                new NodePropertyDefinition { Name = "FlagName", DisplayName = "Nombre del Flag", DataType = "string", IsRequired = true }
             }
         });
 
@@ -467,7 +467,7 @@ public static class NodeTypeRegistry
             },
             Properties = new[]
             {
-                new NodePropertyDefinition { Name = "CounterName", DisplayName = "Contador", DataType = "string" },
+                new NodePropertyDefinition { Name = "CounterName", DisplayName = "Contador", DataType = "string", IsRequired = true },
                 new NodePropertyDefinition { Name = "Operator", DisplayName = "Operador", DataType = "select", Options = new[] { "==", "!=", "<", "<=", ">", ">=" } },
                 new NodePropertyDefinition { Name = "Value", DisplayName = "Valor", DataType = "int", DefaultValue = 0 }
             }
@@ -585,7 +585,7 @@ public static class NodeTypeRegistry
             },
             Properties = new[]
             {
-                new NodePropertyDefinition { Name = "Message", DisplayName = "Mensaje", DataType = "string", DefaultValue = "" }
+                new NodePropertyDefinition { Name = "Message", DisplayName = "Mensaje", DataType = "string", DefaultValue = "", IsRequired = true }
             }
         });
 
@@ -691,7 +691,7 @@ public static class NodeTypeRegistry
             },
             Properties = new[]
             {
-                new NodePropertyDefinition { Name = "FlagName", DisplayName = "Nombre del Flag", DataType = "string" },
+                new NodePropertyDefinition { Name = "FlagName", DisplayName = "Nombre del Flag", DataType = "string", IsRequired = true },
                 new NodePropertyDefinition { Name = "Value", DisplayName = "Valor", DataType = "bool", DefaultValue = true }
             }
         });
@@ -713,7 +713,7 @@ public static class NodeTypeRegistry
             },
             Properties = new[]
             {
-                new NodePropertyDefinition { Name = "CounterName", DisplayName = "Contador", DataType = "string" },
+                new NodePropertyDefinition { Name = "CounterName", DisplayName = "Contador", DataType = "string", IsRequired = true },
                 new NodePropertyDefinition { Name = "Value", DisplayName = "Valor", DataType = "int", DefaultValue = 0 }
             }
         });
@@ -735,7 +735,7 @@ public static class NodeTypeRegistry
             },
             Properties = new[]
             {
-                new NodePropertyDefinition { Name = "CounterName", DisplayName = "Contador", DataType = "string" },
+                new NodePropertyDefinition { Name = "CounterName", DisplayName = "Contador", DataType = "string", IsRequired = true },
                 new NodePropertyDefinition { Name = "Amount", DisplayName = "Cantidad", DataType = "int", DefaultValue = 1 }
             }
         });
@@ -1100,7 +1100,7 @@ public static class NodeTypeRegistry
             },
             Properties = new[]
             {
-                new NodePropertyDefinition { Name = "FlagName", DisplayName = "Nombre del Flag", DataType = "string" }
+                new NodePropertyDefinition { Name = "FlagName", DisplayName = "Nombre del Flag", DataType = "string", IsRequired = true }
             }
         });
 
@@ -1118,7 +1118,7 @@ public static class NodeTypeRegistry
             },
             Properties = new[]
             {
-                new NodePropertyDefinition { Name = "CounterName", DisplayName = "Contador", DataType = "string" }
+                new NodePropertyDefinition { Name = "CounterName", DisplayName = "Contador", DataType = "string", IsRequired = true }
             }
         });
 
@@ -1271,7 +1271,7 @@ public static class NodeTypeRegistry
             },
             Properties = new[]
             {
-                new NodePropertyDefinition { Name = "CounterName", DisplayName = "Contador", DataType = "string" },
+                new NodePropertyDefinition { Name = "CounterName", DisplayName = "Contador", DataType = "string", IsRequired = true },
                 new NodePropertyDefinition { Name = "Operator", DisplayName = "Operador", DataType = "select", Options = new[] { "==", "!=", "<", "<=", ">", ">=" } }
             }
         });
@@ -1637,7 +1637,7 @@ public static class NodeTypeRegistry
             },
             Properties = new[]
             {
-                new NodePropertyDefinition { Name = "CounterName", DisplayName = "Contador", DataType = "string" }
+                new NodePropertyDefinition { Name = "CounterName", DisplayName = "Contador", DataType = "string", IsRequired = true }
             }
         });
 
@@ -1659,7 +1659,7 @@ public static class NodeTypeRegistry
             },
             Properties = new[]
             {
-                new NodePropertyDefinition { Name = "CounterName", DisplayName = "Contador", DataType = "string" }
+                new NodePropertyDefinition { Name = "CounterName", DisplayName = "Contador", DataType = "string", IsRequired = true }
             }
         });
     }

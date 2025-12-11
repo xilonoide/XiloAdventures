@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using XiloAdventures.Engine.Models;
 
@@ -335,6 +336,10 @@ public partial class ScriptPanel
     {
         base.OnKeyDown(e);
 
+        // Ignorar hotkeys si el foco está en un TextBox
+        if (Keyboard.FocusedElement is TextBox)
+            return;
+
         switch (e.Key)
         {
             case Key.Delete:
@@ -373,13 +378,7 @@ public partial class ScriptPanel
                 break;
 
             case Key.F:
-                // Centrar vista
                 CenterView();
-                e.Handled = true;
-                break;
-
-            case Key.Home:
-                ResetZoom();
                 e.Handled = true;
                 break;
         }

@@ -4,18 +4,16 @@
         xmlns:controls="clr-namespace:XiloAdventures.Wpf.Controls"
         xmlns:local="clr-namespace:XiloAdventures.Wpf.Windows"
         Title="Editor de Scripts"
+        Icon="/appicon.ico"
         Height="700" Width="1100"
         MinHeight="500" MinWidth="800"
         Background="#222222"
         Foreground="White"
         WindowState="Maximized"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen"
+        PreviewKeyDown="Window_PreviewKeyDown">
 
     <Window.CommandBindings>
-        <CommandBinding Command="{x:Static local:ScriptEditorWindow.ToggleGridCommand}"
-                        Executed="ToggleGrid_Executed"/>
-        <CommandBinding Command="{x:Static local:ScriptEditorWindow.ToggleSnapCommand}"
-                        Executed="ToggleSnap_Executed"/>
         <CommandBinding Command="ApplicationCommands.Undo"
                         CanExecute="Undo_CanExecute"
                         Executed="Undo_Executed"/>
@@ -34,8 +32,6 @@
     </Window.CommandBindings>
 
     <Window.InputBindings>
-        <KeyBinding Key="G" Command="{x:Static local:ScriptEditorWindow.ToggleGridCommand}"/>
-        <KeyBinding Key="H" Command="{x:Static local:ScriptEditorWindow.ToggleSnapCommand}"/>
         <KeyBinding Command="ApplicationCommands.Undo"
                 Modifiers="Control"
                 Key="Z"/>
@@ -406,11 +402,11 @@
                              VerticalContentAlignment="Center"/>
                 </StackPanel>
 
-                <!-- Right side: Ir a -->
+                <!-- Right side: Otros scripts -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
-                    <TextBlock Text="Ir a:" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBlock Text="Otros scripts:" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,8,0"/>
                     <ComboBox x:Name="ScriptSelectorCombo"
-                              Width="280"
+                              Width="200"
                               Height="26"
                               Style="{StaticResource DarkComboBoxStyle}"
                               ItemContainerStyle="{StaticResource DarkComboBoxItemStyle}"
@@ -423,6 +419,7 @@
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
@@ -430,20 +427,59 @@
             <!-- Center: Script Canvas (behind other panels) -->
             <controls:ScriptPanel x:Name="ScriptPanel"
                                   Grid.Column="0"
-                                  Grid.ColumnSpan="3"
+                                  Grid.ColumnSpan="4"
                                   Panel.ZIndex="0"
                                   ClipToBounds="True"/>
 
-            <!-- Left Panel: Node Palette -->
+            <!-- Left Panel: Entity Tree -->
             <Border Grid.Column="0"
+                    Panel.ZIndex="1"
+                    Width="200"
+                    Background="#333333">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="#444444" Padding="8,6">
+                        <TextBlock Text="ENTIDADES"
+                                   FontWeight="SemiBold"
+                                   FontSize="13"
+                                   Foreground="#AAAAAA"/>
+                    </Border>
+
+                    <TreeView x:Name="EntityTree"
+                              Grid.Row="1"
+                              SelectedItemChanged="EntityTree_SelectedItemChanged"
+                              Background="#333333"
+                              BorderThickness="0">
+                        <TreeView.ItemContainerStyle>
+                            <Style TargetType="TreeViewItem">
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="Background" Value="#333333"/>
+                                <Style.Triggers>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter Property="Background" Value="#505050"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TreeView.ItemContainerStyle>
+                    </TreeView>
+                </Grid>
+            </Border>
+
+            <!-- Second Left Panel: Node Palette -->
+            <Border Grid.Column="1"
                     Panel.ZIndex="1"
                     Width="200"
                     Background="#333333">
                 <controls:NodePalette x:Name="NodePalette"/>
             </Border>
 
-            <!-- Right Panel: Properties -->
-            <Border Grid.Column="2"
+            <!-- Right Panel: Properties + Diagnostics -->
+            <Border Grid.Column="3"
                     Panel.ZIndex="1"
                     Width="250"
                     Background="#333333">
@@ -451,6 +487,7 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
                     <Border Grid.Row="0" Background="#444444" Padding="8,6">
@@ -465,6 +502,34 @@
                                   HorizontalScrollBarVisibility="Disabled">
                         <StackPanel x:Name="PropertiesPanel" Margin="8"/>
                     </ScrollViewer>
+
+                    <!-- Diagnostic Panel -->
+                    <Border Grid.Row="2" Background="#2a2a2a" BorderThickness="0,1,0,0" BorderBrush="#444444">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <Border Grid.Row="0" Background="#3a3a3a" Padding="8,6">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock x:Name="DiagnosticIcon"
+                                               Text="●"
+                                               FontSize="12"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,6,0"/>
+                                    <TextBlock Text="ESTADO"
+                                               FontWeight="SemiBold"
+                                               FontSize="13"
+                                               Foreground="#AAAAAA"/>
+                                </StackPanel>
+                            </Border>
+
+                            <StackPanel x:Name="DiagnosticPanel"
+                                        Grid.Row="1"
+                                        Margin="8"/>
+                        </Grid>
+                    </Border>
                 </Grid>
             </Border>
         </Grid>

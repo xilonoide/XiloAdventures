@@ -141,4 +141,16 @@ public class NodePropertyDefinition
 
     /// <summary>Para propiedades que referencian entidades (Room, Object, Npc, etc.)</summary>
     public string? EntityType { get; set; }
+
+    /// <summary>
+    /// Indica si la propiedad es obligatoria.
+    /// Por defecto, las propiedades con EntityType son obligatorias.
+    /// </summary>
+    public bool IsRequired { get; set; }
+
+    /// <summary>
+    /// Determina si esta propiedad requiere un valor válido.
+    /// True si IsRequired es true o si tiene EntityType definido.
+    /// </summary>
+    public bool RequiresValue => IsRequired || !string.IsNullOrEmpty(EntityType);
 }

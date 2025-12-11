@@ -330,13 +330,6 @@ public partial class ScriptPanel : Control
         InvalidateVisual();
     }
 
-    public void ResetZoom()
-    {
-        _zoom = 1.0;
-        _offset = new Point(0, 0);
-        InvalidateVisual();
-    }
-
     // Transformaciones de coordenadas
     public Point LogicalToScreen(Point logical)
     {
