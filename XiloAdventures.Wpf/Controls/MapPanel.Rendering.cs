@@ -335,10 +335,12 @@ public partial class MapPanel : Control
 
                 _portRects[(room.Id, port.direction)] = portRect;
 
-                SolidColorBrush portFill = new SolidColorBrush(Color.FromRgb(30, 30, 30));
-                Pen portPen = new Pen(new SolidColorBrush(Color.FromRgb(160, 160, 160)), 1);
+                // Estilo circular como en el editor de scripts
+                SolidColorBrush portFill = new SolidColorBrush(Color.FromRgb(200, 200, 200));
+                Pen portPen = new Pen(new SolidColorBrush(Color.FromRgb(60, 60, 60)), 1.5);
 
-                dc.DrawRectangle(portFill, portPen, portRect);
+                var center = new Point(port.point.X, port.point.Y);
+                dc.DrawEllipse(portFill, portPen, center, portSize / 2.0, portSize / 2.0);
             }
 
             dc.DrawText(formatted, textPos);
@@ -368,8 +370,13 @@ private void DrawConnections(DrawingContext dc)
             .ToDictionary(d => d.Id, d => d, StringComparer.OrdinalIgnoreCase);
     }
 
-    Pen normalPen = new(new SolidColorBrush(Color.FromRgb(160, 160, 160)), 1.2);
-    Pen selectedPen = new(new SolidColorBrush(Color.FromRgb(255, 220, 80)), 2.0);
+    // Pens para conexiones según estado de puerta
+    Pen normalPen = new(new SolidColorBrush(Color.FromRgb(200, 200, 200)), 2.0);
+    Pen selectedPen = new(new SolidColorBrush(Color.FromRgb(255, 220, 80)), 3.0);
+    Pen doorOpenPen = new(new SolidColorBrush(Color.FromRgb(80, 200, 80)), 2.0);
+    Pen doorClosedPen = new(new SolidColorBrush(Color.FromRgb(200, 80, 80)), 2.0);
+    Pen doorOpenSelectedPen = new(new SolidColorBrush(Color.FromRgb(120, 255, 120)), 3.0);
+    Pen doorClosedSelectedPen = new(new SolidColorBrush(Color.FromRgb(255, 120, 120)), 3.0);
 
     Typeface typeface = new("Segoe UI");
     double dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
@@ -413,7 +420,38 @@ private void DrawConnections(DrawingContext dc)
 
             var exitKey = (room.Id, i);
             bool isSelected = _selectedExits.Contains(exitKey);
-            Pen linePen = isSelected ? selectedPen : normalPen;
+
+            // Detectar si hay puerta en esta conexión
+            Door? door = null;
+            if (doorsById != null && !string.IsNullOrEmpty(exit.DoorId))
+            {
+                doorsById.TryGetValue(exit.DoorId, out door);
+            }
+
+            if (door == null && _world.Doors != null && _world.Doors.Count > 0)
+            {
+                door = _world.Doors.FirstOrDefault(d =>
+                    !string.IsNullOrEmpty(d.RoomIdA) &&
+                    !string.IsNullOrEmpty(d.RoomIdB) &&
+                    ((string.Equals(d.RoomIdA, room.Id, StringComparison.OrdinalIgnoreCase) &&
+                      string.Equals(d.RoomIdB, target.Id, StringComparison.OrdinalIgnoreCase)) ||
+                     (string.Equals(d.RoomIdB, room.Id, StringComparison.OrdinalIgnoreCase) &&
+                      string.Equals(d.RoomIdA, target.Id, StringComparison.OrdinalIgnoreCase))));
+            }
+
+            // Determinar el pen según estado de puerta y selección
+            Pen linePen;
+            if (door != null)
+            {
+                if (door.IsOpen)
+                    linePen = isSelected ? doorOpenSelectedPen : doorOpenPen;
+                else
+                    linePen = isSelected ? doorClosedSelectedPen : doorClosedPen;
+            }
+            else
+            {
+                linePen = isSelected ? selectedPen : normalPen;
+            }
 
             // No dibujar la línea de la salida que se está editando actualmente
             // (se dibuja por separado en DrawPendingConnection con línea punteada)
@@ -424,7 +462,7 @@ private void DrawConnections(DrawingContext dc)
 
             if (!isBeingEdited)
             {
-                dc.DrawLine(linePen, fromPoint, toPoint);
+                DrawBezierConnection(dc, fromPoint, toPoint, linePen);
             }
 
             // Rectángulo de hit test que cubre toda la línea de la salida,
@@ -525,62 +563,6 @@ private void DrawConnections(DrawingContext dc)
                 hitRect = Rect.Union(hitRect, textRect);
 
                 dc.DrawText(formatted, textPos);
-            }
-
-            // Iconos de puerta y llave: siempre visibles aunque sólo se muestren
-            // etiquetas de texto para algunas conexiones.
-            Door? door = null;
-            if (doorsById != null && !string.IsNullOrEmpty(exit.DoorId))
-            {
-                doorsById.TryGetValue(exit.DoorId, out door);
-            }
-
-            if (door == null && _world.Doors != null && _world.Doors.Count > 0)
-            {
-                door = _world.Doors.FirstOrDefault(d =>
-                    !string.IsNullOrEmpty(d.RoomIdA) &&
-                    !string.IsNullOrEmpty(d.RoomIdB) &&
-                    ((string.Equals(d.RoomIdA, room.Id, StringComparison.OrdinalIgnoreCase) &&
-                      string.Equals(d.RoomIdB, target.Id, StringComparison.OrdinalIgnoreCase)) ||
-                     (string.Equals(d.RoomIdB, room.Id, StringComparison.OrdinalIgnoreCase) &&
-                      string.Equals(d.RoomIdA, target.Id, StringComparison.OrdinalIgnoreCase))));
-            }
-
-            if (door != null && !isBeingEdited)
-            {
-                const double doorIconWidth = 14.0;
-                const double doorIconHeight = 14.0;
-                const double doorIconMargin = 4.0;
-
-                Point doorTopLeft = new(
-                    mid.X - doorIconWidth / 2.0,
-                    mid.Y + doorIconMargin);
-
-                Rect doorRect = new(
-                    doorTopLeft.X,
-                    doorTopLeft.Y,
-                    doorIconWidth,
-                    doorIconHeight);
-
-                // Guardamos el rectángulo del icono de puerta para hit-test.
-                _doorIconRects[door.Id] = doorRect;
-
-                SolidColorBrush doorFill = door.IsOpen
-                    ? new SolidColorBrush(Color.FromRgb(60, 170, 60))
-                    : new SolidColorBrush(Color.FromRgb(200, 60, 60));
-
-                Pen doorPen = new Pen(new SolidColorBrush(Color.FromRgb(240, 240, 240)), 0.8);
-
-                dc.DrawRoundedRectangle(doorFill, doorPen, doorRect, 3, 3);
-
-                // Pomo de la puerta
-                Point knobCenter = new(
-                    doorRect.Right - 4,
-                    doorRect.Y + doorRect.Height / 2.0);
-                dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(240, 240, 240)), null, knobCenter, 1.5, 1.5);
-
-                // Ampliamos el hit-test para cubrir también el icono de puerta.
-                hitRect = Rect.Union(hitRect, doorRect);
             }
 
             // No agregar hit test para la salida que se está editando
@@ -695,12 +677,49 @@ private void DrawSelectionRectangle(DrawingContext dc)
         if (!hasConnection)
             return;
 
-        Pen pen = new(new SolidColorBrush(Color.FromRgb(0, 200, 255)), 1.5)
+        Pen pen = new(new SolidColorBrush(Color.FromRgb(0, 200, 255)), 2.0)
         {
             DashStyle = DashStyles.Dash
         };
 
-        dc.DrawLine(pen, fromScreen, toScreen);
+        DrawBezierConnection(dc, fromScreen, toScreen, pen);
+    }
+
+    private void DrawBezierConnection(DrawingContext dc, Point from, Point to, Pen pen)
+    {
+        // Calcular la distancia y dirección para los puntos de control
+        var dx = to.X - from.X;
+        var dy = to.Y - from.Y;
+        var distance = Math.Sqrt(dx * dx + dy * dy);
+
+        // Offset de control proporcional a la distancia
+        var controlOffset = Math.Max(30, distance / 3);
+
+        Point control1, control2;
+
+        // Determinar la dirección predominante para curvar apropiadamente
+        if (Math.Abs(dx) > Math.Abs(dy))
+        {
+            // Conexión más horizontal
+            control1 = new Point(from.X + controlOffset * Math.Sign(dx), from.Y);
+            control2 = new Point(to.X - controlOffset * Math.Sign(dx), to.Y);
+        }
+        else
+        {
+            // Conexión más vertical
+            control1 = new Point(from.X, from.Y + controlOffset * Math.Sign(dy));
+            control2 = new Point(to.X, to.Y - controlOffset * Math.Sign(dy));
+        }
+
+        var geometry = new StreamGeometry();
+        using (var ctx = geometry.Open())
+        {
+            ctx.BeginFigure(from, false, false);
+            ctx.BezierTo(control1, control2, to, true, false);
+        }
+        geometry.Freeze();
+
+        dc.DrawGeometry(null, pen, geometry);
     }
 
     private void DrawGrid(DrawingContext dc, double width, double height)
