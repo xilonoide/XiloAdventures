@@ -151,6 +151,7 @@
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto"/>
                                                 <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <ContentPresenter Grid.Column="0"
                                                               ContentSource="Icon"
@@ -160,6 +161,12 @@
                                                               ContentSource="Header"
                                                               VerticalAlignment="Center"
                                                               RecognizesAccessKey="True"/>
+                                            <TextBlock Grid.Column="2"
+                                                       Text="{TemplateBinding InputGestureText}"
+                                                       Foreground="#888888"
+                                                       FontSize="12"
+                                                       Margin="20,0,0,0"
+                                                       VerticalAlignment="Center"/>
                                         </Grid>
                                     </Border>
                                     <ControlTemplate.Triggers>
@@ -207,6 +214,7 @@
                     </MenuItem>
                     <MenuItem Header="Guardar"
                             Click="SaveMenu_Click"
+                            InputGestureText="Ctrl+S"
                             Style="{StaticResource SubMenuItemStyle}">
                         <MenuItem.Icon>
                             <TextBlock FontFamily="Segoe MDL2 Assets"
@@ -256,6 +264,7 @@
                         Style="{StaticResource TopMenuItemStyle}">
                     <MenuItem Header="Deshacer"
                             Command="ApplicationCommands.Undo"
+                            InputGestureText="Ctrl+Z"
                             Style="{StaticResource SubMenuItemStyle}">
                         <MenuItem.Icon>
                             <TextBlock FontFamily="Segoe MDL2 Assets"
@@ -267,6 +276,7 @@
                     </MenuItem>
                     <MenuItem Header="Rehacer"
                             Command="ApplicationCommands.Redo"
+                            InputGestureText="Ctrl+Shift+Z"
                             Style="{StaticResource SubMenuItemStyle}">
                         <MenuItem.Icon>
                             <TextBlock FontFamily="Segoe MDL2 Assets"
@@ -278,6 +288,7 @@
                     </MenuItem>
                     <MenuItem Header="Cortar"
                             Command="ApplicationCommands.Cut"
+                            InputGestureText="Ctrl+X"
                             Style="{StaticResource SubMenuItemStyle}">
                         <MenuItem.Icon>
                             <TextBlock FontFamily="Segoe MDL2 Assets"
@@ -289,6 +300,7 @@
                     </MenuItem>
                     <MenuItem Header="Copiar"
                             Command="ApplicationCommands.Copy"
+                            InputGestureText="Ctrl+C"
                             Style="{StaticResource SubMenuItemStyle}">
                         <MenuItem.Icon>
                             <TextBlock FontFamily="Segoe MDL2 Assets"
@@ -300,6 +312,7 @@
                     </MenuItem>
                     <MenuItem Header="Pegar"
                             Command="ApplicationCommands.Paste"
+                            InputGestureText="Ctrl+V"
                             Style="{StaticResource SubMenuItemStyle}">
                         <MenuItem.Icon>
                             <TextBlock FontFamily="Segoe MDL2 Assets"

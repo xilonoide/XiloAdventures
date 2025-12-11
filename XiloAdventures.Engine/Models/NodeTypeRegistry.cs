@@ -17,6 +17,11 @@ public static class NodeTypeRegistry
         RegisterActionNodes();
         RegisterFlowNodes();
         RegisterVariableNodes();
+        RegisterDataComparisonNodes();
+        RegisterMathNodes();
+        RegisterLogicNodes();
+        RegisterDataActionNodes();
+        RegisterSelectionNodes();
     }
 
     public static IReadOnlyDictionary<string, NodeTypeDefinition> Types => _types;
@@ -85,6 +90,20 @@ public static class NodeTypeRegistry
             Category = NodeCategory.Event,
             OwnerTypes = new[] { "Game" },
             OutputPorts = new[] { new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" } }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Event_OnTurnStart",
+            DisplayName = "Al Inicio del Turno",
+            Description = "Se ejecuta al inicio de cada turno del jugador",
+            Category = NodeCategory.Event,
+            OwnerTypes = new[] { "*" },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
+                new NodePort { Name = "TurnNumber", PortType = PortType.Data, DataType = "int", Label = "Turno" }
+            }
         });
 
         Register(new NodeTypeDefinition
@@ -1142,6 +1161,550 @@ public static class NodeTypeRegistry
             OutputPorts = new[]
             {
                 new NodePort { Name = "Gold", PortType = PortType.Data, DataType = "int", Label = "Oro" }
+            }
+        });
+
+        // Constantes
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Variable_ConstantInt",
+            DisplayName = "Entero Constante",
+            Description = "Un valor entero constante",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            InputPorts = Array.Empty<NodePort>(),
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "int", Label = "Valor" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "Value", DisplayName = "Valor", DataType = "int", DefaultValue = 0 }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Variable_ConstantBool",
+            DisplayName = "Booleano Constante",
+            Description = "Un valor booleano constante (verdadero/falso)",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            InputPorts = Array.Empty<NodePort>(),
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "bool", Label = "Valor" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "Value", DisplayName = "Valor", DataType = "bool", DefaultValue = false }
+            }
+        });
+    }
+
+    #endregion
+
+    #region Comparaciones con entrada de datos
+
+    private static void RegisterDataComparisonNodes()
+    {
+        // Comparar dos enteros
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Compare_Int",
+            DisplayName = "Comparar Enteros",
+            Description = "Compara dos valores enteros y produce un resultado booleano",
+            Category = NodeCategory.Condition,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "A", PortType = PortType.Data, DataType = "int", Label = "A" },
+                new NodePort { Name = "B", PortType = PortType.Data, DataType = "int", Label = "B" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Result", PortType = PortType.Data, DataType = "bool", Label = "Resultado" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "Operator", DisplayName = "Operador", DataType = "select", Options = new[] { "==", "!=", "<", "<=", ">", ">=" } }
+            }
+        });
+
+        // Comparar oro del jugador con un valor
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Compare_PlayerGold",
+            DisplayName = "Comparar Oro",
+            Description = "Compara el oro del jugador con un valor",
+            Category = NodeCategory.Condition,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "CompareValue", PortType = PortType.Data, DataType = "int", Label = "Comparar con" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Result", PortType = PortType.Data, DataType = "bool", Label = "Resultado" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "Operator", DisplayName = "Operador", DataType = "select", Options = new[] { "==", "!=", "<", "<=", ">", ">=" } }
+            }
+        });
+
+        // Comparar contador con un valor
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Compare_Counter",
+            DisplayName = "Comparar Contador",
+            Description = "Compara un contador con un valor",
+            Category = NodeCategory.Condition,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "CompareValue", PortType = PortType.Data, DataType = "int", Label = "Comparar con" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Result", PortType = PortType.Data, DataType = "bool", Label = "Resultado" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "CounterName", DisplayName = "Contador", DataType = "string" },
+                new NodePropertyDefinition { Name = "Operator", DisplayName = "Operador", DataType = "select", Options = new[] { "==", "!=", "<", "<=", ">", ">=" } }
+            }
+        });
+    }
+
+    #endregion
+
+    #region Operaciones Matematicas
+
+    private static void RegisterMathNodes()
+    {
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Math_Add",
+            DisplayName = "Sumar",
+            Description = "Suma dos valores enteros",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "A", PortType = PortType.Data, DataType = "int", Label = "A" },
+                new NodePort { Name = "B", PortType = PortType.Data, DataType = "int", Label = "B" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Result", PortType = PortType.Data, DataType = "int", Label = "Resultado" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Math_Subtract",
+            DisplayName = "Restar",
+            Description = "Resta dos valores enteros (A - B)",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "A", PortType = PortType.Data, DataType = "int", Label = "A" },
+                new NodePort { Name = "B", PortType = PortType.Data, DataType = "int", Label = "B" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Result", PortType = PortType.Data, DataType = "int", Label = "Resultado" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Math_Multiply",
+            DisplayName = "Multiplicar",
+            Description = "Multiplica dos valores enteros",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "A", PortType = PortType.Data, DataType = "int", Label = "A" },
+                new NodePort { Name = "B", PortType = PortType.Data, DataType = "int", Label = "B" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Result", PortType = PortType.Data, DataType = "int", Label = "Resultado" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Math_Divide",
+            DisplayName = "Dividir",
+            Description = "Divide dos valores enteros (A / B)",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "A", PortType = PortType.Data, DataType = "int", Label = "A" },
+                new NodePort { Name = "B", PortType = PortType.Data, DataType = "int", Label = "B" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Result", PortType = PortType.Data, DataType = "int", Label = "Resultado" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Math_Modulo",
+            DisplayName = "Modulo",
+            Description = "Obtiene el resto de la division (A % B)",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "A", PortType = PortType.Data, DataType = "int", Label = "A" },
+                new NodePort { Name = "B", PortType = PortType.Data, DataType = "int", Label = "B" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Result", PortType = PortType.Data, DataType = "int", Label = "Resultado" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Math_Negate",
+            DisplayName = "Negar",
+            Description = "Cambia el signo de un valor entero",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "int", Label = "Valor" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Result", PortType = PortType.Data, DataType = "int", Label = "Resultado" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Math_Abs",
+            DisplayName = "Valor Absoluto",
+            Description = "Obtiene el valor absoluto de un entero",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "int", Label = "Valor" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Result", PortType = PortType.Data, DataType = "int", Label = "Resultado" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Math_Min",
+            DisplayName = "Minimo",
+            Description = "Obtiene el menor de dos valores",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "A", PortType = PortType.Data, DataType = "int", Label = "A" },
+                new NodePort { Name = "B", PortType = PortType.Data, DataType = "int", Label = "B" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Result", PortType = PortType.Data, DataType = "int", Label = "Resultado" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Math_Max",
+            DisplayName = "Maximo",
+            Description = "Obtiene el mayor de dos valores",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "A", PortType = PortType.Data, DataType = "int", Label = "A" },
+                new NodePort { Name = "B", PortType = PortType.Data, DataType = "int", Label = "B" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Result", PortType = PortType.Data, DataType = "int", Label = "Resultado" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Math_Clamp",
+            DisplayName = "Limitar",
+            Description = "Limita un valor entre un minimo y un maximo",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "int", Label = "Valor" },
+                new NodePort { Name = "Min", PortType = PortType.Data, DataType = "int", Label = "Min" },
+                new NodePort { Name = "Max", PortType = PortType.Data, DataType = "int", Label = "Max" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Result", PortType = PortType.Data, DataType = "int", Label = "Resultado" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Math_Random",
+            DisplayName = "Aleatorio",
+            Description = "Genera un numero aleatorio entre Min y Max (inclusive)",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Min", PortType = PortType.Data, DataType = "int", Label = "Min" },
+                new NodePort { Name = "Max", PortType = PortType.Data, DataType = "int", Label = "Max" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Result", PortType = PortType.Data, DataType = "int", Label = "Resultado" }
+            }
+        });
+    }
+
+    #endregion
+
+    #region Operaciones Logicas
+
+    private static void RegisterLogicNodes()
+    {
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Logic_And",
+            DisplayName = "Y (AND)",
+            Description = "Devuelve verdadero si ambas entradas son verdaderas",
+            Category = NodeCategory.Condition,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "A", PortType = PortType.Data, DataType = "bool", Label = "A" },
+                new NodePort { Name = "B", PortType = PortType.Data, DataType = "bool", Label = "B" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Result", PortType = PortType.Data, DataType = "bool", Label = "Resultado" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Logic_Or",
+            DisplayName = "O (OR)",
+            Description = "Devuelve verdadero si al menos una entrada es verdadera",
+            Category = NodeCategory.Condition,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "A", PortType = PortType.Data, DataType = "bool", Label = "A" },
+                new NodePort { Name = "B", PortType = PortType.Data, DataType = "bool", Label = "B" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Result", PortType = PortType.Data, DataType = "bool", Label = "Resultado" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Logic_Not",
+            DisplayName = "No (NOT)",
+            Description = "Invierte el valor booleano",
+            Category = NodeCategory.Condition,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "bool", Label = "Valor" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Result", PortType = PortType.Data, DataType = "bool", Label = "Resultado" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Logic_Xor",
+            DisplayName = "O Exclusivo (XOR)",
+            Description = "Devuelve verdadero si exactamente una entrada es verdadera",
+            Category = NodeCategory.Condition,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "A", PortType = PortType.Data, DataType = "bool", Label = "A" },
+                new NodePort { Name = "B", PortType = PortType.Data, DataType = "bool", Label = "B" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Result", PortType = PortType.Data, DataType = "bool", Label = "Resultado" }
+            }
+        });
+    }
+
+    #endregion
+
+    #region Acciones con entrada de datos
+
+    private static void RegisterDataActionNodes()
+    {
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_SetGold",
+            DisplayName = "Establecer Oro",
+            Description = "Establece el oro del jugador a un valor especifico",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
+                new NodePort { Name = "Amount", PortType = PortType.Data, DataType = "int", Label = "Cantidad" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_AddGoldData",
+            DisplayName = "Dar Oro (Datos)",
+            Description = "Da oro al jugador usando un valor de conexion",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
+                new NodePort { Name = "Amount", PortType = PortType.Data, DataType = "int", Label = "Cantidad" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_RemoveGoldData",
+            DisplayName = "Quitar Oro (Datos)",
+            Description = "Quita oro al jugador usando un valor de conexion",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
+                new NodePort { Name = "Amount", PortType = PortType.Data, DataType = "int", Label = "Cantidad" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_SetCounterData",
+            DisplayName = "Establecer Contador (Datos)",
+            Description = "Establece un contador a un valor especifico usando conexion",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "int", Label = "Valor" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "CounterName", DisplayName = "Contador", DataType = "string" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_IncrementCounterData",
+            DisplayName = "Incrementar Contador (Datos)",
+            Description = "Incrementa un contador usando un valor de conexion",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
+                new NodePort { Name = "Amount", PortType = PortType.Data, DataType = "int", Label = "Cantidad" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "CounterName", DisplayName = "Contador", DataType = "string" }
+            }
+        });
+    }
+
+    #endregion
+
+    #region Nodos de seleccion
+
+    private static void RegisterSelectionNodes()
+    {
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Select_Int",
+            DisplayName = "Seleccionar Entero",
+            Description = "Selecciona entre dos valores enteros segun una condicion",
+            Category = NodeCategory.Flow,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Condition", PortType = PortType.Data, DataType = "bool", Label = "Condicion" },
+                new NodePort { Name = "True", PortType = PortType.Data, DataType = "int", Label = "Si verdadero" },
+                new NodePort { Name = "False", PortType = PortType.Data, DataType = "int", Label = "Si falso" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Result", PortType = PortType.Data, DataType = "int", Label = "Resultado" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Select_Bool",
+            DisplayName = "Seleccionar Booleano",
+            Description = "Selecciona entre dos valores booleanos segun una condicion",
+            Category = NodeCategory.Flow,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Condition", PortType = PortType.Data, DataType = "bool", Label = "Condicion" },
+                new NodePort { Name = "True", PortType = PortType.Data, DataType = "bool", Label = "Si verdadero" },
+                new NodePort { Name = "False", PortType = PortType.Data, DataType = "bool", Label = "Si falso" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Result", PortType = PortType.Data, DataType = "bool", Label = "Resultado" }
             }
         });
     }

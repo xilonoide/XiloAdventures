@@ -390,10 +390,60 @@ public partial class ScriptPanel
     {
         foreach (var kvp in _nodeRects)
         {
-            if (kvp.Value.Contains(screenPos))
+            if (IsPointInRoundedRect(screenPos, kvp.Value, 6))
                 return kvp.Key;
         }
         return null;
+    }
+
+    /// <summary>
+    /// Comprueba si un punto está dentro de un rectángulo con esquinas redondeadas.
+    /// Incluye también puntos ligeramente fuera del borde para mejor usabilidad.
+    /// El arco del header puede ser muy alto (aproximadamente Width/2) debido al escalado de WPF.
+    /// </summary>
+    private static bool IsPointInRoundedRect(Point point, Rect rect, double cornerRadius)
+    {
+        // El arco del header en WPF se escala automáticamente, creando un semicírculo
+        // cuya altura es aproximadamente la mitad del ancho del nodo
+        var arcHeight = rect.Width / 2;
+
+        // Expandir el rect para incluir el arco completo del header
+        var expandedRect = new Rect(
+            rect.X - 8,
+            rect.Y - arcHeight,  // El arco puede ser tan alto como la mitad del ancho
+            rect.Width + 16,
+            rect.Height + arcHeight + 8);
+
+        // Si no está dentro del rectángulo expandido, no está dentro
+        if (!expandedRect.Contains(point))
+            return false;
+
+        // Si está claramente dentro del rectángulo principal, está dentro
+        if (rect.Contains(point))
+            return true;
+
+        // Para puntos encima del nodo (media luna/arco del header), verificar si está
+        // dentro del área del semicírculo
+        if (point.Y < rect.Top)
+        {
+            // Centro del arco está en el centro horizontal del nodo, en el borde superior
+            var centerX = rect.Left + rect.Width / 2;
+            var centerY = rect.Top;
+
+            // Radio del semicírculo (aproximadamente la mitad del ancho)
+            var radius = rect.Width / 2;
+
+            // Verificar si el punto está dentro del semicírculo
+            var dx = point.X - centerX;
+            var dy = point.Y - centerY;
+
+            // El punto está dentro si está en el semicírculo superior
+            if (dx * dx + dy * dy <= radius * radius && dy <= 0)
+                return true;
+        }
+
+        // Para puntos en el área expandida lateral o inferior, aceptar
+        return true;
     }
 
     private (string nodeId, string portName, bool isOutput)? HitTestPort(Point screenPos)

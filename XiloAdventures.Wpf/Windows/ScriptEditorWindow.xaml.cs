@@ -32,6 +32,9 @@ public partial class ScriptEditorWindow : Window
     private List<NodeConnection>? _connectionsClipboard;
     private bool _clipboardIsCut;
 
+    // Para evitar recursión en el selector de scripts
+    private bool _isChangingScript;
+
     // Providers para selectores de entidades
     public Func<IEnumerable<Room>>? GetRooms { get; set; }
     public Func<IEnumerable<GameObject>>? GetObjects { get; set; }
@@ -513,26 +516,34 @@ public partial class ScriptEditorWindow : Window
 
         if (propDef.DataType == "select" && propDef.Options != null)
         {
-            // ComboBox para selecciones
+            // ComboBox para selecciones con estilo oscuro
             var combo = new ComboBox
             {
-                Background = new SolidColorBrush(Color.FromRgb(60, 60, 60)),
-                Foreground = Brushes.White,
-                BorderThickness = new Thickness(0),
-                Padding = new Thickness(6, 4, 6, 4)
+                Style = (Style)FindResource("DarkComboBoxStyle"),
+                ItemContainerStyle = (Style)FindResource("DarkComboBoxItemStyle")
             };
 
             foreach (var option in propDef.Options)
             {
-                combo.Items.Add(option);
+                var item = new ComboBoxItem { Content = option, Tag = option, Foreground = Brushes.White };
+                combo.Items.Add(item);
+
+                // Seleccionar el valor actual
+                var currentStr = currentValue?.ToString();
+                if (option == currentStr || (currentStr == null && option == propDef.Options.FirstOrDefault()))
+                {
+                    combo.SelectedItem = item;
+                }
             }
 
-            combo.SelectedItem = currentValue?.ToString() ?? propDef.Options.FirstOrDefault();
             combo.SelectionChanged += (s, e) =>
             {
-                _selectedNode.Properties[propDef.Name] = combo.SelectedItem?.ToString();
-                PushUndoSnapshot();
-                ScriptPanel.InvalidateVisual();
+                if (combo.SelectedItem is ComboBoxItem selected)
+                {
+                    _selectedNode.Properties[propDef.Name] = selected.Tag?.ToString();
+                    PushUndoSnapshot();
+                    ScriptPanel.InvalidateVisual();
+                }
             };
 
             editor = combo;
@@ -643,13 +654,11 @@ public partial class ScriptEditorWindow : Window
     {
         var combo = new ComboBox
         {
-            Background = new SolidColorBrush(Color.FromRgb(60, 60, 60)),
-            Foreground = Brushes.White,
-            BorderThickness = new Thickness(0),
-            Padding = new Thickness(6, 4, 6, 4)
+            Style = (Style)FindResource("DarkComboBoxStyle"),
+            ItemContainerStyle = (Style)FindResource("DarkComboBoxItemStyle")
         };
 
-        combo.Items.Add(new ComboBoxItem { Content = "(Ninguno)", Tag = "" });
+        combo.Items.Add(new ComboBoxItem { Content = "(Ninguno)", Tag = "", Foreground = Brushes.White });
 
         IEnumerable<(string Id, string Name)> entities = propDef.EntityType switch
         {
@@ -664,7 +673,7 @@ public partial class ScriptEditorWindow : Window
 
         foreach (var (id, name) in entities)
         {
-            combo.Items.Add(new ComboBoxItem { Content = name, Tag = id });
+            combo.Items.Add(new ComboBoxItem { Content = name, Tag = id, Foreground = Brushes.White });
         }
 
         // Seleccionar valor actual
@@ -722,9 +731,297 @@ public partial class ScriptEditorWindow : Window
 
     private void ScriptEditorWindow_Loaded(object sender, RoutedEventArgs e)
     {
+        // Poblar el selector de scripts
+        PopulateScriptSelector();
+
         // Centrar la vista automáticamente al abrir
         ScriptPanel.CenterView();
     }
+
+    #region New/Delete Script
+
+    private void NewScript_Click(object sender, RoutedEventArgs e)
+    {
+        // Guardar el script actual
+        SaveCurrentScript();
+
+        // Contar scripts existentes para esta entidad
+        var existingCount = _world.Scripts
+            .Count(s => s.OwnerType == _script.OwnerType && s.OwnerId == _script.OwnerId);
+
+        // Crear nuevo script
+        var newScript = new ScriptDefinition
+        {
+            Name = $"Script {existingCount + 1} de {_ownerName}",
+            OwnerType = _script.OwnerType,
+            OwnerId = _script.OwnerId
+        };
+
+        _world.Scripts.Add(newScript);
+
+        // Cambiar al nuevo script
+        SwitchToScript(newScript);
+    }
+
+    private void DeleteScript_Click(object sender, RoutedEventArgs e)
+    {
+        // Contar scripts de esta entidad
+        var entityScripts = _world.Scripts
+            .Where(s => s.OwnerType == _script.OwnerType && s.OwnerId == _script.OwnerId)
+            .ToList();
+
+        if (entityScripts.Count <= 1 && (_script.Nodes.Count > 0 || _script.Connections.Count > 0))
+        {
+            DarkConfirmDialog.Show(
+                "No se puede eliminar",
+                "No se puede eliminar el único script de esta entidad si contiene nodos.",
+                this);
+            return;
+        }
+
+        if (!DarkConfirmDialog.Show(
+            "Eliminar Script",
+            $"¿Seguro que deseas eliminar el script \"{_script.Name}\"?",
+            this))
+        {
+            return;
+        }
+
+        // Encontrar otro script al que cambiar
+        var otherScript = entityScripts.FirstOrDefault(s => s.Id != _script.Id);
+
+        // Eliminar el script actual
+        _world.Scripts.Remove(_script);
+
+        if (otherScript != null)
+        {
+            // Cambiar al otro script de la misma entidad
+            SwitchToScript(otherScript);
+        }
+        else
+        {
+            // Crear un nuevo script vacío si se eliminó el último
+            var newScript = new ScriptDefinition
+            {
+                Name = $"Script de {_ownerName}",
+                OwnerType = _ownerType,
+                OwnerId = _ownerId
+            };
+            _world.Scripts.Add(newScript);
+            SwitchToScript(newScript);
+        }
+    }
+
+    #endregion
+
+    #region Script Selector
+
+    private void PopulateScriptSelector()
+    {
+        _isChangingScript = true;
+        try
+        {
+            ScriptSelectorCombo.Items.Clear();
+
+            // Scripts de la misma entidad (excepto el actual)
+            var sameEntityScripts = _world.Scripts
+                .Where(s => s.Id != _script.Id && s.OwnerType == _script.OwnerType && s.OwnerId == _script.OwnerId)
+                .OrderBy(s => s.Name)
+                .ToList();
+
+            if (sameEntityScripts.Count > 0)
+            {
+                var sameEntityHeader = new ComboBoxItem
+                {
+                    Content = "MISMA ENTIDAD",
+                    IsEnabled = false,
+                    Foreground = new SolidColorBrush(Color.FromRgb(100, 180, 100)),
+                    FontSize = 11,
+                    FontWeight = FontWeights.SemiBold
+                };
+                ScriptSelectorCombo.Items.Add(sameEntityHeader);
+
+                foreach (var script in sameEntityScripts)
+                {
+                    var item = new ComboBoxItem
+                    {
+                        Content = $"  {script.Name}",
+                        Tag = script,
+                        Foreground = Brushes.White
+                    };
+                    ScriptSelectorCombo.Items.Add(item);
+                }
+            }
+
+            // Otros scripts agrupados por tipo de propietario
+            var otherScripts = _world.Scripts
+                .Where(s => s.Id != _script.Id && !(s.OwnerType == _script.OwnerType && s.OwnerId == _script.OwnerId))
+                .ToList();
+
+            if (otherScripts.Count > 0)
+            {
+                if (sameEntityScripts.Count > 0)
+                {
+                    ScriptSelectorCombo.Items.Add(new Separator());
+                }
+
+                var grouped = otherScripts
+                    .GroupBy(s => s.OwnerType)
+                    .OrderBy(g => GetOwnerTypeSortOrder(g.Key));
+
+                foreach (var group in grouped)
+                {
+                    // Header del grupo
+                    var header = new ComboBoxItem
+                    {
+                        Content = GetOwnerTypeDisplayName(group.Key).ToUpper(),
+                        IsEnabled = false,
+                        Foreground = new SolidColorBrush(Color.FromRgb(150, 150, 150)),
+                        FontSize = 11,
+                        FontWeight = FontWeights.SemiBold
+                    };
+                    ScriptSelectorCombo.Items.Add(header);
+
+                    // Scripts del grupo
+                    foreach (var script in group.OrderBy(s => s.Name))
+                    {
+                        var ownerName = GetOwnerName(script.OwnerType, script.OwnerId);
+                        var item = new ComboBoxItem
+                        {
+                            Content = $"  {script.Name} ({ownerName})",
+                            Tag = script,
+                            Foreground = Brushes.White
+                        };
+                        ScriptSelectorCombo.Items.Add(item);
+                    }
+                }
+            }
+
+            // Si no hay scripts, mostrar mensaje
+            if (ScriptSelectorCombo.Items.Count == 0)
+            {
+                var emptyItem = new ComboBoxItem
+                {
+                    Content = "(No hay otros scripts)",
+                    IsEnabled = false,
+                    Foreground = new SolidColorBrush(Color.FromRgb(120, 120, 120)),
+                    FontStyle = FontStyles.Italic
+                };
+                ScriptSelectorCombo.Items.Add(emptyItem);
+            }
+
+            // Actualizar estado del botón eliminar
+            UpdateDeleteButtonState();
+        }
+        finally
+        {
+            _isChangingScript = false;
+        }
+    }
+
+    private void UpdateDeleteButtonState()
+    {
+        // Solo permitir eliminar si hay más de un script para esta entidad
+        // o si el script está vacío
+        var entityScriptCount = _world.Scripts
+            .Count(s => s.OwnerType == _script.OwnerType && s.OwnerId == _script.OwnerId);
+        DeleteScriptButton.IsEnabled = entityScriptCount > 1 ||
+            (_script.Nodes.Count == 0 && _script.Connections.Count == 0);
+    }
+
+    private static int GetOwnerTypeSortOrder(string ownerType)
+    {
+        return ownerType switch
+        {
+            "Game" => 0,
+            "Room" => 1,
+            "Door" => 2,
+            "Npc" => 3,
+            "GameObject" => 4,
+            "Quest" => 5,
+            _ => 99
+        };
+    }
+
+    private string GetOwnerName(string ownerType, string ownerId)
+    {
+        return ownerType switch
+        {
+            "Game" => _world.Game?.Title ?? "Juego",
+            "Room" => _world.Rooms?.FirstOrDefault(r => r.Id == ownerId)?.Name ?? ownerId,
+            "Door" => _world.Doors?.FirstOrDefault(d => d.Id == ownerId)?.Name ?? ownerId,
+            "Npc" => _world.Npcs?.FirstOrDefault(n => n.Id == ownerId)?.Name ?? ownerId,
+            "GameObject" => _world.Objects?.FirstOrDefault(o => o.Id == ownerId)?.Name ?? ownerId,
+            "Quest" => _world.Quests?.FirstOrDefault(q => q.Id == ownerId)?.Name ?? ownerId,
+            _ => ownerId
+        };
+    }
+
+    private void ScriptSelectorCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isChangingScript) return;
+        if (ScriptSelectorCombo.SelectedItem is not ComboBoxItem item) return;
+        if (item.Tag is not ScriptDefinition selectedScript) return;
+        if (selectedScript.Id == _script.Id) return;
+
+        // Guardar el script actual antes de cambiar
+        SaveCurrentScript();
+
+        // Cambiar al script seleccionado
+        SwitchToScript(selectedScript);
+    }
+
+    private void SaveCurrentScript()
+    {
+        // Sincronizar posiciones
+        ScriptPanel.SyncPositionsToScript();
+
+        // Si el nombre está vacío, usar nombre por defecto
+        if (string.IsNullOrWhiteSpace(_script.Name))
+        {
+            _script.Name = "Script nuevo";
+        }
+    }
+
+    private void SwitchToScript(ScriptDefinition newScript)
+    {
+        _script = newScript;
+
+        // Actualizar UI
+        _isRestoringSnapshot = true;
+        try
+        {
+            ScriptNameTextBox.Text = _script.Name;
+        }
+        finally
+        {
+            _isRestoringSnapshot = false;
+        }
+
+        // Actualizar paleta de nodos para el nuevo tipo de propietario
+        NodePalette.SetOwnerType(_script.OwnerType);
+
+        // Cargar el script en el panel
+        ScriptPanel.SetScript(_script, _script.OwnerType);
+        _selectedNode = null;
+        UpdatePropertiesPanel();
+
+        // Reset undo/redo para el nuevo script
+        _undoRedo.Clear();
+        PushUndoSnapshot();
+
+        // Actualizar título
+        var ownerName = GetOwnerName(_script.OwnerType, _script.OwnerId);
+        Title = $"Editor de Scripts - {ownerName} ({GetOwnerTypeDisplayName(_script.OwnerType)})";
+
+        // Actualizar el selector
+        PopulateScriptSelector();
+
+        // Centrar vista
+        ScriptPanel.CenterView();
+    }
+
+    #endregion
 
     private void ScriptEditorWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
@@ -735,6 +1032,29 @@ public partial class ScriptEditorWindow : Window
         if (_script.Nodes.Count == 0 && _script.Connections.Count == 0)
         {
             _world.Scripts.Remove(_script);
+            return;
+        }
+
+        // Verificar si hay nodos pero ningún evento
+        var hasEventNode = _script.Nodes.Any(n =>
+        {
+            var typeDef = NodeTypeRegistry.GetNodeType(n.NodeType);
+            return typeDef?.Category == NodeCategory.Event;
+        });
+
+        if (!hasEventNode && _script.Nodes.Count > 0)
+        {
+            var shouldSave = DarkConfirmDialog.Show(
+                "Script sin evento",
+                "Este script no tiene ningún nodo de evento.\n\n" +
+                "Sin un evento, el script nunca se ejecutará.\n\n" +
+                "¿Deseas guardar de todas formas?",
+                this);
+
+            if (!shouldSave)
+            {
+                e.Cancel = true;
+            }
         }
     }
 }
@@ -765,6 +1085,12 @@ public class ScriptUndoRedoManager
 
     public bool CanUndo => _undoStack.Count > 1;
     public bool CanRedo => _redoStack.Count > 0;
+
+    public void Clear()
+    {
+        _undoStack.Clear();
+        _redoStack.Clear();
+    }
 
     public void Push(ScriptSnapshot snapshot)
     {
