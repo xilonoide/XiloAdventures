@@ -67,6 +67,7 @@ public partial class WorldEditorWindow : Window
         MapPanel.DoorCreated += MapPanel_DoorCreated;
         MapPanel.DoorDoubleClicked += MapPanel_DoorDoubleClicked;
         MapPanel.DoorClicked += MapPanel_DoorClicked;
+        MapPanel.KeyIconClicked += MapPanel_KeyIconClicked;
         MapPanel.SelectionCleared += MapPanel_SelectionCleared;
 
         MapPanel.AddObjectToRoomRequested += MapPanel_AddObjectToRoomRequested;
@@ -290,6 +291,12 @@ public partial class WorldEditorWindow : Window
     {
         SelectDoorInTree(door);
         PropertyEditor.SetObject(door);
+    }
+
+    private void MapPanel_KeyIconClicked(GameObject keyObj)
+    {
+        SelectObjectInTree(keyObj);
+        PropertyEditor.SetObject(keyObj);
     }
 
     private void BuildTree()

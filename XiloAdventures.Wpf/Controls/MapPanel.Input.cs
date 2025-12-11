@@ -114,6 +114,15 @@ public partial class MapPanel : Control
                 return;
             }
 
+            // Click sobre icono de llave: seleccionar el objeto llave correspondiente.
+            var keyHit = HitTestKeyIcon(pos);
+            if (keyHit != null)
+            {
+                KeyIconClicked?.Invoke(keyHit);
+                e.Handled = true;
+                return;
+            }
+
             // Click sobre un punto de salida (puerto) sin modificadores: usamos conexión basada en dirección fija.
             var portHit = HitTestPort(pos);
             if (Keyboard.Modifiers == ModifierKeys.None && portHit.HasValue)
@@ -295,8 +304,23 @@ public partial class MapPanel : Control
             var exitHit = HitTestExit(pos);
             if (exitHit.HasValue)
             {
-                bool ctrlForSelection = (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control;
                 var (exitRoom, exitIndex) = exitHit.Value;
+                var exit = exitRoom.Exits?[exitIndex];
+
+                // Si la salida tiene una puerta asociada, seleccionar la puerta en el árbol
+                if (exit != null && !string.IsNullOrWhiteSpace(exit.DoorId) && _world?.Doors != null)
+                {
+                    var door = _world.Doors.FirstOrDefault(d =>
+                        string.Equals(d.Id, exit.DoorId, StringComparison.OrdinalIgnoreCase));
+                    if (door != null)
+                    {
+                        DoorClicked?.Invoke(door);
+                        e.Handled = true;
+                        return;
+                    }
+                }
+
+                bool ctrlForSelection = (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control;
                 var exitKey = (exitRoom.Id, exitIndex);
 
                 if (ctrlForSelection)
@@ -1286,6 +1310,27 @@ protected override void OnMouseWheel(MouseWheelEventArgs e)
         return null;
     }
 
+    private GameObject? HitTestKeyIcon(Point screenPoint)
+    {
+        if (_world == null || _world.Objects == null || _world.Objects.Count == 0)
+            return null;
+
+        // Recorremos en orden inverso para que "gane" el último icono de llave dibujado.
+        foreach (var kvp in _keyIconRects.Reverse())
+        {
+            Rect rect = kvp.Value;
+            if (rect.Contains(screenPoint))
+            {
+                string keyObjectId = kvp.Key;
+                GameObject? keyObj = _world.Objects.FirstOrDefault(o =>
+                    string.Equals(o.Id, keyObjectId, StringComparison.OrdinalIgnoreCase));
+                if (keyObj != null)
+                    return keyObj;
+            }
+        }
+
+        return null;
+    }
 
     private void PromptCreateDoor(Room room, int exitIndex)
     {

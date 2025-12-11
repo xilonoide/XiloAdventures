@@ -33,6 +33,7 @@ public partial class PromptGeneratorWindow : Window
       ""Id"": ""obj_id"",
       ""Name"": ""Nombre"",
       ""Description"": ""Descripción"",
+      ""Type"": ""tipo (ej: llave, arma, comida, etc.)"",
       ""RoomId"": ""room_id o null si está en inventario/contenedor"",
       ""IsPickable"": true,
       ""IsContainer"": false,
@@ -153,17 +154,21 @@ Genera un mundo con:
 
 ## NOTAS IMPORTANTES
 - Los IDs deben ser snake_case únicos
+- **Game.StartingRoomId DEBE coincidir con el Id de una sala existente** - El jugador empieza ahí
 - Las coordenadas MapX/MapY deben formar un mapa navegable (ej: sala al norte = Y-1)
 - Direcciones válidas: norte, sur, este, oeste, arriba, abajo
+- **Los objetos que son llaves DEBEN tener Type=""llave""**
+- **Toda puerta con cerradura (KeyItemId no nulo) DEBE tener un objeto llave existente asignado**
 - Los nodos de scripts necesitan posiciones X,Y para visualización (separados ~200px)
 - Conecta los nodos: evento → condiciones/acciones mediante puerto ""Exec""
 - El puerto de salida de eventos y acciones es ""Exec"", el de entrada también es ""Exec""
 
 ## FORMATO DE SALIDA
 
-Genera el JSON directamente (sin markdown code blocks).
-El archivo resultante se guardará con extensión .xaw y se abrirá directamente en el editor XiloAdventures.
-Asegúrate de que el JSON sea válido y parseable.
+**IMPORTANTE: Genera el resultado como un archivo descargable con extensión .xaw** (no como texto en el chat).
+- El JSON debe ser válido y parseable
+- Sin markdown code blocks, solo el JSON puro
+- El archivo .xaw se abrirá directamente en el editor XiloAdventures
 
 Genera un mundo temático interesante (mansión embrujada, templo antiguo, nave espacial, etc.) con puzzles lógicos y una pequeña historia.";
 

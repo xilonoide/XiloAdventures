@@ -570,6 +570,44 @@ private void DrawConnections(DrawingContext dc)
             {
                 _exitHitRects[exitKey] = hitRect;
             }
+
+            // Dibujar icono de llave si la puerta tiene cerradura con llave
+            if (door != null && !string.IsNullOrWhiteSpace(door.KeyObjectId) && !isBeingEdited)
+            {
+                const double keyIconSize = 16.0;
+                const double keyIconOffset = 12.0;
+
+                // Posicionar el icono debajo del punto medio de la línea
+                Rect keyRect = new Rect(
+                    mid.X - keyIconSize / 2.0,
+                    mid.Y + keyIconOffset,
+                    keyIconSize,
+                    keyIconSize);
+
+                _keyIconRects[door.KeyObjectId] = keyRect;
+
+                // Color según estado: verde si está abierta, rojo si está cerrada/bloqueada
+                Color keyColor = door.IsOpen ? Color.FromRgb(80, 200, 80) : Color.FromRgb(200, 80, 80);
+                SolidColorBrush keyBg = new SolidColorBrush(keyColor);
+                Pen keyPen = new Pen(Brushes.White, 1.0);
+
+                dc.DrawRoundedRectangle(keyBg, keyPen, keyRect, 3, 3);
+
+                // Dibujar símbolo de llave (usando Segoe MDL2 Assets)
+                var keyText = new FormattedText(
+                    "\uE72E", // Icono de llave
+                    System.Globalization.CultureInfo.CurrentUICulture,
+                    FlowDirection.LeftToRight,
+                    new Typeface(new FontFamily("Segoe MDL2 Assets"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal),
+                    10,
+                    Brushes.White,
+                    dpi);
+
+                Point keyTextPos = new(
+                    keyRect.X + (keyRect.Width - keyText.Width) / 2.0,
+                    keyRect.Y + (keyRect.Height - keyText.Height) / 2.0);
+                dc.DrawText(keyText, keyTextPos);
+            }
         }
     }
 }

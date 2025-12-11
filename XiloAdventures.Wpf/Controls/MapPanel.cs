@@ -99,6 +99,7 @@ public partial class MapPanel : Control
     public event Action<Room>? AddObjectToRoomRequested;
     public event Action<Room>? AddNpcToRoomRequested;
     public event Action<List<string>>? RoomsDeleteRequested;
+    public event Action<GameObject>? KeyIconClicked;
 
     static MapPanel()
     {
