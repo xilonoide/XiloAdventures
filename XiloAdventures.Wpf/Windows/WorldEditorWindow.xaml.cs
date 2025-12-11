@@ -58,6 +58,7 @@ public partial class WorldEditorWindow : Window
         _baseTitle = Title ?? "Editor de mundos";
         PropertyEditor.PropertyEdited += PropertyEditor_PropertyEdited;
         PropertyEditor.RequestDeleteObject += PropertyEditor_RequestDeleteObject;
+        PropertyEditor.RequestOpenScriptEditor += PropertyEditor_RequestOpenScriptEditor;
         PropertyEditor.GetRooms = () => _world.Rooms;
         PropertyEditor.GetMusics = () => _world.Musics;
         PropertyEditor.GetObjects = () => _world.Objects;
@@ -1914,6 +1915,26 @@ public partial class WorldEditorWindow : Window
         BuildTree();
         MapPanel.SetWorld(_world);
         PushUndoSnapshot();
+        SetDirty(true);
+    }
+
+    /// <summary>
+    /// Abre el editor de scripts para una entidad específica.
+    /// </summary>
+    private void PropertyEditor_RequestOpenScriptEditor(string ownerType, string ownerId, string ownerName)
+    {
+        var scriptEditor = new ScriptEditorWindow(_world, ownerType, ownerId, ownerName)
+        {
+            Owner = this,
+            GetRooms = () => _world.Rooms,
+            GetObjects = () => _world.Objects,
+            GetNpcs = () => _world.Npcs,
+            GetDoors = () => _world.Doors,
+            GetQuests = () => _world.Quests,
+            GetFxs = () => _world.Fxs
+        };
+
+        scriptEditor.ShowDialog();
         SetDirty(true);
     }
 

@@ -79,6 +79,19 @@ public static class WorldLoader
         world.RoomPositions ??= new Dictionary<string, MapPosition>();
         world.Musics ??= new List<MusicAsset>();
         world.Fxs ??= new List<FxAsset>();
+        world.Scripts ??= new List<ScriptDefinition>();
+
+        // Normalizar Properties de scripts para ser case-insensitive
+        foreach (var script in world.Scripts)
+        {
+            foreach (var node in script.Nodes)
+            {
+                // Recrear el diccionario con comparer case-insensitive
+                var normalizedProps = new Dictionary<string, object?>(
+                    node.Properties, StringComparer.OrdinalIgnoreCase);
+                node.Properties = normalizedProps;
+            }
+        }
 
         return world;
     }

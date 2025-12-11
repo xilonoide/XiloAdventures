@@ -155,6 +155,82 @@ public partial class PropertyEditor : UserControl
                 AddPropertyControl(obj, prop);
             }
         }
+
+        // Añadir botón de Scripts si el objeto es scriptable
+        AddScriptButton(obj);
+    }
+
+    /// <summary>
+    /// Evento para solicitar la apertura del editor de scripts.
+    /// </summary>
+    public event Action<string, string, string>? RequestOpenScriptEditor;
+
+    private void AddScriptButton(object obj)
+    {
+        string? ownerType = obj switch
+        {
+            GameInfo => "Game",
+            Room => "Room",
+            Door => "Door",
+            Npc => "Npc",
+            GameObject => "GameObject",
+            QuestDefinition => "Quest",
+            _ => null
+        };
+
+        if (ownerType == null) return;
+
+        string ownerId = obj switch
+        {
+            GameInfo game => game.Id,
+            Room room => room.Id,
+            Door door => door.Id,
+            Npc npc => npc.Id,
+            GameObject go => go.Id,
+            QuestDefinition quest => quest.Id,
+            _ => string.Empty
+        };
+
+        string ownerName = obj switch
+        {
+            GameInfo game => game.Title,
+            Room room => room.Name,
+            Door door => door.Name,
+            Npc npc => npc.Name,
+            GameObject go => go.Name,
+            QuestDefinition quest => quest.Name,
+            _ => string.Empty
+        };
+
+        if (string.IsNullOrEmpty(ownerId)) return;
+
+        // Separador
+        RootPanel.Children.Add(new Border
+        {
+            Height = 1,
+            Background = new SolidColorBrush(Color.FromRgb(0x44, 0x44, 0x44)),
+            Margin = new Thickness(0, 16, 0, 8)
+        });
+
+        // Botón de Scripts
+        var scriptButton = new Button
+        {
+            Content = "Scripts...",
+            Padding = new Thickness(12, 8, 12, 8),
+            Background = new SolidColorBrush(Color.FromRgb(60, 100, 160)),
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            Cursor = Cursors.Hand,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            FontWeight = FontWeights.SemiBold
+        };
+
+        scriptButton.Click += (s, e) =>
+        {
+            RequestOpenScriptEditor?.Invoke(ownerType, ownerId, ownerName);
+        };
+
+        RootPanel.Children.Add(scriptButton);
     }
 
     private record PropertyGroup(string Name, List<PropertyInfo> Properties);

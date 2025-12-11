@@ -104,44 +104,33 @@ public static class SaveManager
         var json = CryptoUtil.DecryptFromFile(path, effectiveKey);
         var data = JsonSerializer.Deserialize<SaveData>(json, Options) ?? new SaveData();
 
-        // Compatibilidad: si la partida es antigua y no tiene algunos campos, usamos los del mundo original.
-        var rooms = data.Rooms ?? world.Rooms;
-        var objects = data.Objects ?? world.Objects;
-        var npcs = data.Npcs ?? world.Npcs;
-        var quests = data.Quests ?? new Dictionary<string, QuestState>(StringComparer.OrdinalIgnoreCase);
-        var doors = data.Doors ?? world.Doors;
+        // Crear diccionarios con comparador case-insensitive (JSON deserializa sin comparador)
+        var quests = new Dictionary<string, QuestState>(data.Quests ?? [], StringComparer.OrdinalIgnoreCase);
+        var flags = new Dictionary<string, bool>(data.Flags ?? [], StringComparer.OrdinalIgnoreCase);
 
         var state = new GameState
         {
-            WorldId = string.IsNullOrEmpty(data.WorldId) ? world.Game.Id : data.WorldId,
-            WorldMusicId = data.WorldMusicId ?? world.Game.WorldMusicId,
-            CurrentRoomId = string.IsNullOrEmpty(data.CurrentRoomId)
-                ? world.Game.StartRoomId
-                : data.CurrentRoomId,
-
-            Player = data.Player ?? new PlayerStats(),
-
-            Rooms = rooms,
-            Objects = objects,
-            Npcs = npcs,
-            Doors = doors,
-
+            WorldId = data.WorldId,
+            WorldMusicId = data.WorldMusicId,
+            CurrentRoomId = data.CurrentRoomId,
+            Player = data.Player,
+            Rooms = data.Rooms!,
+            Objects = data.Objects!,
+            Npcs = data.Npcs!,
+            Doors = data.Doors!,
             Quests = quests,
-            UseRules = data.UseRules ?? world.UseRules,
-            TradeRules = data.TradeRules ?? world.TradeRules,
-            Events = data.Events ?? world.Events,
-
+            UseRules = data.UseRules!,
+            TradeRules = data.TradeRules!,
+            Events = data.Events!,
             InventoryObjectIds = data.InventoryObjectIds ?? new List<string>(),
             TurnCounter = data.TurnCounter,
             TimeOfDay = data.TimeOfDay,
             Weather = data.Weather,
             GameTime = data.GameTime,
-            Flags = data.Flags ?? new Dictionary<string, bool>()
+            Flags = flags
         };
 
-        // Asegurar que las listas de objetos/NPCs por sala se recalculan
         WorldLoader.RebuildRoomIndexes(state);
-
         return state;
     }
 

@@ -19,6 +19,11 @@ public class WorldModel
     public List<Door> Doors { get; set; } = new();
 
     /// <summary>
+    /// Scripts visuales del mundo (comportamientos definidos mediante nodos).
+    /// </summary>
+    public List<ScriptDefinition> Scripts { get; set; } = new();
+
+    /// <summary>
     /// Biblioteca de música del mundo (archivos compartidos entre salas).
     /// </summary>
     public List<MusicAsset> Musics { get; set; } = new();
@@ -413,14 +418,15 @@ public class GameState
     public List<GameObject> Objects { get; set; } = new();
     public List<Npc> Npcs { get; set; } = new();
 
-    public Dictionary<string, QuestState> Quests { get; set; } = new();
+    public Dictionary<string, QuestState> Quests { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public List<UseRule> UseRules { get; set; } = new();
     public List<TradeRule> TradeRules { get; set; } = new();
     public List<EventRule> Events { get; set; } = new();
 
     public List<Door> Doors { get; set; } = new();
 
-    public Dictionary<string, bool> Flags { get; set; } = new();
+    public Dictionary<string, bool> Flags { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, int> Counters { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public List<string> InventoryObjectIds { get; set; } = new();
 
     public DateTime GameTime { get; set; } = default;

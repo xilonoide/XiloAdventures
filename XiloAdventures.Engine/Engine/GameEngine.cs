@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using XiloAdventures.Engine.Engine;
 using XiloAdventures.Engine.Models;
 
 namespace XiloAdventures.Engine;
@@ -23,6 +24,8 @@ public class GameEngine
 
     private DoorService _doorService;
     private DateTime _lastRealTime;
+    private ScriptEngine? _scriptEngine;
+    private bool _initialScriptsReady;
 
     /// <summary>
     /// Loads a new game state into the engine, replacing the current state.
@@ -34,6 +37,20 @@ public class GameEngine
         _state = newState;
         _doorService = new DoorService(_state.Doors, _state.Objects);
         _lastRealTime = DateTime.Now;
+
+        // Reinicializar el motor de scripts con el nuevo estado
+        _scriptEngine = new ScriptEngine(_world, _state);
+        _scriptEngine.OnMessage += message => ScriptMessage?.Invoke(message);
+        _scriptEngine.OnPlaySound += soundId =>
+        {
+            // TODO: Implementar reproducción de efectos de sonido cuando SoundManager lo soporte
+            // var fxAsset = _world.Fxs.FirstOrDefault(f => f.Id.Equals(soundId, StringComparison.OrdinalIgnoreCase));
+        };
+        _scriptEngine.OnPlayerTeleported += roomId =>
+        {
+            WorldLoader.RebuildRoomIndexes(_state);
+            OnRoomChanged();
+        };
 
         WorldLoader.RebuildRoomIndexes(_state);
         OnRoomChanged();
@@ -49,6 +66,31 @@ public class GameEngine
     /// Used by UI to update room visuals and trigger audio changes.
     /// </summary>
     public event Action<Room>? RoomChanged;
+
+    /// <summary>
+    /// Event raised when a script wants to show a message to the player.
+    /// </summary>
+    public event Action<string>? ScriptMessage;
+
+    /// <summary>
+    /// Dispara los scripts iniciales (Event_OnGameStart y Event_OnEnter de la sala inicial).
+    /// Debe llamarse después de suscribir los eventos del engine.
+    /// </summary>
+    public void TriggerInitialScripts()
+    {
+        _initialScriptsReady = true;
+
+        // Disparar Event_OnGameStart
+        var gameId = _world.Game?.Id ?? "game";
+        _ = TriggerEntityScriptAsync("Game", gameId, "Event_OnGameStart");
+
+        // Disparar Event_OnEnter de la sala actual
+        var room = CurrentRoom;
+        if (room != null)
+        {
+            _ = TriggerRoomScriptsAsync(room.Id, "Event_OnEnter");
+        }
+    }
 
     /// <summary>
     /// Creates a new game engine instance.
@@ -79,6 +121,20 @@ public class GameEngine
         // Asegurar índices consistentes
         WorldLoader.RebuildRoomIndexes(_state);
         EnsurePlayerRoom();
+
+        // Inicializar el motor de scripts
+        _scriptEngine = new ScriptEngine(_world, _state);
+        _scriptEngine.OnMessage += message => ScriptMessage?.Invoke(message);
+        _scriptEngine.OnPlaySound += soundId =>
+        {
+            // TODO: Implementar reproducción de efectos de sonido cuando SoundManager lo soporte
+            // var fxAsset = _world.Fxs.FirstOrDefault(f => f.Id.Equals(soundId, StringComparison.OrdinalIgnoreCase));
+        };
+        _scriptEngine.OnPlayerTeleported += roomId =>
+        {
+            WorldLoader.RebuildRoomIndexes(_state);
+            OnRoomChanged();
+        };
 
         // Arrancar la música global del mundo (si la hay) al inicio de la partida.
         if (_world.Game != null && !string.IsNullOrWhiteSpace(_state.WorldMusicId))
@@ -390,7 +446,7 @@ public class GameEngine
 
         return parsed.Verb switch
         {
-            "look" => CommandResult.Success(DescribeCurrentRoom()),
+            "look" => HandleLook(),
             "examine" => HandleExamine(parsed),
             "go" => HandleGo(parsed),
             "open" => HandleOpen(parsed),
@@ -556,6 +612,17 @@ public class GameEngine
             // En exteriores depende de si es de día o de noche.
             return !isNight;
         }
+    }
+
+    private CommandResult HandleLook()
+    {
+        var room = CurrentRoom;
+        if (room != null)
+        {
+            // Disparar Event_OnLook de la sala
+            _ = TriggerRoomScriptsAsync(room.Id, "Event_OnLook");
+        }
+        return CommandResult.Success(DescribeCurrentRoom());
     }
 
     /// <summary>
@@ -846,6 +913,9 @@ public class GameEngine
             return CommandResult.Error("La salida está bloqueada.");
         }
 
+        // Disparar Event_OnExit de la sala actual antes de salir
+        _ = TriggerRoomScriptsAsync(room.Id, "Event_OnExit");
+
         _state.CurrentRoomId = targetRoom.Id;
         WorldLoader.RebuildRoomIndexes(_state); // por si algún script ha cambiado cosas
         OnRoomChanged();
@@ -883,6 +953,8 @@ public class GameEngine
             if (CanOpenContainer(obj, out string message))
             {
                 obj.IsOpen = true;
+                // Disparar evento de contenedor abierto
+                _ = TriggerEntityScriptAsync("GameObject", obj.Id, "Event_OnContainerOpen");
                 return CommandResult.Success($"Abres {Low(obj.Name)}.");
             }
             return CommandResult.Error(message);
@@ -896,12 +968,18 @@ public class GameEngine
         // Solo los objetos del inventario sirven como llaves
         var result = _doorService.TryOpenDoor(door.Id, room.Id, _state.InventoryObjectIds);
 
+        if (result.MessageKey == "door_opened")
+        {
+            // Disparar evento de puerta abierta
+            _ = TriggerEntityScriptAsync("Door", door.Id, "Event_OnDoorOpen");
+            return CommandResult.Success(GetDoorOpenedMessage(door));
+        }
+
         return result.MessageKey switch
         {
             "door_wrong_side" => CommandResult.Error("No puedes abrir la puerta desde este lado."),
             "door_requires_key" => CommandResult.Error("La puerta está cerrada con llave."),
             "door_already_open" => CommandResult.Error("La puerta ya está abierta."),
-            "door_opened" => CommandResult.Success(GetDoorOpenedMessage(door)),
             _ => CommandResult.Error("Aquí no hay ninguna puerta así.")
         };
     }
@@ -934,6 +1012,8 @@ public class GameEngine
             if (CanCloseContainer(obj, out string message))
             {
                 obj.IsOpen = false;
+                // Disparar evento de contenedor cerrado
+                _ = TriggerEntityScriptAsync("GameObject", obj.Id, "Event_OnContainerClose");
                 return CommandResult.Success($"Cierras {Low(obj.Name)}.");
             }
             return CommandResult.Error(message);
@@ -947,12 +1027,18 @@ public class GameEngine
         // Solo los objetos del inventario sirven como llaves
         var result = _doorService.TryCloseDoor(door.Id, room.Id, _state.InventoryObjectIds);
 
+        if (result.MessageKey == "door_closed")
+        {
+            // Disparar evento de puerta cerrada
+            _ = TriggerEntityScriptAsync("Door", door.Id, "Event_OnDoorClose");
+            return CommandResult.Success(GetDoorClosedMessage(door));
+        }
+
         return result.MessageKey switch
         {
             "door_wrong_side" => CommandResult.Error("No puedes cerrar la puerta desde este lado."),
             "door_requires_key" => CommandResult.Error("No tienes la llave necesaria para cerrar esta puerta."),
             "door_already_closed" => CommandResult.Error("La puerta ya está cerrada."),
-            "door_closed" => CommandResult.Success(GetDoorClosedMessage(door)),
             _ => CommandResult.Error("Aquí no hay ninguna puerta así.")
         };
     }
@@ -1158,6 +1244,8 @@ public class GameEngine
         if (CanUnlockContainer(obj, key?.Id, out string message))
         {
             obj.IsLocked = false;
+            // Disparar evento de desbloqueo (se usa el mismo evento que para puertas)
+            _ = TriggerEntityScriptAsync("GameObject", obj.Id, "Event_OnDoorUnlock");
             return CommandResult.Success($"Desbloqueas {Low(obj.Name)} con {Low(key?.Name ?? "")}.");
         }
 
@@ -1193,6 +1281,8 @@ public class GameEngine
             return CommandResult.Error("No tienes la llave adecuada.");
 
         obj.IsLocked = true;
+        // Disparar evento de bloqueo
+        _ = TriggerEntityScriptAsync("GameObject", obj.Id, "Event_OnDoorLock");
         return CommandResult.Success($"Bloqueas {Low(obj.Name)} con {Low(key.Name)}.");
     }
 
@@ -1340,6 +1430,9 @@ public class GameEngine
         var obj = FindObjectInRoomOrInventory(room, target);
         if (obj != null)
         {
+            // Disparar script Event_OnExamine
+            _ = TriggerEntityScriptAsync("GameObject", obj.Id, "Event_OnExamine");
+
             var sb = new StringBuilder();
 
             // Descripción base
@@ -1450,6 +1543,9 @@ public class GameEngine
 
         room.ObjectIds.RemoveAll(id => id.Equals(obj.Id, StringComparison.OrdinalIgnoreCase));
 
+        // Disparar evento Event_OnTake del objeto
+        _ = TriggerEntityScriptAsync("GameObject", obj.Id, "Event_OnTake");
+
         return CommandResult.Success($"Coges {WithArticle(obj)}.");
     }
 
@@ -1483,6 +1579,10 @@ public class GameEngine
                 _state.InventoryObjectIds.Add(obj.Id);
 
             room.ObjectIds.RemoveAll(id => id.Equals(obj.Id, StringComparison.OrdinalIgnoreCase));
+
+            // Disparar evento Event_OnTake del objeto
+            _ = TriggerEntityScriptAsync("GameObject", obj.Id, "Event_OnTake");
+
             sb.AppendLine($"Coges {WithArticle(obj)}.");
         }
 
@@ -1517,6 +1617,9 @@ public class GameEngine
 
         obj.RoomId = room.Id;
 
+        // Disparar evento Event_OnDrop del objeto
+        _ = TriggerEntityScriptAsync("GameObject", obj.Id, "Event_OnDrop");
+
         return CommandResult.Success($"Sueltas {WithArticle(obj)}.");
     }
 
@@ -1538,6 +1641,9 @@ public class GameEngine
         if (npc == null)
             return CommandResult.Error("No ves a esa persona aquí.");
 
+        // Disparar script Event_OnTalk
+        _ = TriggerEntityScriptAsync("Npc", npc.Id, "Event_OnTalk");
+
         if (npc.Dialogue == null || npc.Dialogue.Count == 0)
             return CommandResult.Success($"{Cap(npc.Name)} no tiene nada que decir.");
 
@@ -1554,12 +1660,22 @@ public class GameEngine
 
     private CommandResult HandleUse(ParsedCommand parsed)
     {
+        var room = CurrentRoom;
         var objName = parsed.DirectObject ?? string.Empty;
         if (string.IsNullOrWhiteSpace(objName))
             return CommandResult.Error("¿Qué quieres usar?");
 
-        // Uso básico: sólo mostramos un texto.
-        return CommandResult.Error($"Intentas usar {objName}, pero aún no hay reglas específicas definidas.");
+        // Buscar el objeto en la sala o inventario
+        var obj = room != null ? FindObjectInRoomOrInventory(room, objName) : null;
+        if (obj != null)
+        {
+            // Disparar script Event_OnUse
+            _ = TriggerEntityScriptAsync("GameObject", obj.Id, "Event_OnUse");
+            return CommandResult.Success($"Usas {Low(obj.Name)}.");
+        }
+
+        // Si no se encuentra el objeto, mensaje por defecto
+        return CommandResult.Error($"No ves ningún '{objName}' que puedas usar.");
     }
 
     private CommandResult HandleGive(ParsedCommand parsed)
@@ -1679,7 +1795,48 @@ public class GameEngine
             // (hasta dos movimientos de distancia) y limpiamos las lejanas.
             _ = PreloadVoicesAroundCurrentRoomAsync();
 
+            // Ejecutar scripts de la sala (Event_OnEnter) - solo si ya se inicializaron los scripts
+            if (_initialScriptsReady)
+            {
+                _ = TriggerRoomScriptsAsync(room.Id, "Event_OnEnter");
+            }
+
             RoomChanged?.Invoke(room);
+        }
+    }
+
+    /// <summary>
+    /// Ejecuta los scripts asociados a un evento de sala de forma asíncrona.
+    /// </summary>
+    private async Task TriggerRoomScriptsAsync(string roomId, string eventType)
+    {
+        if (_scriptEngine == null) return;
+
+        try
+        {
+            await _scriptEngine.TriggerEventAsync("Room", roomId, eventType);
+        }
+        catch (Exception ex)
+        {
+            // Log error silently - don't crash the game due to script errors
+            System.Diagnostics.Debug.WriteLine($"Script error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Ejecuta los scripts asociados a un evento de cualquier entidad.
+    /// </summary>
+    private async Task TriggerEntityScriptAsync(string ownerType, string ownerId, string eventType)
+    {
+        if (_scriptEngine == null) return;
+
+        try
+        {
+            await _scriptEngine.TriggerEventAsync(ownerType, ownerId, eventType);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Script error: {ex.Message}");
         }
     }
 

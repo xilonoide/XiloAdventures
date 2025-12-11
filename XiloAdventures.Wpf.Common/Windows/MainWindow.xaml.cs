@@ -46,6 +46,8 @@ public partial class MainWindow : Window
         _isRunningFromEditor = isRunningFromEditor;
         _engine = new GameEngine(world, state, _sound);
         _engine.RoomChanged += Engine_RoomChanged;
+        _engine.ScriptMessage += Engine_ScriptMessage;
+        _engine.TriggerInitialScripts(); // Disparar scripts iniciales después de suscribir eventos
 
         InitializeComponent();
 
@@ -458,6 +460,15 @@ public partial class MainWindow : Window
     private void Engine_RoomChanged(Room obj)
     {
         UpdateRoomVisuals();
+    }
+
+    private void Engine_ScriptMessage(string message)
+    {
+        // Asegurarse de ejecutar en el hilo de UI
+        Dispatcher.Invoke(() =>
+        {
+            AppendText(message);
+        });
     }
 
 
