@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using XiloAdventures.Engine.Models;
@@ -127,8 +129,8 @@ public static class Parser
         AddVerbAlias("put", "meter", "poner", "colocar", "guardar");
         AddVerbAlias("get_from", "sacar", "quitar", "extraer");
         AddVerbAlias("look_in", "mirar en", "mirar dentro", "ver en", "ver dentro");
-        AddVerbAlias("talk", "hablar", "habla", "charlar", "conversar");
-        AddVerbAlias("say", "decir", "di");
+        AddVerbAlias("talk", "hablar", "habla", "charlar", "conversar", "decir", "di");
+        AddVerbAlias("say", "responder", "contestar");
         AddVerbAlias("option", "opcion", "opción");
         AddVerbAlias("use", "usar", "utilizar", "emplear");
         AddVerbAlias("give", "dar", "entregar");
@@ -182,7 +184,11 @@ public static class Parser
         {
             var s = syn?.Trim();
             if (string.IsNullOrEmpty(s)) continue;
+            // Guardar tanto la versión original como la versión sin acentos
             GlobalVerbAliases[s] = canonical;
+            var normalized = RemoveDiacritics(s).ToLowerInvariant();
+            if (normalized != s.ToLowerInvariant())
+                GlobalVerbAliases[normalized] = canonical;
         }
     }
 
@@ -193,12 +199,20 @@ public static class Parser
 
         canonical = canonical.Trim().ToLowerInvariant();
         GlobalNounAliases[canonical] = canonical;
+        // También guardar versión sin acentos del canónico
+        var canonicalNormalized = RemoveDiacritics(canonical);
+        if (canonicalNormalized != canonical)
+            GlobalNounAliases[canonicalNormalized] = canonical;
 
         foreach (var syn in synonyms)
         {
             var s = syn?.Trim().ToLowerInvariant();
             if (string.IsNullOrEmpty(s)) continue;
+            // Guardar tanto la versión original como sin acentos
             GlobalNounAliases[s] = canonical;
+            var normalized = RemoveDiacritics(s);
+            if (normalized != s)
+                GlobalNounAliases[normalized] = canonical;
         }
     }
 
@@ -224,7 +238,11 @@ public static class Parser
                 {
                     var syn = (rawSyn ?? string.Empty).Trim();
                     if (string.IsNullOrEmpty(syn)) continue;
+                    // Guardar tanto con como sin acentos
                     verbAliases[syn] = canonical;
+                    var normalized = RemoveDiacritics(syn).ToLowerInvariant();
+                    if (normalized != syn.ToLowerInvariant())
+                        verbAliases[normalized] = canonical;
                 }
             }
         }
@@ -238,13 +256,21 @@ public static class Parser
                     continue;
 
                 nounAliases[canonical] = canonical;
+                // También versión sin acentos del canónico
+                var canonicalNorm = RemoveDiacritics(canonical);
+                if (canonicalNorm != canonical)
+                    nounAliases[canonicalNorm] = canonical;
 
                 if (kvp.Value == null) continue;
                 foreach (var rawSyn in kvp.Value)
                 {
                     var syn = (rawSyn ?? string.Empty).Trim().ToLowerInvariant();
                     if (string.IsNullOrEmpty(syn)) continue;
+                    // Guardar tanto con como sin acentos
                     nounAliases[syn] = canonical;
+                    var normalized = RemoveDiacritics(syn);
+                    if (normalized != syn)
+                        nounAliases[normalized] = canonical;
                 }
             }
         }
@@ -393,6 +419,9 @@ public static class Parser
         // quitar puntuación sencilla
         s = ParserRegex.Punctuation.Replace(s, "");
 
+        // eliminar acentos
+        s = RemoveDiacritics(s);
+
         // normalizar espacios
         s = ParserRegex.MultiSpace.Replace(s, " ").Trim();
         if (string.IsNullOrEmpty(s))
@@ -408,7 +437,7 @@ public static class Parser
         if (string.IsNullOrWhiteSpace(s))
             return null;
 
-        // Intentar mapear por diccionario de mundo
+        // Intentar mapear por diccionario de mundo (buscar con y sin acentos)
         if (WorldNounAliases.TryGetValue(s, out var nWorld))
             return nWorld;
 
@@ -426,7 +455,33 @@ public static class Parser
 
         token = token.Trim();
         token = ParserRegex.Punctuation.Replace(token, "");
+        token = RemoveDiacritics(token);
         return token.ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Elimina los diacríticos (acentos) de un string.
+    /// Ejemplo: "poción" -> "pocion", "adiós" -> "adios"
+    /// </summary>
+    private static string RemoveDiacritics(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return text;
+
+        // Normalizar a FormD separa las letras base de sus diacríticos
+        var normalized = text.Normalize(NormalizationForm.FormD);
+        var sb = new StringBuilder(normalized.Length);
+
+        foreach (var c in normalized)
+        {
+            // Mantener solo caracteres que no sean diacríticos (NonSpacingMark)
+            var category = CharUnicodeInfo.GetUnicodeCategory(c);
+            if (category != UnicodeCategory.NonSpacingMark)
+                sb.Append(c);
+        }
+
+        // Volver a FormC para tener un string normalizado
+        return sb.ToString().Normalize(NormalizationForm.FormC);
     }
 
     private static bool IsDirection(string token)

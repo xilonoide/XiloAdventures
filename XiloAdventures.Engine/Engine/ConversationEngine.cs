@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using XiloAdventures.Engine.Models;
 
@@ -32,6 +34,12 @@ public class ConversationEngine
 
     /// <summary>Indica si hay una conversación activa.</summary>
     public bool IsConversationActive => _gameState.ActiveConversation?.IsActive == true;
+
+    /// <summary>Indica si la tienda está abierta.</summary>
+    public bool IsInShopMode => _gameState.ActiveConversation?.IsInShopMode == true;
+
+    /// <summary>Obtiene los datos de la tienda activa (si hay).</summary>
+    public ShopData? ActiveShopData => _gameState.ActiveConversation?.ActiveShopData;
 
     public ConversationEngine(WorldModel world, GameState gameState)
     {
@@ -137,9 +145,150 @@ public class ConversationEngine
         if (_gameState.ActiveConversation != null)
         {
             _gameState.ActiveConversation.IsActive = false;
+            _gameState.ActiveConversation.IsInShopMode = false;
+            _gameState.ActiveConversation.ActiveShopData = null;
             _gameState.ActiveConversation = null;
         }
         OnConversationEnded?.Invoke();
+    }
+
+    /// <summary>
+    /// Cierra la tienda pero mantiene la conversación (para continuar con el diálogo).
+    /// </summary>
+    public async Task CloseShopAsync()
+    {
+        if (_gameState.ActiveConversation == null || !_gameState.ActiveConversation.IsInShopMode)
+            return;
+
+        _gameState.ActiveConversation.IsInShopMode = false;
+        _gameState.ActiveConversation.ActiveShopData = null;
+
+        // Continuar la conversación después de cerrar la tienda
+        var conversation = GetCurrentConversation();
+        if (conversation != null)
+        {
+            var currentNode = GetCurrentNode(conversation);
+            if (currentNode != null)
+            {
+                // Seguir por la conexión "OnClose" si existe
+                await FollowConnectionAsync(conversation, currentNode, "OnClose");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Procesa un comando de compra en la tienda.
+    /// </summary>
+    /// <param name="itemName">Nombre del objeto a comprar.</param>
+    /// <returns>Resultado del intento de compra.</returns>
+    public (bool success, string message) ProcessBuyCommand(string itemName)
+    {
+        if (!IsInShopMode || _gameState.ActiveConversation?.ActiveShopData == null)
+            return (false, "No hay ninguna tienda abierta.");
+
+        var shopData = _gameState.ActiveConversation.ActiveShopData;
+        var normalizedSearch = NormalizeForComparison(itemName);
+
+        // Buscar el objeto en los items de venta (comparación sin acentos)
+        var shopItem = shopData.ItemsForSale.FirstOrDefault(item =>
+            NormalizeForComparison(item.Name).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase));
+
+        if (shopItem == null)
+        {
+            return (false, $"No hay ningún '{itemName}' a la venta.");
+        }
+
+        // Verificar oro del jugador
+        if (_gameState.Player.Gold < shopItem.Price)
+        {
+            return (false, $"No tienes suficiente oro. Necesitas {shopItem.Price} monedas y solo tienes {_gameState.Player.Gold}.");
+        }
+
+        // Realizar la compra
+        _gameState.Player.Gold -= shopItem.Price;
+        if (!_gameState.InventoryObjectIds.Contains(shopItem.ObjectId))
+            _gameState.InventoryObjectIds.Add(shopItem.ObjectId);
+
+        return (true, $"Has comprado {shopItem.Name} por {shopItem.Price} monedas.");
+    }
+
+    /// <summary>
+    /// Procesa un comando de venta en la tienda.
+    /// </summary>
+    /// <param name="itemName">Nombre del objeto a vender.</param>
+    /// <returns>Resultado del intento de venta.</returns>
+    public (bool success, string message) ProcessSellCommand(string itemName)
+    {
+        if (!IsInShopMode || _gameState.ActiveConversation?.ActiveShopData == null)
+            return (false, "No hay ninguna tienda abierta.");
+
+        var shopData = _gameState.ActiveConversation.ActiveShopData;
+        var normalizedSearch = NormalizeForComparison(itemName);
+
+        // Buscar el objeto en los items vendibles del jugador (comparación sin acentos)
+        var shopItem = shopData.ItemsToSell.FirstOrDefault(item =>
+            NormalizeForComparison(item.Name).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase));
+
+        if (shopItem == null)
+        {
+            // Verificar si el jugador tiene el objeto pero no se puede vender
+            var hasItem = _gameState.InventoryObjectIds.Any(id =>
+            {
+                var obj = _gameState.Objects.FirstOrDefault(o =>
+                    string.Equals(o.Id, id, StringComparison.OrdinalIgnoreCase));
+                return obj != null && NormalizeForComparison(obj.Name).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase);
+            });
+
+            if (hasItem)
+                return (false, $"No puedes vender eso aquí.");
+            return (false, $"No tienes ningún '{itemName}' para vender.");
+        }
+
+        // Realizar la venta
+        _gameState.InventoryObjectIds.RemoveAll(id =>
+            string.Equals(id, shopItem.ObjectId, StringComparison.OrdinalIgnoreCase));
+        _gameState.Player.Gold += shopItem.Price;
+
+        // Actualizar la lista de items vendibles (quitar el vendido)
+        shopData.ItemsToSell.Remove(shopItem);
+
+        return (true, $"Has vendido {shopItem.Name} por {shopItem.Price} monedas.");
+    }
+
+    /// <summary>
+    /// Muestra el inventario de la tienda.
+    /// </summary>
+    /// <returns>Texto con los objetos disponibles.</returns>
+    public string GetShopInventoryText()
+    {
+        if (!IsInShopMode || _gameState.ActiveConversation?.ActiveShopData == null)
+            return "No hay ninguna tienda abierta.";
+
+        var shopData = _gameState.ActiveConversation.ActiveShopData;
+        var sb = new System.Text.StringBuilder();
+
+        sb.AppendLine($"=== {shopData.Title} ===");
+        sb.AppendLine();
+
+        if (shopData.ItemsForSale.Count > 0)
+        {
+            sb.AppendLine("En venta:");
+            foreach (var item in shopData.ItemsForSale)
+            {
+                sb.AppendLine($"  - {item.Name}: {item.Price} monedas");
+            }
+        }
+        else
+        {
+            sb.AppendLine("No hay objetos en venta.");
+        }
+
+        sb.AppendLine();
+        sb.AppendLine($"Tu oro: {_gameState.Player.Gold} monedas");
+        sb.AppendLine();
+        sb.AppendLine("Comandos: 'comprar <objeto>', 'vender <objeto>', 'salir'");
+
+        return sb.ToString().TrimEnd();
     }
 
     private async Task ExecuteNodeAsync(ConversationDefinition conversation, string nodeId)
@@ -350,6 +499,13 @@ public class ConversationEngine
                     Price = (int)(obj.Price * npc.BuyPriceMultiplier)
                 });
             }
+        }
+
+        // Activar modo tienda en el estado de conversación
+        if (_gameState.ActiveConversation != null)
+        {
+            _gameState.ActiveConversation.IsInShopMode = true;
+            _gameState.ActiveConversation.ActiveShopData = shopData;
         }
 
         OnShopOpen?.Invoke(shopData);
@@ -592,5 +748,29 @@ public class ConversationEngine
             }
         }
         return defaultValue;
+    }
+
+    /// <summary>
+    /// Normaliza un string para comparación: elimina acentos y convierte a minúsculas.
+    /// </summary>
+    private static string NormalizeForComparison(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return text;
+
+        // Normalizar a FormD separa las letras base de sus diacríticos
+        var normalized = text.Normalize(NormalizationForm.FormD);
+        var sb = new StringBuilder(normalized.Length);
+
+        foreach (var c in normalized)
+        {
+            // Mantener solo caracteres que no sean diacríticos (NonSpacingMark)
+            var category = CharUnicodeInfo.GetUnicodeCategory(c);
+            if (category != UnicodeCategory.NonSpacingMark)
+                sb.Append(c);
+        }
+
+        // Volver a FormC y a minúsculas
+        return sb.ToString().Normalize(NormalizationForm.FormC).ToLowerInvariant();
     }
 }

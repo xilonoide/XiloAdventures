@@ -119,6 +119,11 @@ public class GameEngine
     public bool IsConversationActive => _conversationEngine?.IsConversationActive == true;
 
     /// <summary>
+    /// Indica si la tienda está abierta.
+    /// </summary>
+    public bool IsInShopMode => _conversationEngine?.IsInShopMode == true;
+
+    /// <summary>
     /// Dispara los scripts iniciales (Event_OnGameStart y Event_OnEnter de la sala inicial).
     /// Debe llamarse después de suscribir los eventos del engine.
     /// </summary>
@@ -497,7 +502,63 @@ public class GameEngine
         if (input.Trim() == "?")
             return CommandResult.Success(GetCommandsText());
 
-        // Si hay conversación activa, interceptar entrada numérica para seleccionar opciones
+        // Si la tienda está abierta, manejar comandos de compra/venta
+        if (IsInShopMode)
+        {
+            var trimmed = input.Trim().ToLowerInvariant();
+
+            // Comandos para salir de la tienda
+            if (trimmed == "salir" || trimmed == "adios" || trimmed == "adiós" || trimmed == "cerrar")
+            {
+                _ = _conversationEngine?.CloseShopAsync();
+                return CommandResult.Success("Cierras la tienda.");
+            }
+
+            // Comando para ver inventario de tienda
+            if (trimmed == "ver" || trimmed == "tienda" || trimmed == "inventario")
+            {
+                var shopText = _conversationEngine?.GetShopInventoryText() ?? "No hay tienda abierta.";
+                return CommandResult.Success(shopText);
+            }
+
+            // Procesar comando de compra
+            var parsed = Parser.Parse(input);
+            if (parsed.Verb == "take" || trimmed.StartsWith("comprar ") || trimmed.StartsWith("compra "))
+            {
+                var itemName = parsed.DirectObject ?? "";
+                if (string.IsNullOrEmpty(itemName) && trimmed.StartsWith("comprar "))
+                    itemName = trimmed.Substring("comprar ".Length).Trim();
+                if (string.IsNullOrEmpty(itemName) && trimmed.StartsWith("compra "))
+                    itemName = trimmed.Substring("compra ".Length).Trim();
+
+                if (string.IsNullOrEmpty(itemName))
+                    return CommandResult.Error("¿Qué quieres comprar?");
+
+                var (success, message) = _conversationEngine?.ProcessBuyCommand(itemName) ?? (false, "Error");
+                return success ? CommandResult.Success(message) : CommandResult.Error(message);
+            }
+
+            // Procesar comando de venta
+            if (parsed.Verb == "drop" || trimmed.StartsWith("vender ") || trimmed.StartsWith("vende "))
+            {
+                var itemName = parsed.DirectObject ?? "";
+                if (string.IsNullOrEmpty(itemName) && trimmed.StartsWith("vender "))
+                    itemName = trimmed.Substring("vender ".Length).Trim();
+                if (string.IsNullOrEmpty(itemName) && trimmed.StartsWith("vende "))
+                    itemName = trimmed.Substring("vende ".Length).Trim();
+
+                if (string.IsNullOrEmpty(itemName))
+                    return CommandResult.Error("¿Qué quieres vender?");
+
+                var (success, message) = _conversationEngine?.ProcessSellCommand(itemName) ?? (false, "Error");
+                return success ? CommandResult.Success(message) : CommandResult.Error(message);
+            }
+
+            // Otros comandos en tienda: mostrar ayuda
+            return CommandResult.Error("Estás en la tienda. Comandos: 'comprar <objeto>', 'vender <objeto>', 'ver', 'salir'");
+        }
+
+        // Si hay conversación activa (pero no tienda), interceptar entrada numérica para seleccionar opciones
         if (IsConversationActive)
         {
             var trimmed = input.Trim().ToLowerInvariant();
@@ -1786,12 +1847,26 @@ public class GameEngine
 
         var arg = parsed.DirectObject ?? string.Empty;
 
+        // Si no hay objeto directo, intentar con el indirecto
+        if (string.IsNullOrEmpty(arg))
+            arg = parsed.IndirectObject ?? string.Empty;
+
         if (string.IsNullOrEmpty(arg))
             return CommandResult.Error("¿Con quién quieres hablar?");
 
-        var npc = _state.Npcs
+        // Buscar NPC en la sala
+        var npcsInRoom = _state.Npcs
             .Where(n => n.Visible && room.NpcIds.Contains(n.Id, StringComparer.OrdinalIgnoreCase))
-            .FirstOrDefault(n => n.Name.Contains(arg, StringComparison.OrdinalIgnoreCase));
+            .ToList();
+
+        // Primero buscar con el objeto directo
+        var npc = npcsInRoom.FirstOrDefault(n => n.Name.Contains(arg, StringComparison.OrdinalIgnoreCase));
+
+        // Si no se encuentra y hay objeto indirecto, buscar con él (para "decir hola a gordo")
+        if (npc == null && !string.IsNullOrEmpty(parsed.IndirectObject))
+        {
+            npc = npcsInRoom.FirstOrDefault(n => n.Name.Contains(parsed.IndirectObject, StringComparison.OrdinalIgnoreCase));
+        }
 
         if (npc == null)
             return CommandResult.Error("No ves a esa persona aquí.");

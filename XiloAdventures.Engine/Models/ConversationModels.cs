@@ -47,6 +47,12 @@ public class ConversationState
 
     /// <summary>Variables locales de la conversación.</summary>
     public Dictionary<string, object?> LocalVariables { get; set; } = new();
+
+    /// <summary>Indica si la tienda está abierta.</summary>
+    public bool IsInShopMode { get; set; }
+
+    /// <summary>Datos de la tienda activa (cuando IsInShopMode es true).</summary>
+    public ShopData? ActiveShopData { get; set; }
 }
 
 /// <summary>

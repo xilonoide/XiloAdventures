@@ -99,6 +99,31 @@ public partial class MainWindow : Window
         OutputTextBox.ScrollToEnd();
     }
 
+    private void AppendSeparator()
+    {
+        // Solo añadir separador si ya hay contenido
+        if (OutputTextBox.Document.Blocks.Count == 0)
+            return;
+
+        // Salto de línea antes de la línea separadora
+        var emptyParagraph = new Paragraph { Margin = new Thickness(0, 0, 0, 0) };
+        OutputTextBox.Document.Blocks.Add(emptyParagraph);
+
+        var line = new System.Windows.Shapes.Rectangle
+        {
+            Height = 1,
+            Fill = new SolidColorBrush(Color.FromRgb(70, 70, 70)),
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
+
+        var container = new BlockUIContainer(line)
+        {
+            Margin = new Thickness(0, 4, 0, 12)
+        };
+
+        OutputTextBox.Document.Blocks.Add(container);
+    }
+
 
     private async void InputTextBox_KeyDown(object sender, KeyEventArgs e)
     {
@@ -123,6 +148,7 @@ public partial class MainWindow : Window
             }
 
             AppendText($"> {cmd}");
+            AppendSeparator();
             InputTextBox.Clear();
 
             // Guardar en historial
