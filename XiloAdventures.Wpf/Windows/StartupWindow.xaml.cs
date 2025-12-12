@@ -18,7 +18,6 @@ namespace XiloAdventures.Wpf.Windows;
 
 public partial class StartupWindow : Window
 {
-    private const string CreateNewWorldItem = "¡Crea tu aventura!";
     private bool _isStartingNewGame;
     private bool _isLoadingVisible;
 
@@ -40,16 +39,12 @@ public partial class StartupWindow : Window
         }
 
         WorldsList.SelectionChanged += WorldsList_SelectionChanged;
-        UpdateDeleteWorldButtonEnabled();
+        UpdateDeleteIconEnabled();
     }
-
 
     private void ReloadWorlds()
     {
         WorldsList.Items.Clear();
-
-        // Añadir siempre el elemento especial para crear un mundo nuevo
-        WorldsList.Items.Add(CreateNewWorldItem);
 
         if (Directory.Exists(AppPaths.WorldsFolder))
         {
@@ -66,35 +61,29 @@ public partial class StartupWindow : Window
             WorldsList.SelectedIndex = 0;
         }
 
-        UpdateDeleteWorldButtonEnabled();
+        UpdateDeleteIconEnabled();
     }
 
     private void WorldsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        UpdateDeleteWorldButtonEnabled();
+        UpdateDeleteIconEnabled();
     }
 
-    private void UpdateDeleteWorldButtonEnabled()
+    private void UpdateDeleteIconEnabled()
     {
-        if (DeleteWorldButton == null)
+        if (DeleteWorldIcon == null)
             return;
 
-        // No permitir eliminar el elemento especial '¡Crea tu aventura!'
         var selected = WorldsList.SelectedItem as string;
-        var isCreateNewWorld = selected == CreateNewWorldItem;
+        var hasSelection = !string.IsNullOrEmpty(selected);
 
-        DeleteWorldButton.IsEnabled = selected != null && !isCreateNewWorld;
-
-        // Deshabilitar botones cuando se selecciona "¡Crea tu aventura!"
-        if (NewGameButton != null)
-            NewGameButton.IsEnabled = !isCreateNewWorld;
-        if (LoadGameButton != null)
-            LoadGameButton.IsEnabled = !isCreateNewWorld;
+        DeleteWorldIcon.IsEnabled = hasSelection;
+        DeleteWorldIcon.Opacity = hasSelection ? 1.0 : 0.4;
     }
 
     private string? GetSelectedWorldFile()
     {
-        if (WorldsList.SelectedItem is string name && name != CreateNewWorldItem)
+        if (WorldsList.SelectedItem is string name)
         {
             return Path.Combine(AppPaths.WorldsFolder, name + ".xaw");
         }
@@ -448,18 +437,18 @@ public partial class StartupWindow : Window
         string? worldPath = null;
         string? selectedWorldName = null;
 
-        // Si hay un mundo seleccionado en la lista (y no es el elemento especial), intentamos abrir su fichero
-        if (WorldsList.SelectedItem is string name && name != CreateNewWorldItem)
+        // Si hay un mundo seleccionado en la lista, intentamos abrir su fichero
+        if (WorldsList.SelectedItem is string name)
         {
             selectedWorldName = name;
-            var candidate = System.IO.Path.Combine(AppPaths.WorldsFolder, name + ".xaw");
-            if (System.IO.File.Exists(candidate))
+            var candidate = Path.Combine(AppPaths.WorldsFolder, name + ".xaw");
+            if (File.Exists(candidate))
             {
                 worldPath = candidate;
             }
         }
 
-        // Si worldPath es null (elemento especial o fichero no existe), el editor creará un mundo nuevo
+        // Si worldPath es null (fichero no existe), el editor creará un mundo nuevo
         var editor = new WorldEditorWindow(worldPath);
         if (editor.IsCanceled)
             return;
@@ -475,53 +464,15 @@ public partial class StartupWindow : Window
             if (selectedWorldName != null)
             {
                 var index = WorldsList.Items.IndexOf(selectedWorldName);
-                WorldsList.SelectedIndex = index >= 0 ? index : 1;
+                WorldsList.SelectedIndex = index >= 0 ? index : 0;
             }
             else
             {
-                WorldsList.SelectedIndex = WorldsList.Items.Count > 1 ? 1 : 0;
+                WorldsList.SelectedIndex = 0;
             }
         }
     }
 
-
-    private void DeleteWorldButton_Click(object sender, RoutedEventArgs e)
-    {
-        var worldPath = GetSelectedWorldFile();
-        if (worldPath is null)
-            return;
-
-        var worldName = Path.GetFileNameWithoutExtension(worldPath);
-
-        var dlg = new ConfirmWindow(
-            $"\u00bfSeguro que quieres eliminar el mundo \"{worldName}\"?\n\nEsta acci\u00f3n no se puede deshacer.",
-            "Eliminar mundo")
-        {
-            Owner = this
-        };
-
-        var result = dlg.ShowDialog() == true;
-        if (!result)
-            return;
-
-        try
-        {
-            if (File.Exists(worldPath))
-            {
-                File.Delete(worldPath);
-            }
-        }
-        catch (Exception ex)
-        {
-            new AlertWindow($"No se ha podido eliminar el mundo:\n{ex.Message}", "Error")
-            {
-                Owner = this
-            }.ShowDialog();
-            return;
-        }
-
-        ReloadWorlds();
-    }
 
     private void ExitButton_Click(object sender, RoutedEventArgs e)
     {
@@ -593,6 +544,89 @@ public partial class StartupWindow : Window
             FileName = "https://www.paypal.me/xmasmusicsoft",
             UseShellExecute = true
         });
+    }
+
+    private void OpenWorldsFolder_Click(object sender, MouseButtonEventArgs e)
+    {
+        try
+        {
+            if (!Directory.Exists(AppPaths.WorldsFolder))
+            {
+                Directory.CreateDirectory(AppPaths.WorldsFolder);
+            }
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = AppPaths.WorldsFolder,
+                UseShellExecute = true
+            });
+        }
+        catch
+        {
+            // Ignorar errores
+        }
+    }
+
+    private void RefreshList_Click(object sender, MouseButtonEventArgs e)
+    {
+        ReloadWorlds();
+    }
+
+    private void CreateNewWorld_Click(object sender, MouseButtonEventArgs e)
+    {
+        // Abrir el editor con null para crear un mundo nuevo
+        var editor = new WorldEditorWindow(null);
+        if (editor.IsCanceled)
+            return;
+        editor.Owner = this;
+        Hide();
+        editor.ShowDialog();
+        Show();
+        ReloadWorlds();
+
+        // Seleccionar el primer mundo si hay alguno
+        if (WorldsList.Items.Count > 0)
+        {
+            WorldsList.SelectedIndex = 0;
+        }
+    }
+
+    private void DeleteWorldIcon_Click(object sender, MouseButtonEventArgs e)
+    {
+        var worldPath = GetSelectedWorldFile();
+        if (worldPath is null)
+            return;
+
+        var worldName = Path.GetFileNameWithoutExtension(worldPath);
+
+        var dlg = new ConfirmWindow(
+            $"¿Seguro que quieres eliminar el mundo \"{worldName}\"?\n\nEsta acción no se puede deshacer.",
+            "Eliminar mundo")
+        {
+            Owner = this
+        };
+
+        var result = dlg.ShowDialog() == true;
+        if (!result)
+            return;
+
+        try
+        {
+            if (File.Exists(worldPath))
+            {
+                File.Delete(worldPath);
+            }
+        }
+        catch (Exception ex)
+        {
+            new AlertWindow($"No se ha podido eliminar el mundo:\n{ex.Message}", "Error")
+            {
+                Owner = this
+            }.ShowDialog();
+            return;
+        }
+
+        ReloadWorlds();
     }
 }
 

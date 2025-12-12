@@ -212,10 +212,10 @@ public class GameObject
 
     public bool ContentsVisible { get; set; } // Si el contenido es visible sin abrir (ej: estante vs cofre)
 
-    /// <summary>Capacidad máxima del contenedor en metros cúbicos (m³). -1 = ilimitado.</summary>
+    /// <summary>Capacidad máxima del contenedor en centímetros cúbicos (cm³). -1 = ilimitado.</summary>
     public double MaxCapacity { get; set; } = -1;
 
-    /// <summary>Volumen del objeto en metros cúbicos (m³).</summary>
+    /// <summary>Volumen del objeto en centímetros cúbicos (cm³).</summary>
     public double Volume { get; set; } = 0;
 
     /// <summary>Peso del objeto en gramos.</summary>

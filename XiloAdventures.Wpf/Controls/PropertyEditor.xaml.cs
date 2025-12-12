@@ -1366,15 +1366,21 @@ public partial class PropertyEditor : UserControl
                 {
                     text = string.Join(", ", list);
                 }
+                else if (prop.PropertyType == typeof(List<DialogueLine>) && valueObj is List<DialogueLine> dialogueList)
+                {
+                    // Mostrar diálogos como texto multilínea con índice
+                    text = string.Join("\n", dialogueList.OrderBy(d => d.Index).Select(d => d.Text));
+                }
                 else
                 {
                     text = Convert.ToString(valueObj) ?? string.Empty;
                 }
 
                 bool isMultilineDescription =
-                    prop.PropertyType == typeof(string) &&
+                    (prop.PropertyType == typeof(string) &&
                     string.Equals(prop.Name, "Description", StringComparison.OrdinalIgnoreCase) &&
-                    (obj is Room || obj is GameObject || obj is Npc);
+                    (obj is Room || obj is GameObject || obj is Npc)) ||
+                    (prop.PropertyType == typeof(List<DialogueLine>) && obj is Npc);
 
                 // Si es una propiedad de llave (KeyObjectId o KeyId), crear un ComboBox con objetos de tipo Llave
                 bool isKeyProperty =
@@ -1490,6 +1496,21 @@ public partial class PropertyEditor : UserControl
                             }
                             value = listVal;
                         }
+                        else if (prop.PropertyType == typeof(List<DialogueLine>))
+                        {
+                            // Cada línea del TextBox es un diálogo
+                            var lines = (tb.Text ?? string.Empty).Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                            var dialogueList = new List<DialogueLine>();
+                            for (int i = 0; i < lines.Length; i++)
+                            {
+                                var lineText = lines[i].Trim();
+                                if (!string.IsNullOrEmpty(lineText))
+                                {
+                                    dialogueList.Add(new DialogueLine { Index = i, Text = lineText });
+                                }
+                            }
+                            value = dialogueList;
+                        }
 
                         prop.SetValue(target, value);
                         PropertyEdited?.Invoke(target, prop.Name);
@@ -1581,8 +1602,8 @@ public partial class PropertyEditor : UserControl
         ["IsLocked"] = "Está bloqueado",
         ["OpenFromSide"] = "Cerradura desde",
         ["ContentsVisible"] = "Contenido visible",
-        ["MaxCapacity"] = "Capacidad máxima (m³)",
-        ["Volume"] = "Volumen (m³)",
+        ["MaxCapacity"] = "Capacidad máxima (cm³)",
+        ["Volume"] = "Volumen (cm³)",
         ["Weight"] = "Peso (g)",
         ["Price"] = "Precio (monedas)",
         ["ContainedObjectIds"] = "Objetos contenidos",
@@ -1630,8 +1651,8 @@ public partial class PropertyEditor : UserControl
         ["GameObject.IsOpen"] = "Está abierto",
         ["GameObject.IsLocked"] = "Está bloqueado",
         ["GameObject.ContentsVisible"] = "Contenido visible",
-        ["GameObject.MaxCapacity"] = "Capacidad máxima (m³)",
-        ["GameObject.Volume"] = "Volumen (m³)",
+        ["GameObject.MaxCapacity"] = "Capacidad máxima (cm³)",
+        ["GameObject.Volume"] = "Volumen (cm³)",
         ["GameObject.Weight"] = "Peso (g)",
         ["GameObject.Price"] = "Precio (monedas)",
         ["GameObject.ContainedObjectIds"] = "Objetos contenidos",

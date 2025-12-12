@@ -5,6 +5,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using XiloAdventures.Engine.Models;
 
 namespace XiloAdventures.Engine;
@@ -18,7 +19,8 @@ public static class WorldLoader
     private static readonly JsonSerializerOptions Options = new()
     {
         WriteIndented = true,
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: true) }
     };
 
     private static bool TryParseWorldFromText(string text, out WorldModel? world)

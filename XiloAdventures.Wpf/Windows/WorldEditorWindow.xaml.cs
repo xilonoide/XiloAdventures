@@ -599,10 +599,10 @@ public partial class WorldEditorWindow : Window
                             {
                                 var dlg = new AlertWindow(
                                     $"No hay espacio suficiente en '{targetObj.Name}'.\n\n" +
-                                    $"Capacidad máxima: {targetObj.MaxCapacity:F3} m³\n" +
-                                    $"Volumen usado: {currentVolume:F3} m³\n" +
-                                    $"Espacio disponible: {(targetObj.MaxCapacity - currentVolume):F3} m³\n" +
-                                    $"Volumen del objeto: {draggedObj.Volume:F3} m³",
+                                    $"Capacidad máxima: {targetObj.MaxCapacity:F0} cm³\n" +
+                                    $"Volumen usado: {currentVolume:F0} cm³\n" +
+                                    $"Espacio disponible: {(targetObj.MaxCapacity - currentVolume):F0} cm³\n" +
+                                    $"Volumen del objeto: {draggedObj.Volume:F0} cm³",
                                     "Capacidad excedida")
                                 {
                                     Owner = this

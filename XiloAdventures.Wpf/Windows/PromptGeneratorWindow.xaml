@@ -13,6 +13,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
@@ -29,34 +30,156 @@
                        Margin="0,4,0,0"/>
         </StackPanel>
 
-        <!-- Instructions -->
+        <!-- Configuration -->
         <Border Grid.Row="1"
                 Background="#363636"
                 CornerRadius="6"
                 Padding="12"
-                Margin="0,0,0,16">
+                Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Theme -->
+                <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,16,8">
+                    <TextBlock Text="Temática de la aventura"
+                               FontSize="12"
+                               Foreground="#DDDDDD"
+                               Margin="0,0,0,4"/>
+                    <TextBox x:Name="ThemeTextBox"
+                             Text="mansión embrujada"
+                             Background="#1E1E1E"
+                             Foreground="#D4D4D4"
+                             BorderBrush="#555555"
+                             Padding="8,6"
+                             FontSize="13"
+                             TextChanged="ThemeTextBox_TextChanged"/>
+                </StackPanel>
+
+                <!-- Room count -->
+                <StackPanel Grid.Row="0" Grid.Column="1" Width="120">
+                    <TextBlock Text="Nº de salas (aprox.)"
+                               FontSize="12"
+                               Foreground="#DDDDDD"
+                               Margin="0,0,0,4"/>
+                    <TextBox x:Name="RoomCountTextBox"
+                             Text="6"
+                             Background="#1E1E1E"
+                             Foreground="#D4D4D4"
+                             BorderBrush="#555555"
+                             Padding="8,6"
+                             FontSize="13"
+                             HorizontalContentAlignment="Center"
+                             PreviewTextInput="RoomCountTextBox_PreviewTextInput"
+                             TextChanged="RoomCountTextBox_TextChanged"/>
+                </StackPanel>
+
+                <!-- Sliders section -->
+                <Grid Grid.Row="1" Grid.ColumnSpan="2" Margin="0,12,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Doors slider -->
+                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                        <TextBlock FontSize="11" Foreground="#BBBBBB" Margin="0,0,0,2">
+                            <Run Text="Puertas: "/>
+                            <Run x:Name="DoorsValueText" Text="2"/>
+                        </TextBlock>
+                        <Slider x:Name="DoorsSlider"
+                                Minimum="0"
+                                Maximum="500"
+                                Value="2"
+                                IsSnapToTickEnabled="True"
+                                TickFrequency="1"
+                                ValueChanged="DoorsSlider_ValueChanged"/>
+                    </StackPanel>
+
+                    <!-- Objects slider -->
+                    <StackPanel Grid.Column="1" Margin="8,0,8,0">
+                        <TextBlock FontSize="11" Foreground="#BBBBBB" Margin="0,0,0,2">
+                            <Run Text="Objetos: "/>
+                            <Run x:Name="ObjectsValueText" Text="6"/>
+                        </TextBlock>
+                        <Slider x:Name="ObjectsSlider"
+                                Minimum="0"
+                                Maximum="500"
+                                Value="6"
+                                IsSnapToTickEnabled="True"
+                                TickFrequency="1"
+                                ValueChanged="ObjectsSlider_ValueChanged"/>
+                    </StackPanel>
+
+                    <!-- NPCs slider -->
+                    <StackPanel Grid.Column="2" Margin="8,0,8,0">
+                        <TextBlock FontSize="11" Foreground="#BBBBBB" Margin="0,0,0,2">
+                            <Run Text="NPCs: "/>
+                            <Run x:Name="NpcsValueText" Text="2"/>
+                        </TextBlock>
+                        <Slider x:Name="NpcsSlider"
+                                Minimum="0"
+                                Maximum="500"
+                                Value="2"
+                                IsSnapToTickEnabled="True"
+                                TickFrequency="1"
+                                ValueChanged="NpcsSlider_ValueChanged"/>
+                    </StackPanel>
+
+                    <!-- Quests slider -->
+                    <StackPanel Grid.Column="3" Margin="8,0,0,0">
+                        <TextBlock FontSize="11" Foreground="#BBBBBB" Margin="0,0,0,2">
+                            <Run Text="Misiones: "/>
+                            <Run x:Name="QuestsValueText" Text="1"/>
+                        </TextBlock>
+                        <Slider x:Name="QuestsSlider"
+                                Minimum="1"
+                                Maximum="500"
+                                Value="1"
+                                IsSnapToTickEnabled="True"
+                                TickFrequency="1"
+                                ValueChanged="QuestsSlider_ValueChanged"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Hint -->
+                <TextBlock Grid.Row="2" Grid.ColumnSpan="2"
+                           Text="💡 Ejemplos de temática: templo antiguo, nave espacial abandonada, castillo medieval, laboratorio secreto, isla desierta..."
+                           FontSize="11"
+                           Foreground="#888888"
+                           TextWrapping="Wrap"
+                           Margin="0,4,0,0"/>
+            </Grid>
+        </Border>
+
+        <!-- Instructions -->
+        <Border Grid.Row="2"
+                Background="#2E3D2E"
+                CornerRadius="6"
+                Padding="12"
+                Margin="0,0,0,12">
             <StackPanel>
-                <TextBlock FontSize="13" Foreground="#DDDDDD" TextWrapping="Wrap">
-                    <Run FontWeight="SemiBold" Foreground="#FFD700">Instrucciones:</Run>
-                </TextBlock>
-                <TextBlock FontSize="12" Foreground="#BBBBBB" TextWrapping="Wrap" Margin="0,8,0,0">
-                    1. Copia el prompt de abajo usando el botón "Copiar al portapapeles"
-                </TextBlock>
-                <TextBlock FontSize="12" Foreground="#BBBBBB" TextWrapping="Wrap" Margin="0,4,0,0">
-                    2. Pégalo en ChatGPT, Claude o tu IA favorita
-                </TextBlock>
-                <TextBlock FontSize="12" Foreground="#BBBBBB" TextWrapping="Wrap" Margin="0,4,0,0">
-                    3. La IA generará un JSON con un mundo completo (salas, objetos, NPCs, scripts, etc.)
-                </TextBlock>
-                <TextBlock FontSize="12" Foreground="#BBBBBB" TextWrapping="Wrap" Margin="0,4,0,0">
-                    4. Guarda el JSON como archivo <Run FontWeight="SemiBold">.xaw</Run> y ábrelo en el editor
+                <TextBlock FontSize="12" Foreground="#BBBBBB" TextWrapping="Wrap">
+                    <Run FontWeight="SemiBold" Foreground="#90EE90">1.</Run> Copia el prompt →
+                    <Run FontWeight="SemiBold" Foreground="#90EE90">2.</Run> Pégalo en ChatGPT/Claude →
+                    <Run FontWeight="SemiBold" Foreground="#90EE90">3.</Run> Descarga el archivo .xaw →
+                    <Run FontWeight="SemiBold" Foreground="#90EE90">4.</Run> Ábrelo en el editor
                 </TextBlock>
             </StackPanel>
         </Border>
 
         <!-- Prompt TextBox -->
         <TextBox x:Name="PromptTextBox"
-                 Grid.Row="2"
+                 Grid.Row="3"
                  IsReadOnly="True"
                  TextWrapping="Wrap"
                  AcceptsReturn="True"
@@ -71,7 +194,7 @@
                  FontSize="11"/>
 
         <!-- Buttons -->
-        <StackPanel Grid.Row="3"
+        <StackPanel Grid.Row="4"
                     Margin="0,16,0,0">
             <Button x:Name="CopyButton"
                     Content="📋 Copiar al portapapeles"
