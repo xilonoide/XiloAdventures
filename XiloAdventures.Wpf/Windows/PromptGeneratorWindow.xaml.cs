@@ -269,6 +269,36 @@ Cuando una puerta conecta dos salas, **AMBAS salidas deben referenciar la misma 
   - La salida de `room_B` hacia `room_A` debe tener `DoorId: ""door_X""`
 - Si una puerta tiene llave, **no debe haber rutas alternativas** para saltársela
 
+## ⚠️ REGLA CRÍTICA: ACCESIBILIDAD DE LLAVES
+
+**NUNCA pongas una llave detrás de la puerta que abre.** Esto haría el juego imposible.
+
+### Regla de oro:
+La llave SIEMPRE debe estar en una zona accesible SIN pasar por la puerta que abre.
+
+### Ejemplo INCORRECTO (imposible de resolver):
+```
+Sala_Inicial ──[puerta_cerrada]── Sala_Tesoro (contiene llave_puerta)
+```
+❌ El jugador empieza en Sala_Inicial pero la llave está en Sala_Tesoro, que está bloqueada. ¡IMPOSIBLE!
+
+### Ejemplo CORRECTO:
+```
+Sala_Inicial ── Sala_Biblioteca (contiene llave_puerta)
+      │
+[puerta_cerrada]
+      │
+Sala_Tesoro
+```
+✅ El jugador puede ir a Sala_Biblioteca, coger la llave, y luego abrir la puerta.
+
+### Verificación obligatoria:
+Antes de finalizar, para CADA puerta cerrada con llave:
+1. Identifica dónde está la llave (RoomId del objeto llave)
+2. Traza el camino desde Game.StartRoomId hasta esa sala
+3. Verifica que ese camino NO pase por la puerta que esa llave abre
+4. Si no es posible llegar a la llave, MUEVE la llave a una sala accesible
+
 ## IMPORTANTE: SIN SPOILERS
 
 **NO reveles al jugador detalles de la aventura.** Solo proporciona una breve descripción temática (1-2 frases) sin mencionar puzzles, soluciones, ubicación de objetos o secretos. El jugador quiere descubrir la aventura por sí mismo.
