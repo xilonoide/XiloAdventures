@@ -15,6 +15,9 @@ public class CommandResult
     /// <summary>Indica si hubo un error al procesar el comando.</summary>
     public bool HasError => !IsSuccess;
 
+    /// <summary>Indica si se debe limpiar la pantalla antes de mostrar el mensaje.</summary>
+    public bool ClearScreenBefore { get; private set; }
+
     private CommandResult(string message, bool isSuccess)
     {
         Message = message;
@@ -23,6 +26,9 @@ public class CommandResult
 
     /// <summary>Crea un resultado exitoso.</summary>
     public static CommandResult Success(string message) => new(message, true);
+
+    /// <summary>Crea un resultado exitoso que limpia la pantalla antes de mostrar el mensaje.</summary>
+    public static CommandResult SuccessWithClear(string message) => new(message, true) { ClearScreenBefore = true };
 
     /// <summary>Crea un resultado de error (parser no entendió, objeto no encontrado, etc.).</summary>
     public static CommandResult Error(string message) => new(message, false);

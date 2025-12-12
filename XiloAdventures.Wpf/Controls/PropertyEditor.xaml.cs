@@ -298,7 +298,7 @@ public partial class PropertyEditor : UserControl
             return "🔖 Identificación";
 
         // Descripción
-        if (name is "Description" or "Dialogue")
+        if (name is "Description" or "Dialogue" or "TextContent")
             return "📝 Descripción";
 
         // Multimedia
@@ -365,7 +365,8 @@ public partial class PropertyEditor : UserControl
             "Name" => 1,
             "Title" => 2,
             "Description" => 0,
-            "Dialogue" => 1,
+            "TextContent" => 1,
+            "Dialogue" => 2,
             "ImageId" => 0,
             "ImageBase64" => 1,
             "MusicId" => 2,
@@ -857,6 +858,12 @@ public partial class PropertyEditor : UserControl
                             {
                                 prop.SetValue(target, comboEnum.SelectedItem);
                                 PropertyEdited?.Invoke(target, prop.Name);
+
+                                // Si es ObjectType.Type, actualizar visibilidad de propiedades dependientes
+                                if (prop.Name == "Type")
+                                {
+                                    UpdatePropertyVisibility();
+                                }
                             }
                         }
                         catch
@@ -1380,6 +1387,9 @@ public partial class PropertyEditor : UserControl
                     (prop.PropertyType == typeof(string) &&
                     string.Equals(prop.Name, "Description", StringComparison.OrdinalIgnoreCase) &&
                     (obj is Room || obj is GameObject || obj is Npc)) ||
+                    (prop.PropertyType == typeof(string) &&
+                    string.Equals(prop.Name, "TextContent", StringComparison.OrdinalIgnoreCase) &&
+                    obj is GameObject) ||
                     (prop.PropertyType == typeof(List<DialogueLine>) && obj is Npc);
 
                 // Si es una propiedad de llave (KeyObjectId o KeyId), crear un ComboBox con objetos de tipo Llave
@@ -1594,6 +1604,7 @@ public partial class PropertyEditor : UserControl
         ["Visible"] = "Visible",
         ["CanTake"] = "Se puede coger",
         ["Type"] = "Tipo de objeto",
+        ["TextContent"] = "Contenido de texto",
         ["Gender"] = "Género gramatical",
         ["IsPlural"] = "Es plural",
         ["IsContainer"] = "Es contenedor",
@@ -1907,6 +1918,9 @@ public partial class PropertyEditor : UserControl
         // Propiedades que dependen de IsContainer Y otras condiciones
         return name switch
         {
+            // TextContent solo visible si Type = Texto
+            "TextContent" => () => gameObject.Type == ObjectType.Texto,
+
             // IsOpen solo visible si IsContainer = true Y IsOpenable = true
             "IsOpen" => () => gameObject.IsContainer && gameObject.IsOpenable,
 

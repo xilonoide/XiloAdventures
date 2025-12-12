@@ -45,7 +45,8 @@ public partial class PromptGeneratorWindow : Window
       ""Id"": ""obj_id"",
       ""Name"": ""Nombre"",
       ""Description"": ""Descripción"",
-      ""Type"": ""ninguno|arma|armadura|comida|bebida|ropa|llave"",
+      ""Type"": ""ninguno|arma|armadura|comida|bebida|ropa|llave|texto"",
+      ""TextContent"": ""Contenido legible (solo para Type=texto)"",
       ""Gender"": ""Masculine|Feminine"",
       ""RoomId"": ""room_id o null si está en inventario/contenedor"",
       ""CanTake"": true,
@@ -179,15 +180,21 @@ public partial class PromptGeneratorWindow : Window
 ## REQUISITOS DEL MUNDO
 
 Genera un mundo con temática ""{THEME}"" que contenga:
-1. **Aproximadamente {ROOM_COUNT} salas** conectadas lógicamente con MapX/MapY formando un mapa coherente (puedes variar ligeramente si es necesario para la historia)
-2. **{DOOR_COUNT} puertas** - al menos una cerrada con llave
-3. **{OBJECT_COUNT} objetos** incluyendo:
-   - Al menos 1 llave
-   - Al menos 1 contenedor (cofre/caja) con objetos dentro
-   - Objetos para puzzles
-4. **{NPC_COUNT} NPCs** con personalidad y diálogos acordes a la temática (cada NPC debe tener al menos 2-3 líneas de Dialogue)
-5. **{QUEST_COUNT} misiones**
-6. **Scripts variados** que demuestren (usa los TypeId EXACTOS de la lista anterior):
+1. **Aproximadamente {ROOM_COUNT} salas** conectadas lógicamente formando un mapa coherente
+2. **{DOOR_COUNT} puertas** - al menos una cerrada con llave si hay llaves disponibles
+3. **{CONTAINER_COUNT} contenedores** (cofres, cajas, armarios...) con objetos dentro
+4. **{TOTAL_OBJECTS} objetos** distribuidos así:
+   - {WEAPON_COUNT} armas (Type=""arma"") - espadas, dagas, arcos...
+   - {ARMOR_COUNT} armaduras (Type=""armadura"") - escudos, cascos, corazas...
+   - {FOOD_COUNT} comida (Type=""comida"") - pan, manzana, carne...
+   - {DRINK_COUNT} bebidas (Type=""bebida"") - pociones, agua, vino...
+   - {CLOTHING_COUNT} ropa (Type=""ropa"") - capas, túnicas, botas...
+   - {KEY_COUNT} llaves (Type=""llave"") - para abrir puertas/contenedores
+   - {TEXT_COUNT} documentos legibles (Type=""texto"") - cartas, diarios, pergaminos... con TextContent
+   - {OTHER_COUNT} objetos genéricos (Type=""ninguno"") - gemas, monedas, herramientas, objetos de puzzle...
+5. **{NPC_COUNT} NPCs** con personalidad y diálogos acordes a la temática (cada NPC debe tener al menos 2-3 líneas de Dialogue)
+6. **{QUEST_COUNT} misiones**
+7. **Scripts variados** que demuestren (usa los TypeId EXACTOS de la lista anterior):
    - Un objeto que al examinarlo (`Event_OnExamine`) muestra mensaje (`Action_ShowMessage`)
    - Un NPC que da un objeto (`Action_GiveItem`) si tienes cierto item (`Condition_HasItem`)
    - Un contenedor que al abrirlo (`Event_OnContainerOpen`) muestra mensaje
@@ -209,8 +216,9 @@ Genera un mundo con temática ""{THEME}"" que contenga:
   - **Este**: X + 220
   - **Oeste**: X - 220
 - Ejemplo para 5 salas en cruz: sala central (0,0), norte (0,-150), sur (0,150), este (220,0), oeste (-220,0)
-- **Type de objetos SOLO puede ser uno de estos valores exactos**: ninguno, arma, armadura, comida, bebida, ropa, llave
+- **Type de objetos SOLO puede ser uno de estos valores exactos**: ninguno, arma, armadura, comida, bebida, ropa, llave, texto
 - **Los objetos que son llaves DEBEN tener Type=""llave""**
+- **Los objetos de tipo ""texto"" DEBEN tener TextContent** con el texto legible (carta, diario, pergamino, libro, nota...). El jugador usará el comando ""leer"" para ver este contenido.
 - **Si una puerta tiene IsLocked=true, DEBE tener KeyObjectId con el Id de un objeto llave existente** (no puede haber puertas bloqueadas sin llave asignada)
 
 ### Género gramatical (Gender)
@@ -277,7 +285,7 @@ Genera el mundo con la temática ""{THEME}"" y puzzles lógicos acordes a esa am
     private void UpdateSlidersFromRoomCount()
     {
         // Evitar ejecución durante InitializeComponent
-        if (DoorsSlider == null || ObjectsSlider == null || NpcsSlider == null || QuestsSlider == null)
+        if (DoorsSlider == null || NpcsSlider == null || QuestsSlider == null)
             return;
 
         var roomCountText = RoomCountTextBox?.Text ?? "6";
@@ -286,30 +294,54 @@ Genera el mundo con la temática ""{THEME}"" y puzzles lógicos acordes a esa am
 
         _isUpdatingFromRoomCount = true;
 
-        // Calcular valores sugeridos basados en el número de salas
-        var doorValue = Math.Max(1, roomCount / 3);
-        var objectValue = Math.Max(4, roomCount);
-        var npcValue = Math.Max(1, roomCount / 4);
-        var questValue = Math.Max(1, roomCount / 6);
+        // Fórmulas basadas en el número de salas
+        DoorsSlider.Value = Math.Max(1, roomCount / 3);           // 1 puerta cada 3 salas
+        NpcsSlider.Value = Math.Max(1, roomCount / 3);            // 1 NPC cada 3 salas
+        QuestsSlider.Value = Math.Max(1, roomCount / 6);          // 1 misión cada 6 salas
+        ContainersSlider.Value = Math.Max(1, roomCount / 4);      // 1 contenedor cada 4 salas
 
-        DoorsSlider.Value = doorValue;
-        ObjectsSlider.Value = objectValue;
-        NpcsSlider.Value = npcValue;
-        QuestsSlider.Value = questValue;
+        // Tipos de objetos según salas
+        WeaponsSlider.Value = Math.Max(1, roomCount / 5);         // 1 arma cada 5 salas
+        ArmorsSlider.Value = Math.Max(0, (roomCount - 5) / 6);    // armaduras solo en mundos grandes
+        FoodSlider.Value = Math.Max(1, roomCount / 4);            // 1 comida cada 4 salas
+        DrinksSlider.Value = Math.Max(1, roomCount / 5);          // 1 bebida cada 5 salas
+        ClothingSlider.Value = Math.Max(0, (roomCount - 4) / 8);  // ropa solo en mundos medianos+
+        KeysSlider.Value = Math.Max(1, roomCount / 6);            // 1 llave cada 6 salas
+        TextsSlider.Value = Math.Max(1, roomCount / 5);           // 1 texto cada 5 salas
+        OtherObjectsSlider.Value = Math.Max(2, roomCount / 3);    // objetos genéricos
 
         _isUpdatingFromRoomCount = false;
     }
 
     private void UpdateSliderValueTexts()
     {
+        // Sliders generales
         if (DoorsValueText != null)
             DoorsValueText.Text = ((int)DoorsSlider.Value).ToString();
-        if (ObjectsValueText != null)
-            ObjectsValueText.Text = ((int)ObjectsSlider.Value).ToString();
         if (NpcsValueText != null)
             NpcsValueText.Text = ((int)NpcsSlider.Value).ToString();
         if (QuestsValueText != null)
             QuestsValueText.Text = ((int)QuestsSlider.Value).ToString();
+        if (ContainersValueText != null)
+            ContainersValueText.Text = ((int)ContainersSlider.Value).ToString();
+
+        // Sliders de tipos de objetos
+        if (WeaponsValueText != null)
+            WeaponsValueText.Text = ((int)WeaponsSlider.Value).ToString();
+        if (ArmorsValueText != null)
+            ArmorsValueText.Text = ((int)ArmorsSlider.Value).ToString();
+        if (FoodValueText != null)
+            FoodValueText.Text = ((int)FoodSlider.Value).ToString();
+        if (DrinksValueText != null)
+            DrinksValueText.Text = ((int)DrinksSlider.Value).ToString();
+        if (ClothingValueText != null)
+            ClothingValueText.Text = ((int)ClothingSlider.Value).ToString();
+        if (KeysValueText != null)
+            KeysValueText.Text = ((int)KeysSlider.Value).ToString();
+        if (TextsValueText != null)
+            TextsValueText.Text = ((int)TextsSlider.Value).ToString();
+        if (OtherObjectsValueText != null)
+            OtherObjectsValueText.Text = ((int)OtherObjectsSlider.Value).ToString();
     }
 
     private void UpdatePrompt()
@@ -327,21 +359,44 @@ Genera el mundo con la temática ""{THEME}"" y puzzles lógicos acordes a esa am
         if (!int.TryParse(roomCountText, out var roomCount) || roomCount < 1)
             roomCount = 6;
 
-        // Obtener valores de los sliders
-        var doorCount = DoorsSlider != null ? ((int)DoorsSlider.Value).ToString() : "2";
-        var objectCount = ObjectsSlider != null ? ((int)ObjectsSlider.Value).ToString() : "6";
-        var npcCount = NpcsSlider != null ? ((int)NpcsSlider.Value).ToString() : "2";
-        var questCount = QuestsSlider != null ? ((int)QuestsSlider.Value).ToString() : "1";
+        // Obtener valores de los sliders generales
+        var doorCount = DoorsSlider != null ? (int)DoorsSlider.Value : 2;
+        var npcCount = NpcsSlider != null ? (int)NpcsSlider.Value : 2;
+        var questCount = QuestsSlider != null ? (int)QuestsSlider.Value : 1;
+        var containerCount = ContainersSlider != null ? (int)ContainersSlider.Value : 1;
+
+        // Obtener valores de tipos de objetos
+        var weaponCount = WeaponsSlider != null ? (int)WeaponsSlider.Value : 1;
+        var armorCount = ArmorsSlider != null ? (int)ArmorsSlider.Value : 0;
+        var foodCount = FoodSlider != null ? (int)FoodSlider.Value : 1;
+        var drinkCount = DrinksSlider != null ? (int)DrinksSlider.Value : 1;
+        var clothingCount = ClothingSlider != null ? (int)ClothingSlider.Value : 0;
+        var keyCount = KeysSlider != null ? (int)KeysSlider.Value : 1;
+        var textCount = TextsSlider != null ? (int)TextsSlider.Value : 1;
+        var otherCount = OtherObjectsSlider != null ? (int)OtherObjectsSlider.Value : 2;
+
+        // Calcular total de objetos
+        var totalObjects = weaponCount + armorCount + foodCount + drinkCount +
+                          clothingCount + keyCount + textCount + otherCount;
 
         UpdateSliderValueTexts();
 
         var prompt = PromptTemplate
             .Replace("{THEME}", theme)
             .Replace("{ROOM_COUNT}", roomCount.ToString())
-            .Replace("{DOOR_COUNT}", doorCount)
-            .Replace("{OBJECT_COUNT}", objectCount)
-            .Replace("{NPC_COUNT}", npcCount)
-            .Replace("{QUEST_COUNT}", questCount);
+            .Replace("{DOOR_COUNT}", doorCount.ToString())
+            .Replace("{NPC_COUNT}", npcCount.ToString())
+            .Replace("{QUEST_COUNT}", questCount.ToString())
+            .Replace("{CONTAINER_COUNT}", containerCount.ToString())
+            .Replace("{WEAPON_COUNT}", weaponCount.ToString())
+            .Replace("{ARMOR_COUNT}", armorCount.ToString())
+            .Replace("{FOOD_COUNT}", foodCount.ToString())
+            .Replace("{DRINK_COUNT}", drinkCount.ToString())
+            .Replace("{CLOTHING_COUNT}", clothingCount.ToString())
+            .Replace("{KEY_COUNT}", keyCount.ToString())
+            .Replace("{TEXT_COUNT}", textCount.ToString())
+            .Replace("{OTHER_COUNT}", otherCount.ToString())
+            .Replace("{TOTAL_OBJECTS}", totalObjects.ToString());
 
         PromptTextBox.Text = prompt;
     }
@@ -391,12 +446,6 @@ Genera el mundo con la temática ""{THEME}"" y puzzles lógicos acordes a esa am
             UpdatePrompt();
     }
 
-    private void ObjectsSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-    {
-        if (!_isUpdatingFromRoomCount)
-            UpdatePrompt();
-    }
-
     private void NpcsSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         if (!_isUpdatingFromRoomCount)
@@ -404,6 +453,18 @@ Genera el mundo con la temática ""{THEME}"" y puzzles lógicos acordes a esa am
     }
 
     private void QuestsSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (!_isUpdatingFromRoomCount)
+            UpdatePrompt();
+    }
+
+    private void ContainersSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (!_isUpdatingFromRoomCount)
+            UpdatePrompt();
+    }
+
+    private void ObjectTypeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         if (!_isUpdatingFromRoomCount)
             UpdatePrompt();

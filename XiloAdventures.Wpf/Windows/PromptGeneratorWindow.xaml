@@ -45,6 +45,8 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
                 <!-- Theme -->
@@ -81,7 +83,7 @@
                              TextChanged="RoomCountTextBox_TextChanged"/>
                 </StackPanel>
 
-                <!-- Sliders section -->
+                <!-- General sliders section -->
                 <Grid Grid.Row="1" Grid.ColumnSpan="2" Margin="0,12,0,8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -105,23 +107,8 @@
                                 ValueChanged="DoorsSlider_ValueChanged"/>
                     </StackPanel>
 
-                    <!-- Objects slider -->
-                    <StackPanel Grid.Column="1" Margin="8,0,8,0">
-                        <TextBlock FontSize="11" Foreground="#BBBBBB" Margin="0,0,0,2">
-                            <Run Text="Objetos: "/>
-                            <Run x:Name="ObjectsValueText" Text="6"/>
-                        </TextBlock>
-                        <Slider x:Name="ObjectsSlider"
-                                Minimum="0"
-                                Maximum="500"
-                                Value="6"
-                                IsSnapToTickEnabled="True"
-                                TickFrequency="1"
-                                ValueChanged="ObjectsSlider_ValueChanged"/>
-                    </StackPanel>
-
                     <!-- NPCs slider -->
-                    <StackPanel Grid.Column="2" Margin="8,0,8,0">
+                    <StackPanel Grid.Column="1" Margin="8,0,8,0">
                         <TextBlock FontSize="11" Foreground="#BBBBBB" Margin="0,0,0,2">
                             <Run Text="NPCs: "/>
                             <Run x:Name="NpcsValueText" Text="2"/>
@@ -136,23 +123,179 @@
                     </StackPanel>
 
                     <!-- Quests slider -->
-                    <StackPanel Grid.Column="3" Margin="8,0,0,0">
+                    <StackPanel Grid.Column="2" Margin="8,0,8,0">
                         <TextBlock FontSize="11" Foreground="#BBBBBB" Margin="0,0,0,2">
                             <Run Text="Misiones: "/>
                             <Run x:Name="QuestsValueText" Text="1"/>
                         </TextBlock>
                         <Slider x:Name="QuestsSlider"
-                                Minimum="1"
+                                Minimum="0"
                                 Maximum="500"
                                 Value="1"
                                 IsSnapToTickEnabled="True"
                                 TickFrequency="1"
                                 ValueChanged="QuestsSlider_ValueChanged"/>
                     </StackPanel>
+
+                    <!-- Contenedores slider -->
+                    <StackPanel Grid.Column="3" Margin="8,0,0,0">
+                        <TextBlock FontSize="11" Foreground="#BBBBBB" Margin="0,0,0,2">
+                            <Run Text="Contenedores: "/>
+                            <Run x:Name="ContainersValueText" Text="1"/>
+                        </TextBlock>
+                        <Slider x:Name="ContainersSlider"
+                                Minimum="0"
+                                Maximum="500"
+                                Value="1"
+                                IsSnapToTickEnabled="True"
+                                TickFrequency="1"
+                                ValueChanged="ContainersSlider_ValueChanged"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Object types sliders section -->
+                <TextBlock Grid.Row="2" Grid.ColumnSpan="2"
+                           Text="Tipos de objetos:"
+                           FontSize="11"
+                           Foreground="#AAAAAA"
+                           FontWeight="SemiBold"
+                           Margin="0,8,0,4"/>
+
+                <Grid Grid.Row="3" Grid.ColumnSpan="2" Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Armas slider -->
+                    <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,8">
+                        <TextBlock FontSize="10" Foreground="#BBBBBB" Margin="0,0,0,2">
+                            <Run Text="⚔️ Armas: "/>
+                            <Run x:Name="WeaponsValueText" Text="1"/>
+                        </TextBlock>
+                        <Slider x:Name="WeaponsSlider"
+                                Minimum="0"
+                                Maximum="500"
+                                Value="1"
+                                IsSnapToTickEnabled="True"
+                                TickFrequency="1"
+                                ValueChanged="ObjectTypeSlider_ValueChanged"/>
+                    </StackPanel>
+
+                    <!-- Armaduras slider -->
+                    <StackPanel Grid.Row="0" Grid.Column="1" Margin="8,0,8,8">
+                        <TextBlock FontSize="10" Foreground="#BBBBBB" Margin="0,0,0,2">
+                            <Run Text="🛡️ Armaduras: "/>
+                            <Run x:Name="ArmorsValueText" Text="0"/>
+                        </TextBlock>
+                        <Slider x:Name="ArmorsSlider"
+                                Minimum="0"
+                                Maximum="500"
+                                Value="0"
+                                IsSnapToTickEnabled="True"
+                                TickFrequency="1"
+                                ValueChanged="ObjectTypeSlider_ValueChanged"/>
+                    </StackPanel>
+
+                    <!-- Comida slider -->
+                    <StackPanel Grid.Row="0" Grid.Column="2" Margin="8,0,8,8">
+                        <TextBlock FontSize="10" Foreground="#BBBBBB" Margin="0,0,0,2">
+                            <Run Text="🍎 Comida: "/>
+                            <Run x:Name="FoodValueText" Text="1"/>
+                        </TextBlock>
+                        <Slider x:Name="FoodSlider"
+                                Minimum="0"
+                                Maximum="500"
+                                Value="1"
+                                IsSnapToTickEnabled="True"
+                                TickFrequency="1"
+                                ValueChanged="ObjectTypeSlider_ValueChanged"/>
+                    </StackPanel>
+
+                    <!-- Bebida slider -->
+                    <StackPanel Grid.Row="0" Grid.Column="3" Margin="8,0,0,8">
+                        <TextBlock FontSize="10" Foreground="#BBBBBB" Margin="0,0,0,2">
+                            <Run Text="🍺 Bebidas: "/>
+                            <Run x:Name="DrinksValueText" Text="1"/>
+                        </TextBlock>
+                        <Slider x:Name="DrinksSlider"
+                                Minimum="0"
+                                Maximum="500"
+                                Value="1"
+                                IsSnapToTickEnabled="True"
+                                TickFrequency="1"
+                                ValueChanged="ObjectTypeSlider_ValueChanged"/>
+                    </StackPanel>
+
+                    <!-- Ropa slider -->
+                    <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,0">
+                        <TextBlock FontSize="10" Foreground="#BBBBBB" Margin="0,0,0,2">
+                            <Run Text="👕 Ropa: "/>
+                            <Run x:Name="ClothingValueText" Text="0"/>
+                        </TextBlock>
+                        <Slider x:Name="ClothingSlider"
+                                Minimum="0"
+                                Maximum="500"
+                                Value="0"
+                                IsSnapToTickEnabled="True"
+                                TickFrequency="1"
+                                ValueChanged="ObjectTypeSlider_ValueChanged"/>
+                    </StackPanel>
+
+                    <!-- Llaves slider -->
+                    <StackPanel Grid.Row="1" Grid.Column="1" Margin="8,0,8,0">
+                        <TextBlock FontSize="10" Foreground="#BBBBBB" Margin="0,0,0,2">
+                            <Run Text="🔑 Llaves: "/>
+                            <Run x:Name="KeysValueText" Text="1"/>
+                        </TextBlock>
+                        <Slider x:Name="KeysSlider"
+                                Minimum="0"
+                                Maximum="500"
+                                Value="1"
+                                IsSnapToTickEnabled="True"
+                                TickFrequency="1"
+                                ValueChanged="ObjectTypeSlider_ValueChanged"/>
+                    </StackPanel>
+
+                    <!-- Textos slider -->
+                    <StackPanel Grid.Row="1" Grid.Column="2" Margin="8,0,8,0">
+                        <TextBlock FontSize="10" Foreground="#BBBBBB" Margin="0,0,0,2">
+                            <Run Text="📜 Textos: "/>
+                            <Run x:Name="TextsValueText" Text="1"/>
+                        </TextBlock>
+                        <Slider x:Name="TextsSlider"
+                                Minimum="0"
+                                Maximum="500"
+                                Value="1"
+                                IsSnapToTickEnabled="True"
+                                TickFrequency="1"
+                                ValueChanged="ObjectTypeSlider_ValueChanged"/>
+                    </StackPanel>
+
+                    <!-- Otros slider -->
+                    <StackPanel Grid.Row="1" Grid.Column="3" Margin="8,0,0,0">
+                        <TextBlock FontSize="10" Foreground="#BBBBBB" Margin="0,0,0,2">
+                            <Run Text="📦 Otros: "/>
+                            <Run x:Name="OtherObjectsValueText" Text="2"/>
+                        </TextBlock>
+                        <Slider x:Name="OtherObjectsSlider"
+                                Minimum="0"
+                                Maximum="500"
+                                Value="2"
+                                IsSnapToTickEnabled="True"
+                                TickFrequency="1"
+                                ValueChanged="ObjectTypeSlider_ValueChanged"/>
+                    </StackPanel>
                 </Grid>
 
                 <!-- Hint -->
-                <TextBlock Grid.Row="2" Grid.ColumnSpan="2"
+                <TextBlock Grid.Row="4" Grid.ColumnSpan="2"
                            Text="💡 Ejemplos de temática: templo antiguo, nave espacial abandonada, castillo medieval, laboratorio secreto, isla desierta..."
                            FontSize="11"
                            Foreground="#888888"

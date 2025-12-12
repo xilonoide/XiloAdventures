@@ -81,6 +81,15 @@
     ],
     "help": [
       "ayuda"
+    ],
+    "read": [
+      "leer",
+      "lee"
+    ],
+    "commands": [
+      "?",
+      "verbos",
+      "comandos"
     ]
   },
   "nouns": {

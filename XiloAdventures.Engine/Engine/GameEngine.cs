@@ -440,6 +440,10 @@ public class GameEngine
 
     private CommandResult ProcessSingleCommand(string input)
     {
+        // Manejar "?" directamente antes del parser (el parser elimina puntuación)
+        if (input.Trim() == "?")
+            return CommandResult.Success(GetCommandsText());
+
         var parsed = Parser.Parse(input);
         if (string.IsNullOrEmpty(parsed.Verb))
             return CommandResult.Empty;
@@ -462,10 +466,11 @@ public class GameEngine
             "talk" or "say" or "option" => HandleTalk(parsed),
             "use" => HandleUse(parsed),
             "give" => HandleGive(parsed),
+            "read" => HandleRead(parsed),
             "quests" => CommandResult.Success(DescribeQuests()),
             "save" => CommandResult.Success("Usa el menú Archivo -> Guardar partida... para guardar."),
             "load" => CommandResult.Success("Usa el menú Archivo -> Cargar partida... para cargar."),
-            "help" => CommandResult.Success(GetHelpText()),
+            "help" or "commands" => CommandResult.Success(GetCommandsText()),
             _ => CommandResult.Error("No entiendo ese comando.")
         };
     }
@@ -622,7 +627,8 @@ public class GameEngine
             // Disparar Event_OnLook de la sala
             _ = TriggerRoomScriptsAsync(room.Id, "Event_OnLook");
         }
-        return CommandResult.Success(DescribeCurrentRoom());
+        // Limpiar pantalla antes de mostrar la descripción de la sala
+        return CommandResult.SuccessWithClear(DescribeCurrentRoom());
     }
 
     /// <summary>
@@ -1531,7 +1537,16 @@ public class GameEngine
             return HandleTakeAll(arg, room);
         }
 
+        // Primero buscar en la sala directamente
         var obj = FindVisibleObjectInRoom(room, arg);
+        GameObject? container = null;
+
+        // Si no está en la sala, buscar dentro de contenedores abiertos
+        if (obj == null)
+        {
+            (obj, container) = FindObjectInOpenContainers(room, arg);
+        }
+
         if (obj == null)
             return CommandResult.Error("No ves eso aquí.");
 
@@ -1541,10 +1556,22 @@ public class GameEngine
         if (!_state.InventoryObjectIds.Contains(obj.Id))
             _state.InventoryObjectIds.Add(obj.Id);
 
-        room.ObjectIds.RemoveAll(id => id.Equals(obj.Id, StringComparison.OrdinalIgnoreCase));
+        // Si estaba en un contenedor, sacarlo del contenedor
+        if (container != null)
+        {
+            container.ContainedObjectIds.Remove(obj.Id);
+        }
+        else
+        {
+            // Estaba directamente en la sala
+            room.ObjectIds.RemoveAll(id => id.Equals(obj.Id, StringComparison.OrdinalIgnoreCase));
+        }
 
         // Disparar evento Event_OnTake del objeto
         _ = TriggerEntityScriptAsync("GameObject", obj.Id, "Event_OnTake");
+
+        if (container != null)
+            return CommandResult.Success($"Coges {WithArticle(obj)} de {WithArticle(container)}.");
 
         return CommandResult.Success($"Coges {WithArticle(obj)}.");
     }
@@ -1558,15 +1585,37 @@ public class GameEngine
         else if (arg == "todo")
             exceptName = string.Empty;
 
+        // Objetos directamente en la sala
         var visibleObjs = _state.Objects
             .Where(o => o.Visible && room.ObjectIds.Contains(o.Id, StringComparer.OrdinalIgnoreCase) && o.CanTake)
             .ToList();
 
-        if (!visibleObjs.Any())
+        // Buscar objetos en contenedores abiertos
+        var containers = _state.Objects
+            .Where(o => o.Visible && o.IsContainer && room.ObjectIds.Contains(o.Id, StringComparer.OrdinalIgnoreCase))
+            .Where(o => o.IsOpen || o.ContentsVisible || !o.IsOpenable)
+            .ToList();
+
+        var objectsInContainers = new List<(GameObject obj, GameObject container)>();
+        foreach (var container in containers)
+        {
+            var containedObjs = container.ContainedObjectIds
+                .Select(FindObjectById)
+                .Where(o => o != null && o.Visible && o.CanTake)
+                .ToList();
+
+            foreach (var obj in containedObjs)
+            {
+                objectsInContainers.Add((obj!, container));
+            }
+        }
+
+        if (!visibleObjs.Any() && !objectsInContainers.Any())
             return CommandResult.Error("No hay nada que puedas coger.");
 
         var sb = new StringBuilder();
 
+        // Coger objetos directamente de la sala
         foreach (var obj in visibleObjs)
         {
             if (!string.IsNullOrEmpty(exceptName) &&
@@ -1584,6 +1633,26 @@ public class GameEngine
             _ = TriggerEntityScriptAsync("GameObject", obj.Id, "Event_OnTake");
 
             sb.AppendLine($"Coges {WithArticle(obj)}.");
+        }
+
+        // Coger objetos de contenedores abiertos
+        foreach (var (obj, container) in objectsInContainers)
+        {
+            if (!string.IsNullOrEmpty(exceptName) &&
+                obj.Name.Contains(exceptName, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (!_state.InventoryObjectIds.Contains(obj.Id))
+                _state.InventoryObjectIds.Add(obj.Id);
+
+            container.ContainedObjectIds.Remove(obj.Id);
+
+            // Disparar evento Event_OnTake del objeto
+            _ = TriggerEntityScriptAsync("GameObject", obj.Id, "Event_OnTake");
+
+            sb.AppendLine($"Coges {WithArticle(obj)} de {WithArticle(container)}.");
         }
 
         if (sb.Length == 0)
@@ -1687,6 +1756,41 @@ public class GameEngine
         return CommandResult.Error("El sistema de comercio está definido a nivel de datos, pero aquí sólo mostramos un mensaje básico.");
     }
 
+    private CommandResult HandleRead(ParsedCommand parsed)
+    {
+        var room = CurrentRoom;
+        if (room == null)
+            return CommandResult.Error("No estás en ninguna parte.");
+
+        var objName = parsed.DirectObject ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(objName))
+            return CommandResult.Error("¿Qué quieres leer?");
+
+        // Buscar el objeto en la sala o inventario
+        var obj = FindObjectInRoomOrInventory(room, objName);
+        if (obj == null)
+            return CommandResult.Error("No ves eso por aquí.");
+
+        // Verificar que el objeto sea de tipo Texto
+        if (obj.Type != ObjectType.Texto)
+            return CommandResult.Error($"No puedes leer {WithArticle(obj)}.");
+
+        // Verificar que tenga contenido de texto
+        if (string.IsNullOrWhiteSpace(obj.TextContent))
+            return CommandResult.Error($"{WithArticleCap(obj)} está en blanco.");
+
+        // Disparar script Event_OnExamine (leer es una forma de examinar)
+        _ = TriggerEntityScriptAsync("GameObject", obj.Id, "Event_OnExamine");
+
+        // Mostrar el contenido con formato de texto leído (cursiva simulada con comillas)
+        var sb = new StringBuilder();
+        sb.AppendLine($"Lees {WithArticle(obj)}:");
+        sb.AppendLine();
+        sb.AppendLine($"« {obj.TextContent} »");
+
+        return CommandResult.Success(sb.ToString().TrimEnd());
+    }
+
     private string DescribeQuests()
     {
         if (_state.Quests.Count == 0)
@@ -1719,6 +1823,7 @@ public class GameEngine
         return @"Comandos básicos:
  - mirar (describe la sala actual)
  - examinar <algo> / x <algo> (describe un objeto, NPC o puerta)
+ - leer <objeto> (lee el contenido de libros, cartas, pergaminos...)
  - ir <dirección> (n, s, e, o, ne, no, se, so, subir, bajar, arriba, abajo)
  - coger <objeto>, coger todo, coger todo menos <objeto>
  - soltar <objeto>
@@ -1730,6 +1835,55 @@ public class GameEngine
  - misiones
  - guardar / cargar (usa el menú Archivo)
  - limpiar / cls / clear (limpia la pantalla de texto)
+ - ? / verbos / comandos (muestra esta lista de verbos)
+";
+    }
+
+    private static string GetCommandsText()
+    {
+        return @"╔══════════════════════════════════════════════════════════════╗
+║                    VERBOS DISPONIBLES                        ║
+╠══════════════════════════════════════════════════════════════╣
+║ MOVIMIENTO                                                   ║
+║  ir, ve, andar, caminar    → ""ir norte"", ""ve al sur""         ║
+║  n, s, e, o, ne, no, se, so → ""n"" (ir al norte)              ║
+║  subir, bajar, arriba, abajo                                 ║
+╠══════════════════════════════════════════════════════════════╣
+║ EXPLORACIÓN                                                  ║
+║  mirar, mira, ver, observa  → ""mirar"" (describe la sala)     ║
+║  examinar, x                → ""examinar espada"", ""x cofre""   ║
+║  leer, lee                  → ""leer pergamino"", ""lee carta""  ║
+╠══════════════════════════════════════════════════════════════╣
+║ INVENTARIO                                                   ║
+║  inventario, inv, i         → ""inventario"" (ver objetos)     ║
+║  coger, tomar, recoger      → ""coger llave"", ""coger todo""    ║
+║  soltar, dejar, tirar       → ""soltar espada""                ║
+╠══════════════════════════════════════════════════════════════╣
+║ INTERACCIÓN                                                  ║
+║  abrir, abre                → ""abrir cofre"", ""abrir puerta""  ║
+║  cerrar, cierra             → ""cerrar puerta""                ║
+║  usar, utilizar             → ""usar llave"", ""usar llave con  ║
+║                               puerta""                        ║
+║  meter, poner, guardar      → ""meter espada en cofre""        ║
+║  sacar, quitar              → ""sacar llave del cofre""        ║
+╠══════════════════════════════════════════════════════════════╣
+║ CONVERSACIÓN                                                 ║
+║  hablar, charlar            → ""hablar con mercader""          ║
+║  decir, di                  → ""decir 1"", ""di 2""              ║
+║  opcion                     → ""opcion 1""                     ║
+╠══════════════════════════════════════════════════════════════╣
+║ OTROS                                                        ║
+║  misiones, quest            → ""misiones"" (ver progreso)      ║
+║  ayuda, help                → ""ayuda"" (información básica)   ║
+╚══════════════════════════════════════════════════════════════╝
+
+💡 CONSEJO: Puedes escribir frases naturales como:
+   ""quiero coger la espada del suelo""
+   ""ve hacia el norte y abre la puerta""
+   ""examina el libro que hay en la mesa""
+
+🤖 ¿No te entiende? Activa la IA en Opciones para que interprete
+   mejor tus comandos con lenguaje natural.
 ";
     }
 
@@ -1738,6 +1892,31 @@ public class GameEngine
         return _state.Objects
             .Where(o => o.Visible && room.ObjectIds.Contains(o.Id, StringComparer.OrdinalIgnoreCase))
             .FirstOrDefault(o => o.Name.Contains(namePart, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Busca un objeto dentro de contenedores abiertos en la sala.
+    /// Devuelve el objeto encontrado y el contenedor que lo contiene.
+    /// </summary>
+    private (GameObject? obj, GameObject? container) FindObjectInOpenContainers(Room room, string namePart)
+    {
+        // Buscar todos los contenedores visibles en la sala
+        var containers = _state.Objects
+            .Where(o => o.Visible && o.IsContainer && room.ObjectIds.Contains(o.Id, StringComparer.OrdinalIgnoreCase))
+            .Where(o => o.IsOpen || o.ContentsVisible || !o.IsOpenable) // Contenedor accesible
+            .ToList();
+
+        foreach (var container in containers)
+        {
+            var objInContainer = container.ContainedObjectIds
+                .Select(FindObjectById)
+                .FirstOrDefault(o => o != null && o.Visible && o.Name.Contains(namePart, StringComparison.OrdinalIgnoreCase));
+
+            if (objInContainer != null)
+                return (objInContainer, container);
+        }
+
+        return (null, null);
     }
 
     private bool HasDistinctRoomMusic(Room room)

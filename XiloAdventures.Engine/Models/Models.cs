@@ -70,7 +70,8 @@ public enum ObjectType
     Comida,         // Comida
     Bebida,         // Bebida
     Ropa,           // Ropa
-    Llave           // Llave
+    Llave,          // Llave
+    Texto           // Documento legible (libro, carta, pergamino, etc.)
 }
 
 /// <summary>
@@ -186,6 +187,12 @@ public class GameObject
     public string Description { get; set; } = string.Empty;
 
     public ObjectType Type { get; set; } = ObjectType.Ninguno;
+
+    /// <summary>
+    /// Contenido de texto legible (solo para objetos de tipo Texto).
+    /// Se muestra al usar el comando "leer" sobre el objeto.
+    /// </summary>
+    public string? TextContent { get; set; }
 
     /// <summary>Género gramatical del objeto (para artículos: el/la).</summary>
     public GrammaticalGender Gender { get; set; } = GrammaticalGender.Masculine;

@@ -128,6 +128,12 @@ public partial class MainWindow : Window
             // Enviar al motor
             var result = _engine.ProcessCommand(cmd);
 
+            // Si el comando requiere limpiar la pantalla antes, hacerlo ahora
+            if (result.ClearScreenBefore)
+            {
+                OutputTextBox.Document.Blocks.Clear();
+            }
+
             // Si hubo error y la IA está activada, consultar a la IA
             if (_uiSettings.UseLlmForUnknownCommands && result.HasError)
             {
@@ -145,6 +151,12 @@ public partial class MainWindow : Window
 
                         if (!llmResult.HasError)
                         {
+                            // Si el comando reinterpretado requiere limpiar la pantalla, hacerlo
+                            if (llmResult.ClearScreenBefore)
+                            {
+                                OutputTextBox.Document.Blocks.Clear();
+                            }
+
                             // El comando interpretado funcionó
                             AppendText($"(Interpretado como: {llmCommand})");
                             AppendText(llmResult.Message);

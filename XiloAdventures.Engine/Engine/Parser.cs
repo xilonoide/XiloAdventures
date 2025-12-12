@@ -136,6 +136,8 @@ public static class Parser
         AddVerbAlias("save", "guardar", "salvar");
         AddVerbAlias("load", "cargar");
         AddVerbAlias("help", "ayuda");
+        AddVerbAlias("read", "leer", "lee");
+        AddVerbAlias("commands", "?", "verbos", "comandos");
 
         // Algunos sinónimos globales de nombres
         AddNounAlias("espada", "hoja", "sable", "mandoble");
