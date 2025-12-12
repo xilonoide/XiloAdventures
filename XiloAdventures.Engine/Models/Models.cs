@@ -24,6 +24,11 @@ public class WorldModel
     public List<ScriptDefinition> Scripts { get; set; } = new();
 
     /// <summary>
+    /// Conversaciones editables visualmente (diálogos con NPCs).
+    /// </summary>
+    public List<ConversationDefinition> Conversations { get; set; } = new();
+
+    /// <summary>
     /// Biblioteca de música del mundo (archivos compartidos entre salas).
     /// </summary>
     public List<MusicAsset> Musics { get; set; } = new();
@@ -249,8 +254,20 @@ public class Npc
     /// <summary>Sala inicial donde aparece el NPC.</summary>
     public string? RoomId { get; set; }
 
-    /// <summary>Diálogo simple para el NPC.</summary>
-    public List<DialogueLine> Dialogue { get; set; } = new();
+    /// <summary>ID de la conversación principal del NPC (sistema de blueprints).</summary>
+    public string? ConversationId { get; set; }
+
+    /// <summary>Si es true, el NPC es un comerciante con tienda.</summary>
+    public bool IsShopkeeper { get; set; }
+
+    /// <summary>IDs de objetos que el NPC vende (si es comerciante).</summary>
+    public List<string> ShopInventory { get; set; } = new();
+
+    /// <summary>Multiplicador de precio al comprar del jugador (ej: 0.5 = compra al 50%).</summary>
+    public double BuyPriceMultiplier { get; set; } = 0.5;
+
+    /// <summary>Multiplicador de precio al vender al jugador (ej: 1.0 = precio base).</summary>
+    public double SellPriceMultiplier { get; set; } = 1.0;
 
     /// <summary>Inventario del NPC.</summary>
     public List<string> InventoryObjectIds { get; set; } = new();
@@ -266,12 +283,6 @@ public class Npc
 
     /// <summary>Controla si el jugador puede ver / interactuar con el NPC en la sala.</summary>
     public bool Visible { get; set; } = true;
-}
-
-public class DialogueLine
-{
-    public int Index { get; set; }
-    public string Text { get; set; } = string.Empty;
 }
 
 public class CombatStats
@@ -435,6 +446,9 @@ public class GameState
     public Dictionary<string, bool> Flags { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, int> Counters { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public List<string> InventoryObjectIds { get; set; } = new();
+
+    /// <summary>Estado de la conversación activa (null si no hay diálogo en curso).</summary>
+    public ConversationState? ActiveConversation { get; set; }
 
     public DateTime GameTime { get; set; } = default;
     public int TurnCounter { get; set; }

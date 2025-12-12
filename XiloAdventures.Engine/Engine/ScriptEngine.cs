@@ -32,6 +32,11 @@ public class ScriptEngine
     /// </summary>
     public event Action<string>? OnPlayerTeleported;
 
+    /// <summary>
+    /// Evento disparado cuando un script quiere iniciar una conversación con un NPC.
+    /// </summary>
+    public event Action<string>? OnStartConversation;
+
     public ScriptEngine(WorldModel world, GameState gameState)
     {
         _world = world;
@@ -559,6 +564,16 @@ public class ScriptEngine
             {
                 var amount = GetPropertyValue<int>(node, "Amount", 0);
                 ctx.GameState.Player.Gold = Math.Max(0, ctx.GameState.Player.Gold - amount);
+                await Task.CompletedTask;
+            },
+
+            ["Action_StartConversation"] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                if (!string.IsNullOrEmpty(npcId))
+                {
+                    OnStartConversation?.Invoke(npcId);
+                }
                 await Task.CompletedTask;
             },
 

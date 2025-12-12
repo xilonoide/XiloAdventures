@@ -43,10 +43,11 @@ public partial class NodePalette : UserControl
         return category switch
         {
             NodeCategory.Event => 0,
-            NodeCategory.Condition => 1,
-            NodeCategory.Action => 2,
-            NodeCategory.Flow => 3,
-            NodeCategory.Variable => 4,
+            NodeCategory.Dialogue => 1,
+            NodeCategory.Condition => 2,
+            NodeCategory.Action => 3,
+            NodeCategory.Flow => 4,
+            NodeCategory.Variable => 5,
             _ => 99
         };
     }
@@ -56,6 +57,7 @@ public partial class NodePalette : UserControl
         return category switch
         {
             NodeCategory.Event => "Eventos",
+            NodeCategory.Dialogue => "Diálogos",
             NodeCategory.Condition => "Condiciones",
             NodeCategory.Action => "Acciones",
             NodeCategory.Flow => "Control de Flujo",

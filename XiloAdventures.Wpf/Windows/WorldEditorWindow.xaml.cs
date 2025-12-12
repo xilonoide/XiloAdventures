@@ -62,6 +62,7 @@ public partial class WorldEditorWindow : Window
         PropertyEditor.GetRooms = () => _world.Rooms;
         PropertyEditor.GetMusics = () => _world.Musics;
         PropertyEditor.GetObjects = () => _world.Objects;
+        PropertyEditor.GetConversations = () => _world.Conversations;
         MapPanel.RoomClicked += MapPanel_RoomClicked;
         MapPanel.MapEdited += MapPanel_MapEdited;
         MapPanel.DoorCreated += MapPanel_DoorCreated;
@@ -183,11 +184,7 @@ public partial class WorldEditorWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show(
-                $"Error al cargar el mundo:\n{ex.Message}",
-                "Error",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            DarkErrorDialog.Show("Error al cargar el mundo", ex.Message, this);
             IsCanceled = true;
         }
     }
@@ -1956,7 +1953,8 @@ public partial class WorldEditorWindow : Window
             GetNpcs = () => _world.Npcs,
             GetDoors = () => _world.Doors,
             GetQuests = () => _world.Quests,
-            GetFxs = () => _world.Fxs
+            GetFxs = () => _world.Fxs,
+            GetConversations = () => _world.Conversations
         };
 
         scriptEditor.ShowDialog();

@@ -25,6 +25,7 @@ public class GameEngine
     private DoorService _doorService;
     private DateTime _lastRealTime;
     private ScriptEngine? _scriptEngine;
+    private ConversationEngine? _conversationEngine;
     private bool _initialScriptsReady;
 
     /// <summary>
@@ -51,9 +52,29 @@ public class GameEngine
             WorldLoader.RebuildRoomIndexes(_state);
             OnRoomChanged();
         };
+        _scriptEngine.OnStartConversation += npcId =>
+        {
+            _ = StartConversationWithNpcAsync(npcId);
+        };
+
+        // Reinicializar el motor de conversaciones
+        InitializeConversationEngine();
 
         WorldLoader.RebuildRoomIndexes(_state);
         OnRoomChanged();
+    }
+
+    /// <summary>
+    /// Inicializa el motor de conversaciones y conecta sus eventos.
+    /// </summary>
+    private void InitializeConversationEngine()
+    {
+        _conversationEngine = new ConversationEngine(_world, _state);
+        _conversationEngine.OnDialogue += msg => ConversationDialogue?.Invoke(msg);
+        _conversationEngine.OnPlayerOptions += options => ConversationOptions?.Invoke(options);
+        _conversationEngine.OnShopOpen += shop => ShopOpened?.Invoke(shop);
+        _conversationEngine.OnConversationEnded += () => ConversationEnded?.Invoke();
+        _conversationEngine.OnSystemMessage += msg => ScriptMessage?.Invoke(msg);
     }
 
     /// <summary>
@@ -71,6 +92,31 @@ public class GameEngine
     /// Event raised when a script wants to show a message to the player.
     /// </summary>
     public event Action<string>? ScriptMessage;
+
+    /// <summary>
+    /// Evento cuando hay texto de diálogo en una conversación.
+    /// </summary>
+    public event Action<ConversationMessage>? ConversationDialogue;
+
+    /// <summary>
+    /// Evento cuando hay opciones de diálogo para el jugador.
+    /// </summary>
+    public event Action<List<DialogueOption>>? ConversationOptions;
+
+    /// <summary>
+    /// Evento cuando se abre la tienda.
+    /// </summary>
+    public event Action<ShopData>? ShopOpened;
+
+    /// <summary>
+    /// Evento cuando termina una conversación.
+    /// </summary>
+    public event Action? ConversationEnded;
+
+    /// <summary>
+    /// Indica si hay una conversación activa.
+    /// </summary>
+    public bool IsConversationActive => _conversationEngine?.IsConversationActive == true;
 
     /// <summary>
     /// Dispara los scripts iniciales (Event_OnGameStart y Event_OnEnter de la sala inicial).
@@ -135,6 +181,13 @@ public class GameEngine
             WorldLoader.RebuildRoomIndexes(_state);
             OnRoomChanged();
         };
+        _scriptEngine.OnStartConversation += npcId =>
+        {
+            _ = StartConversationWithNpcAsync(npcId);
+        };
+
+        // Inicializar el motor de conversaciones
+        InitializeConversationEngine();
 
         // Arrancar la música global del mundo (si la hay) al inicio de la partida.
         if (_world.Game != null && !string.IsNullOrWhiteSpace(_state.WorldMusicId))
@@ -444,29 +497,62 @@ public class GameEngine
         if (input.Trim() == "?")
             return CommandResult.Success(GetCommandsText());
 
-        var parsed = Parser.Parse(input);
-        if (string.IsNullOrEmpty(parsed.Verb))
+        // Si hay conversación activa, interceptar entrada numérica para seleccionar opciones
+        if (IsConversationActive)
+        {
+            var trimmed = input.Trim().ToLowerInvariant();
+
+            // Comandos para salir de la conversación
+            if (trimmed == "salir" || trimmed == "adios" || trimmed == "adiós")
+            {
+                _conversationEngine?.EndConversation();
+                return CommandResult.Success("Terminas la conversación.");
+            }
+
+            // Detectar entrada numérica directa: "1", "2", "3", "4"
+            if (int.TryParse(trimmed, out int optionNum) && optionNum >= 1 && optionNum <= 4)
+            {
+                _ = HandleConversationOptionAsync(optionNum - 1); // Convertir a 0-based
+                return CommandResult.Empty; // La UI se actualiza via eventos
+            }
+
+            // También aceptar "opcion N" o "decir N"
+            var parsed = Parser.Parse(input);
+            if ((parsed.Verb == "option" || parsed.Verb == "say") &&
+                int.TryParse(parsed.DirectObject, out int parsedOptionNum) &&
+                parsedOptionNum >= 1 && parsedOptionNum <= 4)
+            {
+                _ = HandleConversationOptionAsync(parsedOptionNum - 1);
+                return CommandResult.Empty;
+            }
+
+            // Si está en conversación pero no es un número válido, informar
+            return CommandResult.Error("Escribe el número de la opción (1-4), o 'salir' para terminar.");
+        }
+
+        var parsedCmd = Parser.Parse(input);
+        if (string.IsNullOrEmpty(parsedCmd.Verb))
             return CommandResult.Empty;
 
-        return parsed.Verb switch
+        return parsedCmd.Verb switch
         {
             "look" => HandleLook(),
-            "examine" => HandleExamine(parsed),
-            "go" => HandleGo(parsed),
-            "open" => HandleOpen(parsed),
-            "close" => HandleClose(parsed),
-            "unlock" => HandleUnlock(parsed),
-            "lock" => HandleLock(parsed),
-            "put" => HandlePutIn(parsed),
-            "get_from" => HandleGetFrom(parsed),
-            "look_in" => HandleLookIn(parsed),
+            "examine" => HandleExamine(parsedCmd),
+            "go" => HandleGo(parsedCmd),
+            "open" => HandleOpen(parsedCmd),
+            "close" => HandleClose(parsedCmd),
+            "unlock" => HandleUnlock(parsedCmd),
+            "lock" => HandleLock(parsedCmd),
+            "put" => HandlePutIn(parsedCmd),
+            "get_from" => HandleGetFrom(parsedCmd),
+            "look_in" => HandleLookIn(parsedCmd),
             "inventory" => CommandResult.Success(DescribeInventory()),
-            "take" => HandleTake(parsed),
-            "drop" => HandleDrop(parsed),
-            "talk" or "say" or "option" => HandleTalk(parsed),
-            "use" => HandleUse(parsed),
-            "give" => HandleGive(parsed),
-            "read" => HandleRead(parsed),
+            "take" => HandleTake(parsedCmd),
+            "drop" => HandleDrop(parsedCmd),
+            "talk" or "say" or "option" => HandleTalk(parsedCmd),
+            "use" => HandleUse(parsedCmd),
+            "give" => HandleGive(parsedCmd),
+            "read" => HandleRead(parsedCmd),
             "quests" => CommandResult.Success(DescribeQuests()),
             "save" => CommandResult.Success("Usa el menú Archivo -> Guardar partida... para guardar."),
             "load" => CommandResult.Success("Usa el menú Archivo -> Cargar partida... para cargar."),
@@ -1713,18 +1799,57 @@ public class GameEngine
         // Disparar script Event_OnTalk
         _ = TriggerEntityScriptAsync("Npc", npc.Id, "Event_OnTalk");
 
-        if (npc.Dialogue == null || npc.Dialogue.Count == 0)
+        // Si el NPC no tiene conversación asignada
+        if (string.IsNullOrEmpty(npc.ConversationId))
             return CommandResult.Success($"{Cap(npc.Name)} no tiene nada que decir.");
 
-        var sb = new StringBuilder();
-        sb.AppendLine($"Hablas con {Low(npc.Name)}:");
-        foreach (var line in npc.Dialogue.OrderBy(d => d.Index))
-        {
-            sb.AppendLine($" [{line.Index}] {line.Text}");
-        }
-        sb.AppendLine("Puedes usar 'decir <n>' u 'opcion <n>' para elegir.");
+        // Iniciar conversación con el NPC
+        _ = StartConversationWithNpcAsync(npc.Id);
+        return CommandResult.Empty; // La UI se actualiza via eventos
+    }
 
-        return CommandResult.Success(sb.ToString().TrimEnd());
+    /// <summary>
+    /// Inicia una conversación con un NPC de forma asíncrona.
+    /// </summary>
+    private async Task StartConversationWithNpcAsync(string npcId)
+    {
+        if (_conversationEngine == null) return;
+
+        try
+        {
+            await _conversationEngine.StartConversationAsync(npcId);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Conversation error: {ex.Message}");
+            ScriptMessage?.Invoke("Error al iniciar la conversación.");
+        }
+    }
+
+    /// <summary>
+    /// Maneja la selección de una opción de conversación.
+    /// </summary>
+    private async Task HandleConversationOptionAsync(int optionIndex)
+    {
+        if (_conversationEngine == null) return;
+
+        try
+        {
+            await _conversationEngine.SelectOptionAsync(optionIndex);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Conversation option error: {ex.Message}");
+            ScriptMessage?.Invoke("Error al seleccionar opción.");
+        }
+    }
+
+    /// <summary>
+    /// Inicia una conversación desde un script (Action_StartConversation).
+    /// </summary>
+    public async Task StartConversationFromScriptAsync(string npcId)
+    {
+        await StartConversationWithNpcAsync(npcId);
     }
 
     private CommandResult HandleUse(ParsedCommand parsed)

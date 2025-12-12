@@ -23,30 +23,6 @@ public static class WorldLoader
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: true) }
     };
 
-    private static bool TryParseWorldFromText(string text, out WorldModel? world)
-    {
-        world = null;
-        if (string.IsNullOrWhiteSpace(text))
-            return false;
-
-        string json;
-        if (!TryDecodeZippedJson(text, out json))
-        {
-            // Formato antiguo: el contenido desencriptado es directamente JSON.
-            json = text;
-        }
-
-        try
-        {
-            world = JsonSerializer.Deserialize<WorldModel>(json, Options);
-            return world != null;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
     /// <summary>
     /// Loads a world model from a .xaw file.
     /// </summary>
@@ -59,10 +35,63 @@ public static class WorldLoader
     {
         // Leer archivo directamente sin cifrado
         var rawText = File.ReadAllText(path, Encoding.UTF8);
-        if (TryParseWorldFromText(rawText, out var parsedWorld))
-            return NormalizeWorld(parsedWorld);
 
-        throw new InvalidDataException("No se pudo leer el mundo. El archivo puede estar corrupto.");
+        if (string.IsNullOrWhiteSpace(rawText))
+            throw new InvalidDataException("El archivo está vacío.");
+
+        string json;
+        if (!TryDecodeZippedJson(rawText, out json))
+        {
+            // Formato antiguo: el contenido es directamente JSON.
+            json = rawText;
+        }
+
+        try
+        {
+            var world = JsonSerializer.Deserialize<WorldModel>(json, Options);
+            if (world == null)
+                throw new InvalidDataException("El JSON se deserializó como null.");
+            return NormalizeWorld(world);
+        }
+        catch (JsonException ex)
+        {
+            // Construir mensaje de error detallado
+            var errorDetails = new StringBuilder();
+            errorDetails.AppendLine("Error de JSON:");
+            errorDetails.AppendLine();
+            errorDetails.AppendLine($"Mensaje: {ex.Message}");
+
+            if (ex.LineNumber.HasValue)
+                errorDetails.AppendLine($"Línea: {ex.LineNumber.Value + 1}");
+
+            if (ex.BytePositionInLine.HasValue)
+                errorDetails.AppendLine($"Posición: {ex.BytePositionInLine.Value}");
+
+            if (!string.IsNullOrEmpty(ex.Path))
+                errorDetails.AppendLine($"Ruta JSON: {ex.Path}");
+
+            // Mostrar contexto del error si es posible
+            if (ex.LineNumber.HasValue)
+            {
+                var lines = json.Split('\n');
+                var errorLine = (int)ex.LineNumber.Value;
+                errorDetails.AppendLine();
+                errorDetails.AppendLine("Contexto:");
+
+                // Mostrar 2 líneas antes y después del error
+                for (int i = Math.Max(0, errorLine - 2); i <= Math.Min(lines.Length - 1, errorLine + 2); i++)
+                {
+                    var prefix = i == errorLine ? ">>> " : "    ";
+                    var lineNum = (i + 1).ToString().PadLeft(4);
+                    var lineContent = lines[i].TrimEnd('\r');
+                    if (lineContent.Length > 80)
+                        lineContent = lineContent.Substring(0, 77) + "...";
+                    errorDetails.AppendLine($"{prefix}{lineNum}: {lineContent}");
+                }
+            }
+
+            throw new InvalidDataException(errorDetails.ToString(), ex);
+        }
     }
 
     private static WorldModel NormalizeWorld(WorldModel? world)

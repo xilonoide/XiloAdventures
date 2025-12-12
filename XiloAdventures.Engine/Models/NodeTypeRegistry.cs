@@ -22,6 +22,7 @@ public static class NodeTypeRegistry
         RegisterLogicNodes();
         RegisterDataActionNodes();
         RegisterSelectionNodes();
+        RegisterConversationNodes();
     }
 
     public static IReadOnlyDictionary<string, NodeTypeDefinition> Types => _types;
@@ -1705,6 +1706,306 @@ public static class NodeTypeRegistry
             OutputPorts = new[]
             {
                 new NodePort { Name = "Result", PortType = PortType.Data, DataType = "bool", Label = "Resultado" }
+            }
+        });
+    }
+
+    #endregion
+
+    #region Conversation Nodes
+
+    private static void RegisterConversationNodes()
+    {
+        // === INICIO DE CONVERSACIÓN ===
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Conversation_Start",
+            DisplayName = "Inicio de Conversación",
+            Description = "Punto de entrada de una conversación con NPC",
+            Category = NodeCategory.Dialogue,
+            OwnerTypes = new[] { "Conversation" },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            }
+        });
+
+        // === NPC DICE ===
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Conversation_NpcSay",
+            DisplayName = "NPC Dice",
+            Description = "El NPC dice un texto al jugador",
+            Category = NodeCategory.Dialogue,
+            OwnerTypes = new[] { "Conversation" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition
+                {
+                    Name = "Text",
+                    DisplayName = "Texto",
+                    DataType = "string",
+                    DefaultValue = "",
+                    IsRequired = true
+                },
+                new NodePropertyDefinition
+                {
+                    Name = "SpeakerName",
+                    DisplayName = "Nombre (opcional)",
+                    DataType = "string",
+                    DefaultValue = ""
+                },
+                new NodePropertyDefinition
+                {
+                    Name = "Emotion",
+                    DisplayName = "Emoción",
+                    DataType = "select",
+                    DefaultValue = "Neutral",
+                    Options = new[] { "Neutral", "Feliz", "Triste", "Enfadado", "Sorprendido" }
+                }
+            }
+        });
+
+        // === OPCIONES DEL JUGADOR ===
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Conversation_PlayerChoice",
+            DisplayName = "Opciones del Jugador",
+            Description = "Presenta opciones de diálogo al jugador (hasta 4)",
+            Category = NodeCategory.Dialogue,
+            OwnerTypes = new[] { "Conversation" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Option1", PortType = PortType.Execution, Label = "Opción 1" },
+                new NodePort { Name = "Option2", PortType = PortType.Execution, Label = "Opción 2" },
+                new NodePort { Name = "Option3", PortType = PortType.Execution, Label = "Opción 3" },
+                new NodePort { Name = "Option4", PortType = PortType.Execution, Label = "Opción 4" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "Text1", DisplayName = "Texto Opción 1", DataType = "string", DefaultValue = "" },
+                new NodePropertyDefinition { Name = "Text2", DisplayName = "Texto Opción 2", DataType = "string", DefaultValue = "" },
+                new NodePropertyDefinition { Name = "Text3", DisplayName = "Texto Opción 3", DataType = "string", DefaultValue = "" },
+                new NodePropertyDefinition { Name = "Text4", DisplayName = "Texto Opción 4", DataType = "string", DefaultValue = "" }
+            }
+        });
+
+        // === BIFURCACIÓN DE DIÁLOGO ===
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Conversation_Branch",
+            DisplayName = "Bifurcación de Diálogo",
+            Description = "Elige un camino según una condición",
+            Category = NodeCategory.Dialogue,
+            OwnerTypes = new[] { "Conversation" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "True", PortType = PortType.Execution, Label = "Sí" },
+                new NodePort { Name = "False", PortType = PortType.Execution, Label = "No" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition
+                {
+                    Name = "ConditionType",
+                    DisplayName = "Tipo de Condición",
+                    DataType = "select",
+                    DefaultValue = "HasFlag",
+                    Options = new[] { "HasFlag", "HasItem", "HasGold", "QuestStatus", "VisitedNode" }
+                },
+                new NodePropertyDefinition { Name = "FlagName", DisplayName = "Nombre del Flag", DataType = "string", DefaultValue = "" },
+                new NodePropertyDefinition { Name = "ItemId", DisplayName = "Objeto", DataType = "string", DefaultValue = "", EntityType = "GameObject" },
+                new NodePropertyDefinition { Name = "GoldAmount", DisplayName = "Cantidad de Oro", DataType = "int", DefaultValue = 0 },
+                new NodePropertyDefinition { Name = "QuestId", DisplayName = "Misión", DataType = "string", DefaultValue = "", EntityType = "Quest" },
+                new NodePropertyDefinition
+                {
+                    Name = "QuestStatus",
+                    DisplayName = "Estado de Misión",
+                    DataType = "select",
+                    DefaultValue = "InProgress",
+                    Options = new[] { "NotStarted", "InProgress", "Completed", "Failed" }
+                }
+            }
+        });
+
+        // === FIN DE CONVERSACIÓN ===
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Conversation_End",
+            DisplayName = "Fin de Conversación",
+            Description = "Termina la conversación y devuelve el control al juego",
+            Category = NodeCategory.Dialogue,
+            OwnerTypes = new[] { "Conversation" }
+,
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            }
+        });
+
+        // === ACCIÓN EN CONVERSACIÓN ===
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Conversation_Action",
+            DisplayName = "Ejecutar Acción",
+            Description = "Ejecuta una acción dentro de la conversación",
+            Category = NodeCategory.Dialogue,
+            OwnerTypes = new[] { "Conversation" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition
+                {
+                    Name = "ActionType",
+                    DisplayName = "Tipo de Acción",
+                    DataType = "select",
+                    DefaultValue = "ShowMessage",
+                    Options = new[] { "GiveItem", "RemoveItem", "AddGold", "RemoveGold", "SetFlag", "StartQuest", "CompleteQuest", "ShowMessage" }
+                },
+                new NodePropertyDefinition { Name = "ObjectId", DisplayName = "Objeto (si aplica)", DataType = "string", DefaultValue = "", EntityType = "GameObject" },
+                new NodePropertyDefinition { Name = "Amount", DisplayName = "Cantidad (si aplica)", DataType = "int", DefaultValue = 0 },
+                new NodePropertyDefinition { Name = "FlagName", DisplayName = "Flag (si aplica)", DataType = "string", DefaultValue = "" },
+                new NodePropertyDefinition { Name = "QuestId", DisplayName = "Misión (si aplica)", DataType = "string", DefaultValue = "", EntityType = "Quest" },
+                new NodePropertyDefinition { Name = "Message", DisplayName = "Mensaje (si aplica)", DataType = "string", DefaultValue = "" }
+            }
+        });
+
+        // === TIENDA ===
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Conversation_Shop",
+            DisplayName = "Abrir Tienda",
+            Description = "Abre la interfaz de compra/venta con el NPC",
+            Category = NodeCategory.Dialogue,
+            OwnerTypes = new[] { "Conversation" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "OnClose", PortType = PortType.Execution, Label = "Al Cerrar" },
+                new NodePort { Name = "OnBuy", PortType = PortType.Execution, Label = "Al Comprar" },
+                new NodePort { Name = "OnSell", PortType = PortType.Execution, Label = "Al Vender" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "ShopTitle", DisplayName = "Título de la Tienda", DataType = "string", DefaultValue = "Tienda" },
+                new NodePropertyDefinition { Name = "WelcomeMessage", DisplayName = "Mensaje de Bienvenida", DataType = "string", DefaultValue = "" }
+            }
+        });
+
+        // === COMPRAR OBJETO ===
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Conversation_BuyItem",
+            DisplayName = "Comprar Objeto",
+            Description = "Permite comprar un objeto específico con precio fijo",
+            Category = NodeCategory.Dialogue,
+            OwnerTypes = new[] { "Conversation" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Success", PortType = PortType.Execution, Label = "Éxito" },
+                new NodePort { Name = "NotEnoughGold", PortType = PortType.Execution, Label = "Sin Oro" },
+                new NodePort { Name = "Cancelled", PortType = PortType.Execution, Label = "Cancelado" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "ObjectId", DisplayName = "Objeto", DataType = "string", DefaultValue = "", EntityType = "GameObject", IsRequired = true },
+                new NodePropertyDefinition { Name = "Price", DisplayName = "Precio", DataType = "int", DefaultValue = 10, IsRequired = true },
+                new NodePropertyDefinition { Name = "ConfirmText", DisplayName = "Texto Confirmación", DataType = "string", DefaultValue = "¿Comprar por {precio} monedas?" }
+            }
+        });
+
+        // === VENDER OBJETO ===
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Conversation_SellItem",
+            DisplayName = "Vender Objeto",
+            Description = "Permite vender un objeto específico al NPC",
+            Category = NodeCategory.Dialogue,
+            OwnerTypes = new[] { "Conversation" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Success", PortType = PortType.Execution, Label = "Éxito" },
+                new NodePort { Name = "NoItem", PortType = PortType.Execution, Label = "No Tiene" },
+                new NodePort { Name = "Cancelled", PortType = PortType.Execution, Label = "Cancelado" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "ObjectId", DisplayName = "Objeto", DataType = "string", DefaultValue = "", EntityType = "GameObject", IsRequired = true },
+                new NodePropertyDefinition { Name = "Price", DisplayName = "Precio", DataType = "int", DefaultValue = 5, IsRequired = true }
+            }
+        });
+
+        // === SALTAR A OTRA CONVERSACIÓN ===
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Conversation_Jump",
+            DisplayName = "Saltar a Conversación",
+            Description = "Cambia a otra conversación",
+            Category = NodeCategory.Dialogue,
+            OwnerTypes = new[] { "Conversation" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "ConversationId", DisplayName = "Conversación", DataType = "string", DefaultValue = "", EntityType = "Conversation", IsRequired = true }
+            }
+        });
+
+        // === ACCIÓN PARA SCRIPTS: INICIAR CONVERSACIÓN ===
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_StartConversation",
+            DisplayName = "Iniciar Conversación",
+            Description = "Inicia una conversación con un NPC (para usar en scripts)",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "NpcId", DisplayName = "NPC", DataType = "string", DefaultValue = "", EntityType = "Npc", IsRequired = true }
             }
         });
     }

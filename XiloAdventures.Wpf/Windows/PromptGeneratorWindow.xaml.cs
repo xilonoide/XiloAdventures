@@ -62,12 +62,12 @@ public partial class PromptGeneratorWindow : Window
     {
       ""Id"": ""npc_id"",
       ""Name"": ""Nombre"",
-      ""Description"": ""Descripción"",
+      ""Description"": ""Descripción del NPC y su personalidad"",
       ""RoomId"": ""room_id"",
-      ""Dialogue"": [
-        { ""Index"": 0, ""Text"": ""Primera línea de diálogo"" },
-        { ""Index"": 1, ""Text"": ""Segunda línea de diálogo"" }
-      ]
+      ""IsShopkeeper"": false,
+      ""ShopInventory"": [],
+      ""BuyPriceMultiplier"": 0.5,
+      ""SellPriceMultiplier"": 1.0
     }
   ],
   ""Doors"": [
@@ -192,7 +192,7 @@ Genera un mundo con temática ""{THEME}"" que contenga:
    - {KEY_COUNT} llaves (Type=""llave"") - para abrir puertas/contenedores
    - {TEXT_COUNT} documentos legibles (Type=""texto"") - cartas, diarios, pergaminos... con TextContent
    - {OTHER_COUNT} objetos genéricos (Type=""ninguno"") - gemas, monedas, herramientas, objetos de puzzle...
-5. **{NPC_COUNT} NPCs** con personalidad y diálogos acordes a la temática (cada NPC debe tener al menos 2-3 líneas de Dialogue)
+5. **{NPC_COUNT} NPCs** con personalidad acorde a la temática. Si es comerciante, pon IsShopkeeper=true y añade objetos a ShopInventory
 6. **{QUEST_COUNT} misiones**
 7. **Scripts variados** que demuestren (usa los TypeId EXACTOS de la lista anterior):
    - Un objeto que al examinarlo (`Event_OnExamine`) muestra mensaje (`Action_ShowMessage`)

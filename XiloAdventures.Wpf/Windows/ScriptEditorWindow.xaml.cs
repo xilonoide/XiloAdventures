@@ -43,6 +43,7 @@ public partial class ScriptEditorWindow : Window
     public Func<IEnumerable<Door>>? GetDoors { get; set; }
     public Func<IEnumerable<QuestDefinition>>? GetQuests { get; set; }
     public Func<IEnumerable<FxAsset>>? GetFxs { get; set; }
+    public Func<IEnumerable<ConversationDefinition>>? GetConversations { get; set; }
 
     public ScriptEditorWindow(WorldModel world, string ownerType, string ownerId, string ownerName)
     {
@@ -97,6 +98,7 @@ public partial class ScriptEditorWindow : Window
             "Npc" => "NPC",
             "GameObject" => "Objeto",
             "Quest" => "Mision",
+            "Conversation" => "Conversación",
             _ => ownerType
         };
     }
@@ -1024,6 +1026,27 @@ public partial class ScriptEditorWindow : Window
         }
         EntityTree.Items.Add(questsRoot);
 
+        // Nodo Conversaciones
+        var conversationsRoot = new TreeViewItem { Header = "Conversaciones", Foreground = Brushes.White };
+        foreach (var conv in _world.Conversations.OrderBy(c => c.Name))
+        {
+            var convNode = new TreeViewItem
+            {
+                Header = $"💬 {conv.Name}",
+                Tag = ("Conversation", conv.Id, conv),
+                Foreground = GetConversationColor(conv)
+            };
+            conversationsRoot.Items.Add(convNode);
+
+            if (_selectedEntityType == "Conversation" && _selectedEntityId == conv.Id)
+            {
+                nodeToSelect = convNode;
+                _selectedEntity = conv;
+                conversationsRoot.IsExpanded = true;
+            }
+        }
+        EntityTree.Items.Add(conversationsRoot);
+
         // Seleccionar y dar foco al nodo después de que el layout se actualice
         if (nodeToSelect != null)
         {
@@ -1043,6 +1066,32 @@ public partial class ScriptEditorWindow : Window
             s.OwnerType == ownerType &&
             s.OwnerId == ownerId &&
             (s.Nodes.Count > 0 || s.Connections.Count > 0));
+    }
+
+    /// <summary>
+    /// Obtiene el color del texto para una conversación según su estado de validación.
+    /// </summary>
+    private Brush GetConversationColor(ConversationDefinition conv)
+    {
+        if (conv.Nodes.Count == 0)
+            return Brushes.White; // Sin nodos
+
+        // Verificar si tiene un nodo de inicio
+        var hasStart = conv.Nodes.Any(n =>
+            string.Equals(n.NodeType, "Conversation_Start", StringComparison.OrdinalIgnoreCase));
+
+        // Verificar si tiene al menos un nodo de diálogo
+        var hasDialogue = conv.Nodes.Any(n =>
+            n.NodeType.StartsWith("Conversation_", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(n.NodeType, "Conversation_Start", StringComparison.OrdinalIgnoreCase));
+
+        // Verificar si hay conexiones
+        var isConnected = conv.Connections.Count > 0;
+
+        if (hasStart && hasDialogue && isConnected)
+            return new SolidColorBrush(Color.FromRgb(100, 220, 100)); // Verde - válido
+
+        return new SolidColorBrush(Color.FromRgb(255, 220, 100)); // Amarillo - incompleto
     }
 
     /// <summary>
@@ -1091,6 +1140,23 @@ public partial class ScriptEditorWindow : Window
         // Actualizar la paleta de nodos según el tipo de entidad
         NodePalette.SetOwnerType(entityType);
 
+        // Manejo especial para conversaciones
+        if (entityType == "Conversation" && entity is ConversationDefinition conversation)
+        {
+            // Crear un ScriptDefinition temporal que envuelve la conversación
+            var wrapperScript = new ScriptDefinition
+            {
+                Id = $"conv_wrapper_{conversation.Id}",
+                Name = conversation.Name,
+                OwnerType = "Conversation",
+                OwnerId = conversation.Id,
+                Nodes = conversation.Nodes,
+                Connections = conversation.Connections
+            };
+            SwitchToScript(wrapperScript);
+            return;
+        }
+
         // Buscar o crear el primer script de esta entidad
         var entityScript = _world.Scripts.FirstOrDefault(s =>
             s.OwnerType == entityType && s.OwnerId == entityId);
@@ -1122,6 +1188,7 @@ public partial class ScriptEditorWindow : Window
             Npc npc => npc.Name ?? npc.Id,
             GameObject obj => obj.Name ?? obj.Id,
             QuestDefinition quest => quest.Name ?? quest.Id,
+            ConversationDefinition conv => conv.Name ?? conv.Id,
             _ => "Entidad"
         };
     }
@@ -1292,6 +1359,7 @@ public partial class ScriptEditorWindow : Window
             "Npc" => _world.Npcs?.FirstOrDefault(n => n.Id == ownerId)?.Name ?? ownerId,
             "GameObject" => _world.Objects?.FirstOrDefault(o => o.Id == ownerId)?.Name ?? ownerId,
             "Quest" => _world.Quests?.FirstOrDefault(q => q.Id == ownerId)?.Name ?? ownerId,
+            "Conversation" => _world.Conversations?.FirstOrDefault(c => c.Id == ownerId)?.Name ?? ownerId,
             _ => ownerId
         };
     }
@@ -1319,6 +1387,23 @@ public partial class ScriptEditorWindow : Window
         if (string.IsNullOrWhiteSpace(_script.Name))
         {
             _script.Name = "Script nuevo";
+        }
+
+        // Si estamos editando una conversación, sincronizar de vuelta
+        if (_script.OwnerType == "Conversation")
+        {
+            var conversation = _world.Conversations.FirstOrDefault(c =>
+                string.Equals(c.Id, _script.OwnerId, StringComparison.OrdinalIgnoreCase));
+
+            if (conversation != null)
+            {
+                conversation.Name = _script.Name;
+                // Los nodos y conexiones ya están vinculados por referencia
+                // pero actualizamos el StartNodeId si hay un nodo de inicio
+                var startNode = conversation.Nodes.FirstOrDefault(n =>
+                    string.Equals(n.NodeType, "Conversation_Start", StringComparison.OrdinalIgnoreCase));
+                conversation.StartNodeId = startNode?.Id;
+            }
         }
     }
 

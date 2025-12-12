@@ -44,6 +44,8 @@ public partial class PropertyEditor : UserControl
 
     public Func<IEnumerable<GameObject>>? GetObjects { get; set; }
 
+    public Func<IEnumerable<ConversationDefinition>>? GetConversations { get; set; }
+
     /// <summary>
     /// Indica si la IA está activada en el editor. Controla la visibilidad del checkbox de género/plural manual.
     /// </summary>
@@ -318,6 +320,10 @@ public partial class PropertyEditor : UserControl
 
         // Propiedades de llave de Door
         if (obj is Door && name is "KeyObjectId")
+            return "⚙️ Comportamiento";
+
+        // Propiedades de conversación y comercio de NPC
+        if (obj is Npc && name is "ConversationId" or "IsShopkeeper" or "ShopInventory" or "BuyPriceMultiplier" or "SellPriceMultiplier")
             return "⚙️ Comportamiento";
 
         // Propiedades de contenedor de GameObject (se mostrarán con sangría dentro de Comportamiento)
@@ -1373,11 +1379,6 @@ public partial class PropertyEditor : UserControl
                 {
                     text = string.Join(", ", list);
                 }
-                else if (prop.PropertyType == typeof(List<DialogueLine>) && valueObj is List<DialogueLine> dialogueList)
-                {
-                    // Mostrar diálogos como texto multilínea con índice
-                    text = string.Join("\n", dialogueList.OrderBy(d => d.Index).Select(d => d.Text));
-                }
                 else
                 {
                     text = Convert.ToString(valueObj) ?? string.Empty;
@@ -1389,8 +1390,7 @@ public partial class PropertyEditor : UserControl
                     (obj is Room || obj is GameObject || obj is Npc)) ||
                     (prop.PropertyType == typeof(string) &&
                     string.Equals(prop.Name, "TextContent", StringComparison.OrdinalIgnoreCase) &&
-                    obj is GameObject) ||
-                    (prop.PropertyType == typeof(List<DialogueLine>) && obj is Npc);
+                    obj is GameObject);
 
                 // Si es una propiedad de llave (KeyObjectId o KeyId), crear un ComboBox con objetos de tipo Llave
                 bool isKeyProperty =
@@ -1445,6 +1445,55 @@ public partial class PropertyEditor : UserControl
                     };
 
                     editor = combo;
+                }
+                // Selector de conversación para NPCs
+                else if (prop.PropertyType == typeof(string) &&
+                         string.Equals(prop.Name, "ConversationId", StringComparison.OrdinalIgnoreCase) &&
+                         obj is Npc && GetConversations != null)
+                {
+                    var conversations = GetConversations().ToList();
+
+                    // Crear lista de opciones con "(sin conversación)" al principio
+                    var convOptions = new List<ConversationComboItem>
+                    {
+                        new ConversationComboItem { Id = "", DisplayName = "(sin conversación)" }
+                    };
+                    convOptions.AddRange(conversations.Select(c => new ConversationComboItem
+                    {
+                        Id = c.Id,
+                        DisplayName = c.Name
+                    }));
+
+                    var comboConv = new ComboBox
+                    {
+                        Margin = new Thickness(0, 2, 0, 0),
+                        DisplayMemberPath = nameof(ConversationComboItem.DisplayName),
+                        SelectedValuePath = nameof(ConversationComboItem.Id),
+                        ItemsSource = convOptions
+                    };
+
+                    var currentConvId = Convert.ToString(prop.GetValue(obj)) ?? string.Empty;
+                    comboConv.SelectedValue = currentConvId;
+
+                    comboConv.SelectionChanged += (_, _) =>
+                    {
+                        try
+                        {
+                            if (_currentObject is not Npc npc) return;
+                            if (comboConv.SelectedValue is string convId)
+                            {
+                                // Si es cadena vacía, guardar como null
+                                npc.ConversationId = string.IsNullOrEmpty(convId) ? null : convId;
+                                PropertyEdited?.Invoke(npc, prop.Name);
+                            }
+                        }
+                        catch
+                        {
+                            // Ignorar errores
+                        }
+                    };
+
+                    editor = comboConv;
                 }
                 else
                 {
@@ -1505,21 +1554,6 @@ public partial class PropertyEditor : UserControl
                                     listVal.Add(s);
                             }
                             value = listVal;
-                        }
-                        else if (prop.PropertyType == typeof(List<DialogueLine>))
-                        {
-                            // Cada línea del TextBox es un diálogo
-                            var lines = (tb.Text ?? string.Empty).Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-                            var dialogueList = new List<DialogueLine>();
-                            for (int i = 0; i < lines.Length; i++)
-                            {
-                                var lineText = lines[i].Trim();
-                                if (!string.IsNullOrEmpty(lineText))
-                                {
-                                    dialogueList.Add(new DialogueLine { Index = i, Text = lineText });
-                                }
-                            }
-                            value = dialogueList;
                         }
 
                         prop.SetValue(target, value);
@@ -1679,6 +1713,16 @@ public partial class PropertyEditor : UserControl
         ["Npc.Tags"] = "Etiquetas",
         ["Npc.Visible"] = "Visible",
         ["Npc.Stats"] = "Estadísticas",
+        ["Npc.ConversationId"] = "Conversación",
+        ["Npc.IsShopkeeper"] = "Es comerciante",
+        ["Npc.ShopInventory"] = "Inventario de tienda",
+        ["Npc.BuyPriceMultiplier"] = "Multiplicador compra",
+        ["Npc.SellPriceMultiplier"] = "Multiplicador venta",
+        ["ConversationId"] = "Conversación",
+        ["IsShopkeeper"] = "Es comerciante",
+        ["ShopInventory"] = "Inventario de tienda",
+        ["BuyPriceMultiplier"] = "Multiplicador compra",
+        ["SellPriceMultiplier"] = "Multiplicador venta",
 
         // Puerta
         ["Door.RoomIdA"] = "Sala A",
@@ -2115,5 +2159,14 @@ internal class OpenFromSideComboItem
 internal class GenderComboItem
 {
     public GrammaticalGender Value { get; set; }
+    public string DisplayName { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Item para el ComboBox de selección de conversación.
+/// </summary>
+internal class ConversationComboItem
+{
+    public string Id { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
 }

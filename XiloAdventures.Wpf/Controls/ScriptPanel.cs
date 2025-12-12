@@ -84,7 +84,8 @@ public partial class ScriptPanel : Control
         { NodeCategory.Condition, Color.FromRgb(180, 150, 40) }, // Amarillo
         { NodeCategory.Action, Color.FromRgb(60, 100, 160) },    // Azul
         { NodeCategory.Flow, Color.FromRgb(80, 80, 80) },        // Gris
-        { NodeCategory.Variable, Color.FromRgb(180, 100, 40) }   // Naranja
+        { NodeCategory.Variable, Color.FromRgb(180, 100, 40) },  // Naranja
+        { NodeCategory.Dialogue, Color.FromRgb(140, 80, 180) }   // Morado
     };
 
     static ScriptPanel()

@@ -91,7 +91,8 @@ public enum NodeCategory
     Condition,  // Nodos de condicion - Amarillo
     Action,     // Nodos de accion - Azul
     Flow,       // Control de flujo - Gris
-    Variable    // Variables - Naranja
+    Variable,   // Variables - Naranja
+    Dialogue    // Nodos de conversación - Morado
 }
 
 /// <summary>

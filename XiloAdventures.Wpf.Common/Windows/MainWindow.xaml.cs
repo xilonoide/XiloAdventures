@@ -47,6 +47,10 @@ public partial class MainWindow : Window
         _engine = new GameEngine(world, state, _sound);
         _engine.RoomChanged += Engine_RoomChanged;
         _engine.ScriptMessage += Engine_ScriptMessage;
+        _engine.ConversationDialogue += Engine_ConversationDialogue;
+        _engine.ConversationOptions += Engine_ConversationOptions;
+        _engine.ConversationEnded += Engine_ConversationEnded;
+        _engine.ShopOpened += Engine_ShopOpened;
         _engine.TriggerInitialScripts(); // Disparar scripts iniciales después de suscribir eventos
 
         InitializeComponent();
@@ -483,6 +487,78 @@ public partial class MainWindow : Window
         });
     }
 
+    private void Engine_ConversationDialogue(ConversationMessage message)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            // Formato: [NPC (emoción)] "Texto del diálogo"
+            var emotionStr = message.Emotion != "Neutral" ? $" ({message.Emotion})" : "";
+            var speaker = message.IsNpc ? message.SpeakerName : "Tú";
+            var formattedText = $"[{speaker}{emotionStr}]: \"{message.Text}\"";
+            AppendText(formattedText);
+        });
+    }
+
+    private void Engine_ConversationOptions(List<DialogueOption> options)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            if (options == null || options.Count == 0)
+                return;
+
+            var sb = new StringBuilder();
+            sb.AppendLine("\n¿Qué dices?");
+            foreach (var option in options)
+            {
+                var prefix = option.IsEnabled ? $"  [{option.Index + 1}]" : $"  (×)";
+                var suffix = !option.IsEnabled && !string.IsNullOrEmpty(option.DisabledReason)
+                    ? $" - {option.DisabledReason}"
+                    : "";
+                sb.AppendLine($"{prefix} {option.Text}{suffix}");
+            }
+            sb.AppendLine("\n(Escribe el número de tu elección o 'salir' para terminar)");
+            AppendText(sb.ToString());
+        });
+    }
+
+    private void Engine_ConversationEnded()
+    {
+        Dispatcher.Invoke(() =>
+        {
+            AppendText("\n[Fin de la conversación]\n");
+        });
+    }
+
+    private void Engine_ShopOpened(ShopData shopData)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            // Por ahora mostramos la tienda en texto
+            // En el futuro se puede crear una ventana de tienda visual
+            var sb = new StringBuilder();
+            sb.AppendLine($"\n=== {shopData.Title} ===");
+            if (!string.IsNullOrEmpty(shopData.WelcomeMessage))
+                sb.AppendLine($"\"{shopData.WelcomeMessage}\"");
+
+            sb.AppendLine("\nArtículos a la venta:");
+            if (shopData.ItemsForSale.Count == 0)
+            {
+                sb.AppendLine("  (No hay artículos disponibles)");
+            }
+            else
+            {
+                foreach (var item in shopData.ItemsForSale)
+                {
+                    var stock = item.Stock < 0 ? "" : $" (x{item.Stock})";
+                    sb.AppendLine($"  - {item.Name}: {item.Price} monedas{stock}");
+                }
+            }
+
+            sb.AppendLine("\nUsa 'comprar <objeto>' o 'vender <objeto>'");
+            sb.AppendLine("Escribe 'salir' para cerrar la tienda.\n");
+            AppendText(sb.ToString());
+        });
+    }
 
     private void UpdateRoomVisuals()
     {
