@@ -12,6 +12,7 @@ namespace XiloAdventures.Wpf.Controls;
 public partial class NodePalette : UserControl
 {
     private string _ownerType = string.Empty;
+    private List<NodeTypeDefinition> _allNodes = new();
 
     public NodePalette()
     {
@@ -21,20 +22,86 @@ public partial class NodePalette : UserControl
     public void SetOwnerType(string ownerType)
     {
         _ownerType = ownerType;
-        CategoriesPanel.Children.Clear();
+        SearchTextBox.Text = string.Empty;
 
         // Obtener nodos disponibles para este tipo de entidad
-        var availableNodes = NodeTypeRegistry.GetNodesForOwnerType(ownerType);
+        _allNodes = NodeTypeRegistry.GetNodesForOwnerType(ownerType).ToList();
+
+        RefreshNodeList();
+    }
+
+    private void RefreshNodeList(string? filter = null)
+    {
+        CategoriesPanel.Children.Clear();
+
+        var nodesToShow = _allNodes.AsEnumerable();
+
+        // Aplicar filtro si existe
+        if (!string.IsNullOrWhiteSpace(filter))
+        {
+            var filterLower = filter.ToLowerInvariant();
+            nodesToShow = nodesToShow.Where(n =>
+                n.DisplayName.ToLowerInvariant().Contains(filterLower) ||
+                (n.Description?.ToLowerInvariant().Contains(filterLower) ?? false));
+        }
 
         // Agrupar por categoría
-        var nodesByCategory = availableNodes
+        var nodesByCategory = nodesToShow
             .GroupBy(n => n.Category)
             .OrderBy(g => GetCategoryOrder(g.Key));
 
         foreach (var categoryGroup in nodesByCategory)
         {
             var expander = CreateCategoryExpander(categoryGroup.Key, categoryGroup.ToList());
+            // Si hay filtro, expandir todo para mostrar resultados
+            if (!string.IsNullOrWhiteSpace(filter))
+            {
+                expander.IsExpanded = true;
+            }
             CategoriesPanel.Children.Add(expander);
+        }
+
+        // Expandir subgrupos si hay filtro
+        if (!string.IsNullOrWhiteSpace(filter))
+        {
+            ExpandAllExpanders(true);
+        }
+    }
+
+    private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        RefreshNodeList(SearchTextBox.Text);
+    }
+
+    private void ExpandAll_Click(object sender, RoutedEventArgs e)
+    {
+        ExpandAllExpanders(true);
+    }
+
+    private void CollapseAll_Click(object sender, RoutedEventArgs e)
+    {
+        ExpandAllExpanders(false);
+    }
+
+    private void ExpandAllExpanders(bool expand)
+    {
+        foreach (var child in CategoriesPanel.Children)
+        {
+            if (child is Expander expander)
+            {
+                expander.IsExpanded = expand;
+                // También expandir/contraer subgrupos
+                if (expander.Content is StackPanel panel)
+                {
+                    foreach (var subChild in panel.Children)
+                    {
+                        if (subChild is Expander subExpander)
+                        {
+                            subExpander.IsExpanded = expand;
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -106,10 +173,29 @@ public partial class NodePalette : UserControl
 
         var nodesPanel = new StackPanel { Margin = new Thickness(4, 2, 4, 4) };
 
-        foreach (var nodeDef in nodes.OrderBy(n => n.DisplayName))
+        // Agrupar nodos por prefijo (ej: "Jugador:" crea un subgrupo)
+        var subgroups = nodes
+            .GroupBy(n => GetNodeSubgroup(n.DisplayName))
+            .OrderBy(g => g.Key == null ? 0 : 1) // Nodos sin subgrupo primero
+            .ThenBy(g => g.Key ?? "");
+
+        foreach (var group in subgroups)
         {
-            var nodeItem = CreateNodeItem(nodeDef, categoryColor);
-            nodesPanel.Children.Add(nodeItem);
+            if (group.Key == null)
+            {
+                // Nodos sin subgrupo
+                foreach (var nodeDef in group.OrderBy(n => n.DisplayName))
+                {
+                    var nodeItem = CreateNodeItem(nodeDef, categoryColor);
+                    nodesPanel.Children.Add(nodeItem);
+                }
+            }
+            else
+            {
+                // Crear sub-expander para el subgrupo
+                var subExpander = CreateSubgroupExpander(group.Key, group.ToList(), categoryColor);
+                nodesPanel.Children.Add(subExpander);
+            }
         }
 
         var expander = new Expander
@@ -124,9 +210,90 @@ public partial class NodePalette : UserControl
         return expander;
     }
 
-    private Border CreateNodeItem(NodeTypeDefinition nodeDef, Color categoryColor)
+    private static string? GetNodeSubgroup(string displayName)
+    {
+        // Detectar prefijos como "Jugador:" para crear subgrupos
+        var colonIndex = displayName.IndexOf(':');
+        if (colonIndex > 0 && colonIndex < displayName.Length - 1)
+        {
+            return displayName[..colonIndex].Trim();
+        }
+        return null;
+    }
+
+    private Expander CreateSubgroupExpander(string subgroupName, List<NodeTypeDefinition> nodes, Color categoryColor)
+    {
+        var headerPanel = new StackPanel { Orientation = Orientation.Horizontal };
+
+        // Icono de subgrupo según nombre
+        var iconText = subgroupName switch
+        {
+            "Jugador" => "👤 ",
+            "Juego" => "🎮 ",
+            "Operadores" => "🔧 ",
+            _ => "📁 "
+        };
+
+        var icon = new TextBlock
+        {
+            Text = iconText,
+            FontSize = 11,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        headerPanel.Children.Add(icon);
+
+        // Nombre del subgrupo
+        var headerText = new TextBlock
+        {
+            Text = subgroupName,
+            Foreground = new SolidColorBrush(Color.FromRgb(200, 200, 200)),
+            FontWeight = FontWeights.Normal,
+            FontSize = 11
+        };
+        headerPanel.Children.Add(headerText);
+
+        // Contador
+        var countText = new TextBlock
+        {
+            Text = $" ({nodes.Count})",
+            Foreground = new SolidColorBrush(Color.FromRgb(120, 120, 120)),
+            FontSize = 10
+        };
+        headerPanel.Children.Add(countText);
+
+        var nodesPanel = new StackPanel { Margin = new Thickness(8, 2, 0, 2) };
+
+        foreach (var nodeDef in nodes.OrderBy(n => n.DisplayName))
+        {
+            // Mostrar solo la parte después del prefijo
+            var nodeItem = CreateNodeItem(nodeDef, categoryColor, removePrefix: true);
+            nodesPanel.Children.Add(nodeItem);
+        }
+
+        return new Expander
+        {
+            Header = headerPanel,
+            Content = nodesPanel,
+            IsExpanded = false,
+            Foreground = Brushes.White,
+            Margin = new Thickness(0, 2, 0, 2)
+        };
+    }
+
+    private Border CreateNodeItem(NodeTypeDefinition nodeDef, Color categoryColor, bool removePrefix = false)
     {
         var itemPanel = new StackPanel { Orientation = Orientation.Horizontal };
+
+        // Determinar el nombre a mostrar
+        var displayName = nodeDef.DisplayName;
+        if (removePrefix)
+        {
+            var colonIndex = displayName.IndexOf(':');
+            if (colonIndex > 0 && colonIndex < displayName.Length - 1)
+            {
+                displayName = displayName[(colonIndex + 1)..].Trim();
+            }
+        }
 
         // Mini indicador de color
         var miniIndicator = new Border
@@ -142,7 +309,7 @@ public partial class NodePalette : UserControl
         // Nombre del nodo
         var nameText = new TextBlock
         {
-            Text = nodeDef.DisplayName,
+            Text = displayName,
             Foreground = Brushes.White,
             FontSize = 11,
             VerticalAlignment = VerticalAlignment.Center

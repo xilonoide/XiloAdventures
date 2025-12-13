@@ -922,7 +922,7 @@ public partial class ScriptEditorWindow : Window
         }
 
         // Nodo Salas
-        var roomsRoot = new TreeViewItem { Header = "Salas", Foreground = Brushes.White };
+        var roomsRoot = new TreeViewItem { Header = $"Salas ({_world.Rooms.Count})", Foreground = Brushes.White };
         foreach (var room in _world.Rooms.OrderBy(r => r.Name))
         {
             var roomNode = new TreeViewItem
@@ -967,7 +967,7 @@ public partial class ScriptEditorWindow : Window
         EntityTree.Items.Add(roomsRoot);
 
         // Nodo Objetos
-        var objectsRoot = new TreeViewItem { Header = "Objetos", Foreground = Brushes.White };
+        var objectsRoot = new TreeViewItem { Header = $"Objetos ({_world.Objects.Count})", Foreground = Brushes.White };
         foreach (var obj in _world.Objects.OrderBy(o => o.Name))
         {
             var objNode = new TreeViewItem
@@ -988,7 +988,7 @@ public partial class ScriptEditorWindow : Window
         EntityTree.Items.Add(objectsRoot);
 
         // Nodo NPCs
-        var npcsRoot = new TreeViewItem { Header = "NPCs", Foreground = Brushes.White };
+        var npcsRoot = new TreeViewItem { Header = $"NPCs ({_world.Npcs.Count})", Foreground = Brushes.White };
         foreach (var npc in _world.Npcs.OrderBy(n => n.Name))
         {
             var npcNode = new TreeViewItem
@@ -1009,7 +1009,7 @@ public partial class ScriptEditorWindow : Window
         EntityTree.Items.Add(npcsRoot);
 
         // Nodo Misiones
-        var questsRoot = new TreeViewItem { Header = "Misiones", Foreground = Brushes.White };
+        var questsRoot = new TreeViewItem { Header = $"Misiones ({_world.Quests.Count})", Foreground = Brushes.White };
         foreach (var quest in _world.Quests.OrderBy(q => q.Name))
         {
             var questNode = new TreeViewItem
@@ -1030,7 +1030,7 @@ public partial class ScriptEditorWindow : Window
         EntityTree.Items.Add(questsRoot);
 
         // Nodo Conversaciones
-        var conversationsRoot = new TreeViewItem { Header = "Conversaciones", Foreground = Brushes.White };
+        var conversationsRoot = new TreeViewItem { Header = $"Conversaciones ({_world.Conversations.Count})", Foreground = Brushes.White };
         foreach (var conv in _world.Conversations.OrderBy(c => c.Name))
         {
             var convNode = new TreeViewItem

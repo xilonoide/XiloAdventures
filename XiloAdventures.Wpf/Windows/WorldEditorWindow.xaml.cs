@@ -304,12 +304,14 @@ public partial class WorldEditorWindow : Window
     private void BuildTree()
     {
         // Guardar el estado expandido de los nodos antes de reconstruir
+        // Extraer solo el nombre base (sin contador) para comparación
         var expandedNodes = new HashSet<string>();
         foreach (TreeViewItem root in WorldTree.Items)
         {
             if (root.IsExpanded && root.Header is string header)
             {
-                expandedNodes.Add(header);
+                var baseName = header.Contains(" (") ? header[..header.IndexOf(" (")] : header;
+                expandedNodes.Add(baseName);
             }
         }
 
@@ -328,7 +330,7 @@ public partial class WorldEditorWindow : Window
 
         WorldTree.Items.Add(gameNode);
 
-        var roomsRoot = new TreeViewItem { Header = "Salas", Foreground = Brushes.White };
+        var roomsRoot = new TreeViewItem { Header = $"Salas ({_world.Rooms.Count})", Foreground = Brushes.White };
         foreach (var room in _world.Rooms)
         {
             var roomNode = new TreeViewItem { Header = room.Name, Tag = room, Foreground = Brushes.White };
@@ -347,7 +349,7 @@ public partial class WorldEditorWindow : Window
         }
         WorldTree.Items.Add(roomsRoot);
 
-        var objsRoot = new TreeViewItem { Header = "Objetos", Foreground = Brushes.White };
+        var objsRoot = new TreeViewItem { Header = $"Objetos ({_world.Objects.Count})", Foreground = Brushes.White };
         foreach (var obj in _world.Objects)
         {
             // Solo añadir objetos que NO están contenidos en otros
@@ -358,14 +360,14 @@ public partial class WorldEditorWindow : Window
         }
         WorldTree.Items.Add(objsRoot);
 
-        var npcsRoot = new TreeViewItem { Header = "NPCs", Foreground = Brushes.White };
+        var npcsRoot = new TreeViewItem { Header = $"NPCs ({_world.Npcs.Count})", Foreground = Brushes.White };
         foreach (var npc in _world.Npcs)
         {
             npcsRoot.Items.Add(new TreeViewItem { Header = npc.Name, Tag = npc, Foreground = Brushes.White });
         }
         WorldTree.Items.Add(npcsRoot);
 
-        var questsRoot = new TreeViewItem { Header = "Misiones", Foreground = Brushes.White };
+        var questsRoot = new TreeViewItem { Header = $"Misiones ({_world.Quests.Count})", Foreground = Brushes.White };
         foreach (var q in _world.Quests)
         {
             questsRoot.Items.Add(new TreeViewItem { Header = q.Name, Tag = q, Foreground = Brushes.White });
@@ -375,9 +377,13 @@ public partial class WorldEditorWindow : Window
         // Restaurar el estado expandido de los nodos
         foreach (TreeViewItem root in WorldTree.Items)
         {
-            if (root.Header is string header && expandedNodes.Contains(header))
+            if (root.Header is string header)
             {
-                root.IsExpanded = true;
+                var baseName = header.Contains(" (") ? header[..header.IndexOf(" (")] : header;
+                if (expandedNodes.Contains(baseName))
+                {
+                    root.IsExpanded = true;
+                }
             }
         }
 
@@ -2486,7 +2492,7 @@ Escribe SOLO la descripción en español, 2-3 frases, sin incluir el nombre de l
 
     private void AddDoorToTreeNode(Door door)
     {
-        var salasRoot = WorldTree.Items.OfType<TreeViewItem>().FirstOrDefault(i => i.Header?.ToString() == "Salas");
+        var salasRoot = WorldTree.Items.OfType<TreeViewItem>().FirstOrDefault(i => i.Header?.ToString()?.StartsWith("Salas") == true);
         if (salasRoot == null)
         {
             BuildTree();
@@ -2508,7 +2514,7 @@ Escribe SOLO la descripción en español, 2-3 frases, sin incluir el nombre de l
 
     private void AddObjectToTreeNode(GameObject obj)
     {
-        var root = WorldTree.Items.OfType<TreeViewItem>().FirstOrDefault(i => i.Header?.ToString() == "Objetos");
+        var root = WorldTree.Items.OfType<TreeViewItem>().FirstOrDefault(i => i.Header?.ToString()?.StartsWith("Objetos") == true);
         if (root == null)
         {
             BuildTree();
@@ -2525,7 +2531,7 @@ Escribe SOLO la descripción en español, 2-3 frases, sin incluir el nombre de l
     {
         foreach (TreeViewItem root in WorldTree.Items)
         {
-            if (root.Header?.ToString() == "Salas")
+            if (root.Header?.ToString()?.StartsWith("Salas") == true)
             {
                 root.IsExpanded = true;
                 // Buscar la puerta dentro de cualquier sala que la contenga
@@ -2554,7 +2560,7 @@ Escribe SOLO la descripción en español, 2-3 frases, sin incluir el nombre de l
 
         foreach (TreeViewItem root in WorldTree.Items)
         {
-            if (root.Header?.ToString() == "Salas")
+            if (root.Header?.ToString()?.StartsWith("Salas") == true)
             {
                 root.IsExpanded = true;
                 foreach (TreeViewItem child in root.Items.OfType<TreeViewItem>())
@@ -2609,7 +2615,7 @@ Escribe SOLO la descripción en español, 2-3 frases, sin incluir el nombre de l
 
         foreach (TreeViewItem root in WorldTree.Items)
         {
-            if (root.Header?.ToString() == "Objetos")
+            if (root.Header?.ToString()?.StartsWith("Objetos") == true)
             {
                 root.IsExpanded = true;
                 FindAndSelectInTree(root, obj);
@@ -2624,7 +2630,7 @@ Escribe SOLO la descripción en español, 2-3 frases, sin incluir el nombre de l
 
         foreach (TreeViewItem root in WorldTree.Items)
         {
-            if (root.Header?.ToString() == "NPCs")
+            if (root.Header?.ToString()?.StartsWith("NPCs") == true)
             {
                 root.IsExpanded = true;
                 foreach (TreeViewItem child in root.Items.OfType<TreeViewItem>())
@@ -2648,7 +2654,7 @@ Escribe SOLO la descripción en español, 2-3 frases, sin incluir el nombre de l
 
         foreach (TreeViewItem root in WorldTree.Items)
         {
-            if (root.Header?.ToString() == "Misiones")
+            if (root.Header?.ToString()?.StartsWith("Misiones") == true)
             {
                 root.IsExpanded = true;
                 foreach (TreeViewItem child in root.Items.OfType<TreeViewItem>())

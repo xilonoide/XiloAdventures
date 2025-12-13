@@ -361,10 +361,11 @@ public static class NodeTypeRegistry
 
     private static void RegisterConditionNodes()
     {
+        // === SUBGRUPO: JUEGO ===
         Register(new NodeTypeDefinition
         {
             TypeId = "Condition_HasItem",
-            DisplayName = "Tiene Objeto",
+            DisplayName = "Juego: Tiene Objeto",
             Description = "Verifica si el jugador tiene un objeto en su inventario",
             Category = NodeCategory.Condition,
             OwnerTypes = new[] { "*" },
@@ -386,7 +387,7 @@ public static class NodeTypeRegistry
         Register(new NodeTypeDefinition
         {
             TypeId = "Condition_IsInRoom",
-            DisplayName = "Esta en Sala",
+            DisplayName = "Juego: Está en Sala",
             Description = "Verifica si el jugador esta en una sala especifica",
             Category = NodeCategory.Condition,
             OwnerTypes = new[] { "*" },
@@ -408,7 +409,7 @@ public static class NodeTypeRegistry
         Register(new NodeTypeDefinition
         {
             TypeId = "Condition_IsQuestStatus",
-            DisplayName = "Estado de Mision",
+            DisplayName = "Juego: Estado de Misión",
             Description = "Verifica el estado de una mision",
             Category = NodeCategory.Condition,
             OwnerTypes = new[] { "*" },
@@ -431,7 +432,7 @@ public static class NodeTypeRegistry
         Register(new NodeTypeDefinition
         {
             TypeId = "Condition_HasFlag",
-            DisplayName = "Tiene Flag",
+            DisplayName = "Juego: Tiene Flag",
             Description = "Verifica si un flag esta activo",
             Category = NodeCategory.Condition,
             OwnerTypes = new[] { "*" },
@@ -453,7 +454,7 @@ public static class NodeTypeRegistry
         Register(new NodeTypeDefinition
         {
             TypeId = "Condition_CompareCounter",
-            DisplayName = "Comparar Contador",
+            DisplayName = "Juego: Comparar Contador",
             Description = "Compara el valor de un contador",
             Category = NodeCategory.Condition,
             OwnerTypes = new[] { "*" },
@@ -477,7 +478,7 @@ public static class NodeTypeRegistry
         Register(new NodeTypeDefinition
         {
             TypeId = "Condition_IsTimeOfDay",
-            DisplayName = "Es Hora del Dia",
+            DisplayName = "Juego: Es Hora del Día",
             Description = "Verifica la hora del juego",
             Category = NodeCategory.Condition,
             OwnerTypes = new[] { "*" },
@@ -499,7 +500,7 @@ public static class NodeTypeRegistry
         Register(new NodeTypeDefinition
         {
             TypeId = "Condition_IsDoorOpen",
-            DisplayName = "Puerta Abierta",
+            DisplayName = "Juego: Puerta Abierta",
             Description = "Verifica si una puerta esta abierta",
             Category = NodeCategory.Condition,
             OwnerTypes = new[] { "*" },
@@ -521,7 +522,7 @@ public static class NodeTypeRegistry
         Register(new NodeTypeDefinition
         {
             TypeId = "Condition_IsNpcVisible",
-            DisplayName = "NPC Visible",
+            DisplayName = "Juego: NPC Visible",
             Description = "Verifica si un NPC es visible",
             Category = NodeCategory.Condition,
             OwnerTypes = new[] { "*" },
@@ -540,10 +541,11 @@ public static class NodeTypeRegistry
             }
         });
 
+        // === SUBGRUPO: OPERADORES ===
         Register(new NodeTypeDefinition
         {
             TypeId = "Condition_Random",
-            DisplayName = "Probabilidad",
+            DisplayName = "Operadores: Probabilidad",
             Description = "Se cumple con una probabilidad dada",
             Category = NodeCategory.Condition,
             OwnerTypes = new[] { "*" },
@@ -1087,10 +1089,195 @@ public static class NodeTypeRegistry
 
     private static void RegisterVariableNodes()
     {
+        // === SUBGRUPO: JUEGO ===
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Variable_GetGameHour",
+            DisplayName = "Juego: Hora",
+            Description = "Obtiene la hora actual del juego",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            InputPorts = Array.Empty<NodePort>(),
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Hour", PortType = PortType.Data, DataType = "int", Label = "Hora" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Variable_GetPlayerGold",
+            DisplayName = "Juego: Oro del Jugador",
+            Description = "Obtiene el oro actual del jugador",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            InputPorts = Array.Empty<NodePort>(),
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Gold", PortType = PortType.Data, DataType = "int", Label = "Oro" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Variable_GetCurrentRoom",
+            DisplayName = "Juego: Sala Actual",
+            Description = "Obtiene la sala actual del jugador",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            InputPorts = Array.Empty<NodePort>(),
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "RoomId", PortType = PortType.Data, DataType = "string", Label = "Sala" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Variable_GetCurrentWeather",
+            DisplayName = "Juego: Clima Actual",
+            Description = "Obtiene el clima actual del juego",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            InputPorts = Array.Empty<NodePort>(),
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Weather", PortType = PortType.Data, DataType = "string", Label = "Clima" }
+            }
+        });
+
+        // === SUBGRUPO: JUGADOR ===
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Variable_GetPlayerStrength",
+            DisplayName = "Jugador: Fuerza",
+            Description = "Obtiene la fuerza del jugador",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            InputPorts = Array.Empty<NodePort>(),
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "int", Label = "Fuerza" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Variable_GetPlayerConstitution",
+            DisplayName = "Jugador: Constitución",
+            Description = "Obtiene la constitución del jugador",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            InputPorts = Array.Empty<NodePort>(),
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "int", Label = "Constitución" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Variable_GetPlayerIntelligence",
+            DisplayName = "Jugador: Inteligencia",
+            Description = "Obtiene la inteligencia del jugador",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            InputPorts = Array.Empty<NodePort>(),
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "int", Label = "Inteligencia" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Variable_GetPlayerDexterity",
+            DisplayName = "Jugador: Destreza",
+            Description = "Obtiene la destreza del jugador",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            InputPorts = Array.Empty<NodePort>(),
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "int", Label = "Destreza" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Variable_GetPlayerCharisma",
+            DisplayName = "Jugador: Carisma",
+            Description = "Obtiene el carisma del jugador",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            InputPorts = Array.Empty<NodePort>(),
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "int", Label = "Carisma" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Variable_GetPlayerWeight",
+            DisplayName = "Jugador: Peso",
+            Description = "Obtiene el peso del jugador",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            InputPorts = Array.Empty<NodePort>(),
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "int", Label = "Peso" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Variable_GetPlayerAge",
+            DisplayName = "Jugador: Edad",
+            Description = "Obtiene la edad del jugador",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            InputPorts = Array.Empty<NodePort>(),
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "int", Label = "Edad" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Variable_GetPlayerHeight",
+            DisplayName = "Jugador: Altura",
+            Description = "Obtiene la altura del jugador",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            InputPorts = Array.Empty<NodePort>(),
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "int", Label = "Altura" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Variable_GetPlayerInitialMoney",
+            DisplayName = "Jugador: Dinero Inicial",
+            Description = "Obtiene el dinero inicial configurado para el jugador",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            InputPorts = Array.Empty<NodePort>(),
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "int", Label = "Dinero Inicial" }
+            }
+        });
+
+        // === SUBGRUPO: OPERADORES ===
         Register(new NodeTypeDefinition
         {
             TypeId = "Variable_GetFlag",
-            DisplayName = "Obtener Flag",
+            DisplayName = "Operadores: Obtener Flag",
             Description = "Obtiene el valor de un flag",
             Category = NodeCategory.Variable,
             OwnerTypes = new[] { "*" },
@@ -1108,7 +1295,7 @@ public static class NodeTypeRegistry
         Register(new NodeTypeDefinition
         {
             TypeId = "Variable_GetCounter",
-            DisplayName = "Obtener Contador",
+            DisplayName = "Operadores: Obtener Contador",
             Description = "Obtiene el valor de un contador",
             Category = NodeCategory.Variable,
             OwnerTypes = new[] { "*" },
@@ -1125,51 +1312,8 @@ public static class NodeTypeRegistry
 
         Register(new NodeTypeDefinition
         {
-            TypeId = "Variable_GetCurrentRoom",
-            DisplayName = "Sala Actual",
-            Description = "Obtiene la sala actual del jugador",
-            Category = NodeCategory.Variable,
-            OwnerTypes = new[] { "*" },
-            InputPorts = Array.Empty<NodePort>(),
-            OutputPorts = new[]
-            {
-                new NodePort { Name = "RoomId", PortType = PortType.Data, DataType = "string", Label = "Sala" }
-            }
-        });
-
-        Register(new NodeTypeDefinition
-        {
-            TypeId = "Variable_GetGameHour",
-            DisplayName = "Hora de Juego",
-            Description = "Obtiene la hora actual del juego",
-            Category = NodeCategory.Variable,
-            OwnerTypes = new[] { "*" },
-            InputPorts = Array.Empty<NodePort>(),
-            OutputPorts = new[]
-            {
-                new NodePort { Name = "Hour", PortType = PortType.Data, DataType = "int", Label = "Hora" }
-            }
-        });
-
-        Register(new NodeTypeDefinition
-        {
-            TypeId = "Variable_GetPlayerGold",
-            DisplayName = "Oro del Jugador",
-            Description = "Obtiene el oro actual del jugador",
-            Category = NodeCategory.Variable,
-            OwnerTypes = new[] { "*" },
-            InputPorts = Array.Empty<NodePort>(),
-            OutputPorts = new[]
-            {
-                new NodePort { Name = "Gold", PortType = PortType.Data, DataType = "int", Label = "Oro" }
-            }
-        });
-
-        // Constantes
-        Register(new NodeTypeDefinition
-        {
             TypeId = "Variable_ConstantInt",
-            DisplayName = "Entero Constante",
+            DisplayName = "Operadores: Entero Constante",
             Description = "Un valor entero constante",
             Category = NodeCategory.Variable,
             OwnerTypes = new[] { "*" },
@@ -1187,7 +1331,7 @@ public static class NodeTypeRegistry
         Register(new NodeTypeDefinition
         {
             TypeId = "Variable_ConstantBool",
-            DisplayName = "Booleano Constante",
+            DisplayName = "Operadores: Booleano Constante",
             Description = "Un valor booleano constante (verdadero/falso)",
             Category = NodeCategory.Variable,
             OwnerTypes = new[] { "*" },
@@ -1209,11 +1353,11 @@ public static class NodeTypeRegistry
 
     private static void RegisterDataComparisonNodes()
     {
-        // Comparar dos enteros
+        // === SUBGRUPO: OPERADORES ===
         Register(new NodeTypeDefinition
         {
             TypeId = "Compare_Int",
-            DisplayName = "Comparar Enteros",
+            DisplayName = "Operadores: Comparar Enteros",
             Description = "Compara dos valores enteros y produce un resultado booleano",
             Category = NodeCategory.Condition,
             OwnerTypes = new[] { "*" },
@@ -1232,11 +1376,11 @@ public static class NodeTypeRegistry
             }
         });
 
-        // Comparar oro del jugador con un valor
+        // === SUBGRUPO: JUEGO ===
         Register(new NodeTypeDefinition
         {
             TypeId = "Compare_PlayerGold",
-            DisplayName = "Comparar Oro",
+            DisplayName = "Juego: Comparar Oro",
             Description = "Compara el oro del jugador con un valor",
             Category = NodeCategory.Condition,
             OwnerTypes = new[] { "*" },
@@ -1254,12 +1398,11 @@ public static class NodeTypeRegistry
             }
         });
 
-        // Comparar contador con un valor
         Register(new NodeTypeDefinition
         {
             TypeId = "Compare_Counter",
-            DisplayName = "Comparar Contador",
-            Description = "Compara un contador con un valor",
+            DisplayName = "Juego: Comparar Contador (Data)",
+            Description = "Compara un contador con un valor (entrada de datos)",
             Category = NodeCategory.Condition,
             OwnerTypes = new[] { "*" },
             InputPorts = new[]
@@ -1287,7 +1430,7 @@ public static class NodeTypeRegistry
         Register(new NodeTypeDefinition
         {
             TypeId = "Math_Add",
-            DisplayName = "Sumar",
+            DisplayName = "Operadores: Sumar",
             Description = "Suma dos valores enteros",
             Category = NodeCategory.Variable,
             OwnerTypes = new[] { "*" },
@@ -1305,7 +1448,7 @@ public static class NodeTypeRegistry
         Register(new NodeTypeDefinition
         {
             TypeId = "Math_Subtract",
-            DisplayName = "Restar",
+            DisplayName = "Operadores: Restar",
             Description = "Resta dos valores enteros (A - B)",
             Category = NodeCategory.Variable,
             OwnerTypes = new[] { "*" },
@@ -1323,7 +1466,7 @@ public static class NodeTypeRegistry
         Register(new NodeTypeDefinition
         {
             TypeId = "Math_Multiply",
-            DisplayName = "Multiplicar",
+            DisplayName = "Operadores: Multiplicar",
             Description = "Multiplica dos valores enteros",
             Category = NodeCategory.Variable,
             OwnerTypes = new[] { "*" },
@@ -1341,7 +1484,7 @@ public static class NodeTypeRegistry
         Register(new NodeTypeDefinition
         {
             TypeId = "Math_Divide",
-            DisplayName = "Dividir",
+            DisplayName = "Operadores: Dividir",
             Description = "Divide dos valores enteros (A / B)",
             Category = NodeCategory.Variable,
             OwnerTypes = new[] { "*" },
@@ -1359,7 +1502,7 @@ public static class NodeTypeRegistry
         Register(new NodeTypeDefinition
         {
             TypeId = "Math_Modulo",
-            DisplayName = "Modulo",
+            DisplayName = "Operadores: Módulo",
             Description = "Obtiene el resto de la division (A % B)",
             Category = NodeCategory.Variable,
             OwnerTypes = new[] { "*" },
@@ -1377,7 +1520,7 @@ public static class NodeTypeRegistry
         Register(new NodeTypeDefinition
         {
             TypeId = "Math_Negate",
-            DisplayName = "Negar",
+            DisplayName = "Operadores: Negar",
             Description = "Cambia el signo de un valor entero",
             Category = NodeCategory.Variable,
             OwnerTypes = new[] { "*" },
@@ -1394,7 +1537,7 @@ public static class NodeTypeRegistry
         Register(new NodeTypeDefinition
         {
             TypeId = "Math_Abs",
-            DisplayName = "Valor Absoluto",
+            DisplayName = "Operadores: Valor Absoluto",
             Description = "Obtiene el valor absoluto de un entero",
             Category = NodeCategory.Variable,
             OwnerTypes = new[] { "*" },
@@ -1411,7 +1554,7 @@ public static class NodeTypeRegistry
         Register(new NodeTypeDefinition
         {
             TypeId = "Math_Min",
-            DisplayName = "Minimo",
+            DisplayName = "Operadores: Mínimo",
             Description = "Obtiene el menor de dos valores",
             Category = NodeCategory.Variable,
             OwnerTypes = new[] { "*" },
@@ -1429,7 +1572,7 @@ public static class NodeTypeRegistry
         Register(new NodeTypeDefinition
         {
             TypeId = "Math_Max",
-            DisplayName = "Maximo",
+            DisplayName = "Operadores: Máximo",
             Description = "Obtiene el mayor de dos valores",
             Category = NodeCategory.Variable,
             OwnerTypes = new[] { "*" },
@@ -1447,7 +1590,7 @@ public static class NodeTypeRegistry
         Register(new NodeTypeDefinition
         {
             TypeId = "Math_Clamp",
-            DisplayName = "Limitar",
+            DisplayName = "Operadores: Limitar",
             Description = "Limita un valor entre un minimo y un maximo",
             Category = NodeCategory.Variable,
             OwnerTypes = new[] { "*" },
@@ -1466,7 +1609,7 @@ public static class NodeTypeRegistry
         Register(new NodeTypeDefinition
         {
             TypeId = "Math_Random",
-            DisplayName = "Aleatorio",
+            DisplayName = "Operadores: Aleatorio",
             Description = "Genera un numero aleatorio entre Min y Max (inclusive)",
             Category = NodeCategory.Variable,
             OwnerTypes = new[] { "*" },
@@ -1488,10 +1631,11 @@ public static class NodeTypeRegistry
 
     private static void RegisterLogicNodes()
     {
+        // === SUBGRUPO: OPERADORES ===
         Register(new NodeTypeDefinition
         {
             TypeId = "Logic_And",
-            DisplayName = "Y (AND)",
+            DisplayName = "Operadores: Y (AND)",
             Description = "Devuelve verdadero si ambas entradas son verdaderas",
             Category = NodeCategory.Condition,
             OwnerTypes = new[] { "*" },
@@ -1509,7 +1653,7 @@ public static class NodeTypeRegistry
         Register(new NodeTypeDefinition
         {
             TypeId = "Logic_Or",
-            DisplayName = "O (OR)",
+            DisplayName = "Operadores: O (OR)",
             Description = "Devuelve verdadero si al menos una entrada es verdadera",
             Category = NodeCategory.Condition,
             OwnerTypes = new[] { "*" },
@@ -1527,7 +1671,7 @@ public static class NodeTypeRegistry
         Register(new NodeTypeDefinition
         {
             TypeId = "Logic_Not",
-            DisplayName = "No (NOT)",
+            DisplayName = "Operadores: No (NOT)",
             Description = "Invierte el valor booleano",
             Category = NodeCategory.Condition,
             OwnerTypes = new[] { "*" },
@@ -1544,7 +1688,7 @@ public static class NodeTypeRegistry
         Register(new NodeTypeDefinition
         {
             TypeId = "Logic_Xor",
-            DisplayName = "O Exclusivo (XOR)",
+            DisplayName = "Operadores: O Exclusivo (XOR)",
             Description = "Devuelve verdadero si exactamente una entrada es verdadera",
             Category = NodeCategory.Condition,
             OwnerTypes = new[] { "*" },
