@@ -46,7 +46,6 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
                 <!-- Theme -->
@@ -63,6 +62,11 @@
                              Padding="8,6"
                              FontSize="13"
                              TextChanged="ThemeTextBox_TextChanged"/>
+                    <TextBlock Text="💡 Ejemplos: templo antiguo, nave espacial abandonada, castillo medieval, laboratorio secreto, isla desierta..."
+                               FontSize="11"
+                               Foreground="#888888"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,0"/>
                 </StackPanel>
 
                 <!-- Room count -->
@@ -100,7 +104,7 @@
                         </TextBlock>
                         <Slider x:Name="DoorsSlider"
                                 Minimum="0"
-                                Maximum="500"
+                                Maximum="100"
                                 Value="2"
                                 IsSnapToTickEnabled="True"
                                 TickFrequency="1"
@@ -115,7 +119,7 @@
                         </TextBlock>
                         <Slider x:Name="NpcsSlider"
                                 Minimum="0"
-                                Maximum="500"
+                                Maximum="100"
                                 Value="2"
                                 IsSnapToTickEnabled="True"
                                 TickFrequency="1"
@@ -130,7 +134,7 @@
                         </TextBlock>
                         <Slider x:Name="QuestsSlider"
                                 Minimum="0"
-                                Maximum="500"
+                                Maximum="100"
                                 Value="1"
                                 IsSnapToTickEnabled="True"
                                 TickFrequency="1"
@@ -145,7 +149,7 @@
                         </TextBlock>
                         <Slider x:Name="ContainersSlider"
                                 Minimum="0"
-                                Maximum="500"
+                                Maximum="100"
                                 Value="1"
                                 IsSnapToTickEnabled="True"
                                 TickFrequency="1"
@@ -159,7 +163,7 @@
                            FontSize="11"
                            Foreground="#AAAAAA"
                            FontWeight="SemiBold"
-                           Margin="0,8,0,4"/>
+                           Margin="0,8,0,12"/>
 
                 <Grid Grid.Row="3" Grid.ColumnSpan="2" Margin="0,0,0,8">
                     <Grid.ColumnDefinitions>
@@ -181,7 +185,7 @@
                         </TextBlock>
                         <Slider x:Name="WeaponsSlider"
                                 Minimum="0"
-                                Maximum="500"
+                                Maximum="100"
                                 Value="1"
                                 IsSnapToTickEnabled="True"
                                 TickFrequency="1"
@@ -196,7 +200,7 @@
                         </TextBlock>
                         <Slider x:Name="ArmorsSlider"
                                 Minimum="0"
-                                Maximum="500"
+                                Maximum="100"
                                 Value="0"
                                 IsSnapToTickEnabled="True"
                                 TickFrequency="1"
@@ -211,7 +215,7 @@
                         </TextBlock>
                         <Slider x:Name="FoodSlider"
                                 Minimum="0"
-                                Maximum="500"
+                                Maximum="100"
                                 Value="1"
                                 IsSnapToTickEnabled="True"
                                 TickFrequency="1"
@@ -226,7 +230,7 @@
                         </TextBlock>
                         <Slider x:Name="DrinksSlider"
                                 Minimum="0"
-                                Maximum="500"
+                                Maximum="100"
                                 Value="1"
                                 IsSnapToTickEnabled="True"
                                 TickFrequency="1"
@@ -241,7 +245,7 @@
                         </TextBlock>
                         <Slider x:Name="ClothingSlider"
                                 Minimum="0"
-                                Maximum="500"
+                                Maximum="100"
                                 Value="0"
                                 IsSnapToTickEnabled="True"
                                 TickFrequency="1"
@@ -256,7 +260,7 @@
                         </TextBlock>
                         <Slider x:Name="KeysSlider"
                                 Minimum="0"
-                                Maximum="500"
+                                Maximum="100"
                                 Value="1"
                                 IsSnapToTickEnabled="True"
                                 TickFrequency="1"
@@ -271,7 +275,7 @@
                         </TextBlock>
                         <Slider x:Name="TextsSlider"
                                 Minimum="0"
-                                Maximum="500"
+                                Maximum="100"
                                 Value="1"
                                 IsSnapToTickEnabled="True"
                                 TickFrequency="1"
@@ -286,21 +290,13 @@
                         </TextBlock>
                         <Slider x:Name="OtherObjectsSlider"
                                 Minimum="0"
-                                Maximum="500"
+                                Maximum="100"
                                 Value="2"
                                 IsSnapToTickEnabled="True"
                                 TickFrequency="1"
                                 ValueChanged="ObjectTypeSlider_ValueChanged"/>
                     </StackPanel>
                 </Grid>
-
-                <!-- Hint -->
-                <TextBlock Grid.Row="4" Grid.ColumnSpan="2"
-                           Text="💡 Ejemplos de temática: templo antiguo, nave espacial abandonada, castillo medieval, laboratorio secreto, isla desierta..."
-                           FontSize="11"
-                           Foreground="#888888"
-                           TextWrapping="Wrap"
-                           Margin="0,4,0,0"/>
             </Grid>
         </Border>
 

@@ -86,8 +86,209 @@ public partial class AiDataGeneratorWindow : Window
         _cts?.Cancel();
     }
 
+    private async void DoAllButton_Click(object sender, RoutedEventArgs e)
+    {
+        var errors = new List<string>();
+        var tasks = new List<string>();
+
+        // Validate Theme (required for descriptions and image prompts)
+        if (string.IsNullOrWhiteSpace(_world.Game.Theme))
+        {
+            errors.Add("• Falta el tema/ambientación del mundo (necesario para descripciones e imágenes)");
+        }
+
+        // Check what needs to be done
+        var roomsWithoutDesc = _world.Rooms
+            .Where(r => string.IsNullOrWhiteSpace(r.Description) && !string.IsNullOrWhiteSpace(r.Name))
+            .ToList();
+
+        var objectsToFix = _world.Objects
+            .Where(o => !o.GenderAndPluralSetManually)
+            .ToList();
+
+        var doorsToFix = _world.Doors
+            .Where(d => !d.GenderAndPluralSetManually)
+            .ToList();
+
+        var roomsWithoutImages = _world.Rooms
+            .Where(r => string.IsNullOrEmpty(r.ImageId) && string.IsNullOrEmpty(r.ImageBase64))
+            .ToList();
+
+        // Build task list
+        if (roomsWithoutDesc.Count > 0)
+            tasks.Add($"• Crear descripciones para {roomsWithoutDesc.Count} sala(s)");
+
+        int itemsToFix = objectsToFix.Count + doorsToFix.Count;
+        if (itemsToFix > 0)
+            tasks.Add($"• Corregir artículos de {objectsToFix.Count} objeto(s) y {doorsToFix.Count} puerta(s)");
+
+        if (roomsWithoutImages.Count > 0)
+            tasks.Add($"• Generar imágenes para {roomsWithoutImages.Count} sala(s)");
+
+        // Show errors if any
+        if (errors.Count > 0)
+        {
+            DarkErrorDialog.Show("Validación fallida",
+                "No se puede ejecutar el proceso completo:\n\n" + string.Join("\n", errors), this);
+            return;
+        }
+
+        // Nothing to do?
+        if (tasks.Count == 0)
+        {
+            DarkErrorDialog.Show("Nada que hacer",
+                "Todas las salas tienen descripción e imagen, y todos los objetos tienen género asignado.", this);
+            return;
+        }
+
+        // Confirm
+        var confirmMessage = "Se ejecutarán las siguientes tareas:\n\n" + string.Join("\n", tasks);
+        if (roomsWithoutImages.Count > 0)
+        {
+            confirmMessage += "\n\n⚠️ La generación de imágenes es EXTREMADAMENTE LENTA.\n" +
+                              "Puede tardar varios minutos por imagen.";
+        }
+        confirmMessage += "\n\n¿Continuar?";
+
+        if (!DarkConfirmDialog.Show("Confirmar proceso completo", confirmMessage, this))
+            return;
+
+        // Determine if we need Stable Diffusion
+        bool needsStableDiffusion = roomsWithoutImages.Count > 0;
+
+        // Ensure Docker is ready
+        if (!await EnsureDockerReadyAsync(includeOllama: true, includeStableDiffusion: needsStableDiffusion))
+            return;
+
+        // Calculate total steps
+        int totalSteps = roomsWithoutDesc.Count + objectsToFix.Count + doorsToFix.Count + roomsWithoutImages.Count;
+
+        await RunProcessAsync(
+            "Ejecutando proceso completo...",
+            totalSteps,
+            async (progress, ct) =>
+            {
+                int currentStep = 0;
+
+                // Step 1: Create descriptions
+                if (roomsWithoutDesc.Count > 0)
+                {
+                    for (int i = 0; i < roomsWithoutDesc.Count; i++)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        var room = roomsWithoutDesc[i];
+                        progress($"[1/3] Describiendo: {room.Name}...", currentStep);
+
+                        try
+                        {
+                            var description = await GenerateRoomDescriptionAsync(room, ct);
+                            if (!string.IsNullOrEmpty(description))
+                            {
+                                room.Description = description;
+                            }
+                        }
+                        catch (OperationCanceledException) { throw; }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Error generando descripción para {room.Name}: {ex.Message}");
+                        }
+
+                        currentStep++;
+                    }
+                }
+
+                // Step 2: Correct articles (objects and doors)
+                if (objectsToFix.Count > 0)
+                {
+                    for (int i = 0; i < objectsToFix.Count; i++)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        var obj = objectsToFix[i];
+                        progress($"[2/3] Analizando objeto: {obj.Name}...", currentStep);
+
+                        try
+                        {
+                            var (gender, isPlural) = await GetGenderForNameAsync(obj.Name, ct);
+                            obj.Gender = gender;
+                            obj.IsPlural = isPlural;
+                        }
+                        catch (OperationCanceledException) { throw; }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Error obteniendo género para {obj.Name}: {ex.Message}");
+                        }
+
+                        currentStep++;
+                    }
+                }
+
+                if (doorsToFix.Count > 0)
+                {
+                    for (int i = 0; i < doorsToFix.Count; i++)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        var door = doorsToFix[i];
+                        progress($"[2/3] Analizando puerta: {door.Name}...", currentStep);
+
+                        try
+                        {
+                            var (gender, isPlural) = await GetGenderForNameAsync(door.Name, ct);
+                            door.Gender = gender;
+                            door.IsPlural = isPlural;
+                        }
+                        catch (OperationCanceledException) { throw; }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Error obteniendo género para {door.Name}: {ex.Message}");
+                        }
+
+                        currentStep++;
+                    }
+                }
+
+                // Step 3: Generate images (now all rooms have descriptions)
+                if (roomsWithoutImages.Count > 0)
+                {
+                    for (int i = 0; i < roomsWithoutImages.Count; i++)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        var room = roomsWithoutImages[i];
+                        progress($"[3/3] Generando imagen: {room.Name}...", currentStep);
+
+                        try
+                        {
+                            var imageBase64 = await GenerateRoomImageAsync(room, ct);
+                            if (!string.IsNullOrEmpty(imageBase64))
+                            {
+                                room.ImageBase64 = imageBase64;
+                                room.ImageId = null;
+                            }
+                        }
+                        catch (OperationCanceledException) { throw; }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Error generando imagen para {room.Name}: {ex.Message}");
+                        }
+
+                        currentStep++;
+                    }
+                }
+
+                progress("¡Proceso completo!", totalSteps);
+            });
+    }
+
     private async void GenerateImagesButton_Click(object sender, RoutedEventArgs e)
     {
+        // Validate: Theme is required for image prompts
+        if (string.IsNullOrWhiteSpace(_world.Game.Theme))
+        {
+            DarkErrorDialog.Show("Tema requerido",
+                "El mundo necesita tener un tema/ambientación definido para generar imágenes coherentes.\n\n" +
+                "Añade un tema en las propiedades del mundo (ej: 'fantasía medieval', 'ciencia ficción', 'horror gótico').", this);
+            return;
+        }
+
         // Validate: ALL rooms must have descriptions
         var roomsWithoutDescription = _world.Rooms
             .Where(r => string.IsNullOrWhiteSpace(r.Description))
@@ -164,20 +365,26 @@ public partial class AiDataGeneratorWindow : Window
 
     private async void CorrectArticlesButton_Click(object sender, RoutedEventArgs e)
     {
-        // Find objects without gender manually set
+        // Find objects and doors without gender manually set
         var objectsToFix = _world.Objects
             .Where(o => !o.GenderAndPluralSetManually)
             .ToList();
 
-        if (objectsToFix.Count == 0)
+        var doorsToFix = _world.Doors
+            .Where(d => !d.GenderAndPluralSetManually)
+            .ToList();
+
+        int totalToFix = objectsToFix.Count + doorsToFix.Count;
+
+        if (totalToFix == 0)
         {
             DarkErrorDialog.Show("Sin elementos pendientes",
-                "Todos los objetos ya tienen género asignado manualmente.", this);
+                "Todos los objetos y puertas ya tienen género asignado manualmente.", this);
             return;
         }
 
         if (!DarkConfirmDialog.Show("Confirmar corrección",
-            $"Se determinará el género gramatical de {objectsToFix.Count} objeto(s).\n\n¿Continuar?", this))
+            $"Se determinará el género gramatical de {objectsToFix.Count} objeto(s) y {doorsToFix.Count} puerta(s).\n\n¿Continuar?", this))
             return;
 
         // Ensure Docker + Ollama are running (no need for Stable Diffusion)
@@ -185,15 +392,18 @@ public partial class AiDataGeneratorWindow : Window
             return;
 
         await RunProcessAsync(
-            $"Corrigiendo géneros ({objectsToFix.Count} objetos)",
-            objectsToFix.Count,
+            $"Corrigiendo géneros ({totalToFix} elementos)",
+            totalToFix,
             async (progress, ct) =>
             {
+                int currentStep = 0;
+
+                // Process objects
                 for (int i = 0; i < objectsToFix.Count; i++)
                 {
                     ct.ThrowIfCancellationRequested();
                     var obj = objectsToFix[i];
-                    progress($"Analizando: {obj.Name}...", i);
+                    progress($"Analizando objeto: {obj.Name}...", currentStep);
 
                     try
                     {
@@ -209,8 +419,36 @@ public partial class AiDataGeneratorWindow : Window
                     {
                         System.Diagnostics.Debug.WriteLine($"Error obteniendo género para {obj.Name}: {ex.Message}");
                     }
+
+                    currentStep++;
                 }
-                progress("Completado", objectsToFix.Count);
+
+                // Process doors
+                for (int i = 0; i < doorsToFix.Count; i++)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    var door = doorsToFix[i];
+                    progress($"Analizando puerta: {door.Name}...", currentStep);
+
+                    try
+                    {
+                        var (gender, isPlural) = await GetGenderForNameAsync(door.Name, ct);
+                        door.Gender = gender;
+                        door.IsPlural = isPlural;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Error obteniendo género para {door.Name}: {ex.Message}");
+                    }
+
+                    currentStep++;
+                }
+
+                progress("Completado", totalToFix);
             });
     }
 
@@ -328,11 +566,13 @@ public partial class AiDataGeneratorWindow : Window
             _isProcessing = false;
             SetButtonsEnabled(true);
             CancelButton.Visibility = Visibility.Collapsed;
+            ProgressSection.Visibility = Visibility.Collapsed;
         }
     }
 
     private void SetButtonsEnabled(bool enabled)
     {
+        DoAllButton.IsEnabled = enabled;
         GenerateImagesButton.IsEnabled = enabled;
         CorrectArticlesButton.IsEnabled = enabled;
         CreateDescriptionsButton.IsEnabled = enabled;

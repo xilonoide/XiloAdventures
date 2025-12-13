@@ -349,7 +349,7 @@
                 </MenuItem>
                 <MenuItem Header="IA"
                         Style="{StaticResource TopMenuItemStyle}">
-                    <MenuItem Header="Generar datos..."
+                    <MenuItem Header="Generar datos"
                             Click="GenerateDataMenu_Click"
                             Style="{StaticResource SubMenuItemStyle}">
                         <MenuItem.Icon>
