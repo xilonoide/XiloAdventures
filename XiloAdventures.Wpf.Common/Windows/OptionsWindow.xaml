@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Opciones"
         Icon="/appicon.ico"
-        Height="420"
+        SizeToContent="Height"
         Width="600"
         WindowStartupLocation="CenterOwner"
         Background="#222222"

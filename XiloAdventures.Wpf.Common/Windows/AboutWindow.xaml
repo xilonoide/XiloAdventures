@@ -26,8 +26,8 @@
                     CornerRadius="8,8,0,0"
                     Padding="20,16">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                    <Image Source="/appicon.ico"
-                           Width="48" Height="48"
+                    <Image Source="/XiloAdventures.Wpf.Common;component/Assets/logo.png"
+                           Width="64" Height="64"
                            Margin="0,0,16,0"
                            RenderOptions.BitmapScalingMode="HighQuality"/>
                     <StackPanel VerticalAlignment="Center">

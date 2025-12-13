@@ -259,6 +259,11 @@
                                Margin="0,0,0,4"/>
                     <TextBlock x:Name="InventoryLabel"
                                TextWrapping="Wrap"/>
+                    <TextBlock Text="Salidas"
+                               FontWeight="Bold"
+                               Margin="0,8,0,4"/>
+                    <TextBlock x:Name="ExitsLabel"
+                               TextWrapping="Wrap"/>
                 </StackPanel>
             </Grid>
 

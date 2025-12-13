@@ -481,6 +481,7 @@ public partial class MainWindow : Window
     {
         StatsLabel.Text = _engine.DescribePlayerStats();
         InventoryLabel.Text = _engine.DescribeInventory();
+        ExitsLabel.Text = _engine.DescribeExits();
 
         // Actualizar turno en la parte superior
         TurnText.Text = $"Turno: {_engine.State.TurnCounter}";

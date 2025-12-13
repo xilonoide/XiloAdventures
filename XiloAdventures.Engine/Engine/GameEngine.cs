@@ -826,71 +826,6 @@ public class GameEngine
                 sb.AppendLine($" - {Cap(npc.Name)}");
         }
 
-        // Salidas (directas e inversas)
-        var allExits = new List<(string Direction, string? DoorId, bool IsLocked)>();
-
-        // Salidas directas definidas en esta sala
-        foreach (var exit in room.Exits)
-        {
-            allExits.Add((exit.Direction, exit.DoorId, exit.IsLocked));
-        }
-
-        // Salidas inversas: otras salas que tienen salidas apuntando a esta sala
-        var directDirections = new HashSet<string>(
-            room.Exits.Select(e => NormalizeDirection(e.Direction)),
-            StringComparer.OrdinalIgnoreCase);
-
-        foreach (var candidateRoom in _state.Rooms)
-        {
-            if (candidateRoom.Id.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            foreach (var candidateExit in candidateRoom.Exits)
-            {
-                if (!candidateExit.TargetRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                var normCandidate = NormalizeDirection(candidateExit.Direction);
-                var opposite = GetOppositeDirectionCode(normCandidate);
-
-                // Solo añadir si no hay ya una salida directa en esa dirección
-                if (!directDirections.Contains(opposite))
-                {
-                    var displayDir = GetDisplayDirection(opposite);
-                    allExits.Add((displayDir, candidateExit.DoorId, candidateExit.IsLocked));
-                    directDirections.Add(opposite); // Evitar duplicados
-                }
-            }
-        }
-
-        if (allExits.Count > 0)
-        {
-            sb.AppendLine();
-            sb.AppendLine("Salidas:");
-            foreach (var (dir, doorId, isLocked) in allExits)
-            {
-                var doorInfo = "";
-
-                // Comprobar si hay una puerta en esta salida
-                if (!string.IsNullOrEmpty(doorId))
-                {
-                    var door = _state.Doors.FirstOrDefault(d =>
-                        d.Id.Equals(doorId, StringComparison.OrdinalIgnoreCase));
-                    if (door != null)
-                    {
-                        var doorName = string.IsNullOrWhiteSpace(door.Name) ? "puerta" : Low(door.Name);
-                        var doorState = door.IsOpen ? "abierta" : "cerrada";
-                        doorInfo = $" ({doorName} {doorState})";
-                    }
-                }
-
-                if (isLocked)
-                    sb.AppendLine($" - {dir} (bloqueada){doorInfo}");
-                else
-                    sb.AppendLine($" - {dir}{doorInfo}");
-            }
-        }
-
         return sb.ToString().TrimEnd();
     }
 
@@ -978,6 +913,79 @@ public class GameEngine
         sb.AppendLine($"Carisma: {p.Charisma}");
         sb.AppendLine();
         sb.AppendLine($"Dinero: {p.Gold} monedas");
+        return sb.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// Generates a text summary of the current room exits.
+    /// </summary>
+    /// <returns>The exits text.</returns>
+    public string DescribeExits()
+    {
+        var room = CurrentRoom;
+        if (room == null)
+            return "Ninguna";
+
+        var allExits = new List<(string Direction, string? DoorId, bool IsLocked)>();
+
+        // Salidas directas definidas en esta sala
+        foreach (var exit in room.Exits)
+        {
+            allExits.Add((exit.Direction, exit.DoorId, exit.IsLocked));
+        }
+
+        // Salidas inversas: otras salas que tienen salidas apuntando a esta sala
+        var directDirections = new HashSet<string>(
+            room.Exits.Select(e => NormalizeDirection(e.Direction)),
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var candidateRoom in _state.Rooms)
+        {
+            if (candidateRoom.Id.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            foreach (var candidateExit in candidateRoom.Exits)
+            {
+                if (!candidateExit.TargetRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var normCandidate = NormalizeDirection(candidateExit.Direction);
+                var opposite = GetOppositeDirectionCode(normCandidate);
+
+                if (!directDirections.Contains(opposite))
+                {
+                    var displayDir = GetDisplayDirection(opposite);
+                    allExits.Add((displayDir, candidateExit.DoorId, candidateExit.IsLocked));
+                    directDirections.Add(opposite);
+                }
+            }
+        }
+
+        if (allExits.Count == 0)
+            return "Ninguna";
+
+        var sb = new StringBuilder();
+        foreach (var (dir, doorId, isLocked) in allExits)
+        {
+            var doorInfo = "";
+            if (!string.IsNullOrEmpty(doorId))
+            {
+                var door = _state.Doors.FirstOrDefault(d =>
+                    d.Id.Equals(doorId, StringComparison.OrdinalIgnoreCase));
+                if (door != null)
+                {
+                    var doorName = string.IsNullOrWhiteSpace(door.Name) ? "puerta" : Low(door.Name);
+                    var doorState = door.IsOpen ? "abierta" : "cerrada";
+                    doorInfo = $" ({doorName} {doorState})";
+                }
+            }
+
+            if (isLocked)
+                sb.AppendLine($"• {Cap(dir)} (bloqueada){doorInfo}");
+            else
+                sb.AppendLine($"• {Cap(dir)}{doorInfo}");
+        }
+
         return sb.ToString().TrimEnd();
     }
 
