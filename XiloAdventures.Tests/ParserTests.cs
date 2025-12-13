@@ -278,4 +278,131 @@ public class ParserTests
         Assert.Equal("bailar", parsed.Verb);
         Assert.Null(parsed.DirectObject);
     }
+
+    #region OriginalDirectObject Tests
+
+    [Fact]
+    public void Parse_NounAlias_PreservesOriginalValue()
+    {
+        // "sable" is aliased to "espada" in global aliases
+        var parsed = Parser.Parse("coger sable");
+
+        Assert.Equal("take", parsed.Verb);
+        Assert.Equal("espada", parsed.DirectObject);  // Normalized
+        Assert.Equal("sable", parsed.OriginalDirectObject);  // Original preserved
+    }
+
+    [Fact]
+    public void Parse_NoNounAlias_OriginalMatchesNormalized()
+    {
+        var parsed = Parser.Parse("coger libro");
+
+        Assert.Equal("take", parsed.Verb);
+        Assert.Equal("libro", parsed.DirectObject);
+        Assert.Equal("libro", parsed.OriginalDirectObject);
+    }
+
+    [Fact]
+    public void Parse_CompoundNoun_PreservesOriginal()
+    {
+        // "sable oxidado" - compound noun doesn't get partial alias replacement
+        // Only exact matches in the alias dictionary are replaced
+        var parsed = Parser.Parse("coger sable oxidado");
+
+        Assert.Equal("take", parsed.Verb);
+        Assert.Equal("sable oxidado", parsed.DirectObject);  // No aliasing for compound nouns
+        Assert.Equal("sable oxidado", parsed.OriginalDirectObject);  // Same as normalized
+    }
+
+    [Fact]
+    public void Parse_IndirectObject_PreservesOriginal()
+    {
+        var parsed = Parser.Parse("meter hoja en cofre");
+
+        Assert.Equal("put", parsed.Verb);
+        Assert.Equal("espada", parsed.DirectObject);  // "hoja" aliased to "espada"
+        Assert.Equal("hoja", parsed.OriginalDirectObject);  // Original
+        Assert.Equal("cofre", parsed.IndirectObject);
+        Assert.Equal("cofre", parsed.OriginalIndirectObject);
+    }
+
+    [Fact]
+    public void Parse_TalkWithNpcAlias_PreservesOriginal()
+    {
+        // "barbudo" aliased to "enano"
+        var parsed = Parser.Parse("hablar con barbudo");
+
+        Assert.Equal("talk", parsed.Verb);
+        Assert.Equal("enano", parsed.DirectObject);  // Normalized
+        Assert.Equal("barbudo", parsed.OriginalDirectObject);  // Original
+    }
+
+    #endregion
+
+    #region Read Command Tests
+
+    [Fact]
+    public void Parse_ReadCommand_ParsesCorrectly()
+    {
+        var parsed = Parser.Parse("leer libro");
+
+        Assert.Equal("read", parsed.Verb);
+        Assert.Equal("libro", parsed.DirectObject);
+    }
+
+    [Theory]
+    [InlineData("leer")]
+    [InlineData("lee")]
+    public void Parse_ReadSynonyms_AllMapToRead(string verb)
+    {
+        var parsed = Parser.Parse($"{verb} pergamino");
+
+        Assert.Equal("read", parsed.Verb);
+        Assert.Equal("pergamino", parsed.DirectObject);
+    }
+
+    #endregion
+
+    #region Quest Command Tests
+
+    [Fact]
+    public void Parse_QuestsCommand_ParsesCorrectly()
+    {
+        var parsed = Parser.Parse("misiones");
+
+        Assert.Equal("quests", parsed.Verb);
+    }
+
+    [Theory]
+    [InlineData("misiones")]
+    [InlineData("mision")]
+    [InlineData("misión")]
+    [InlineData("quest")]
+    public void Parse_QuestSynonyms_AllMapToQuests(string verb)
+    {
+        var parsed = Parser.Parse(verb);
+
+        Assert.Equal("quests", parsed.Verb);
+    }
+
+    #endregion
+
+    #region LookIn Command Tests
+
+    [Fact]
+    public void Parse_LookIn_SingleWordVerb_ParsesWithPreposition()
+    {
+        // Note: The parser only takes the first word as the verb, so "ver dentro de cofre"
+        // becomes verb="ver", and the rest is parsed as the object with preposition
+        var parsed = Parser.Parse("ver dentro de cofre");
+
+        // "ver" is not aliased to anything, so it stays as "ver"
+        Assert.Equal("ver", parsed.Verb);
+        // "dentro de cofre" - "de" is a preposition, so it splits there
+        Assert.Equal("dentro", parsed.DirectObject);
+        Assert.Equal("cofre", parsed.IndirectObject);
+        Assert.Equal(PrepositionKind.From, parsed.Preposition);
+    }
+
+    #endregion
 }

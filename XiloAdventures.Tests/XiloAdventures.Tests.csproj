@@ -23,6 +23,7 @@
     <ProjectReference Include="..\XiloAdventures.Engine\XiloAdventures.Engine.csproj" />
     <ProjectReference Include="..\XiloAdventures.Wpf.Common\XiloAdventures.Wpf.Common.csproj" />
     <ProjectReference Include="..\XiloAdventures.Wpf\XiloAdventures.Wpf.csproj" />
+    <ProjectReference Include="..\XiloAdventures.Wpf.Player\XiloAdventures.Wpf.Player.csproj" />
   </ItemGroup>
 
 </Project>

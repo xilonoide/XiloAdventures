@@ -591,4 +591,382 @@ public class GameEngineTests
     }
 
     #endregion
+
+    #region MatchesName Fallback Tests (Noun Alias Fallback)
+
+    [Fact]
+    public void ProcessCommand_TakeWithNounAlias_FindsObjectByOriginalName()
+    {
+        // Arrange - object named "sable oxidado", but "sable" is aliased to "espada"
+        var (world, state) = CreateTestWorld();
+        var sound = CreateMockSoundManager();
+        var engine = new GameEngine(world, state, sound);
+
+        // The object is named "espada oxidada" which contains "espada"
+        // This test verifies the normalized name works
+        var result = engine.ProcessCommand("coger espada");
+
+        Assert.Contains("obj_sword", engine.State.InventoryObjectIds);
+    }
+
+    [Fact]
+    public void ProcessCommand_TakeWithOriginalName_FindsObjectWhenAliasedNameFails()
+    {
+        // Arrange - create object with name that uses synonym
+        var world = new WorldModel
+        {
+            Game = new GameInfo
+            {
+                Id = "test_alias",
+                Title = "Test Alias",
+                StartRoomId = "room1",
+                StartHour = 12
+            },
+            Rooms = new List<Room>
+            {
+                new Room
+                {
+                    Id = "room1",
+                    Name = "Sala",
+                    Description = "Una sala.",
+                    IsIlluminated = true,
+                    Exits = new List<Exit>(),
+                    ObjectIds = new List<string> { "obj_sable" },
+                    NpcIds = new List<string>()
+                }
+            },
+            Objects = new List<GameObject>
+            {
+                new GameObject
+                {
+                    Id = "obj_sable",
+                    Name = "sable oxidado",  // Uses "sable", not "espada"
+                    Description = "Un viejo sable oxidado.",
+                    CanTake = true,
+                    Visible = true,
+                    RoomId = "room1"
+                }
+            },
+            Npcs = new List<Npc>(),
+            Doors = new List<Door>(),
+            Quests = new List<QuestDefinition>()
+        };
+        var state = WorldLoader.CreateInitialState(world);
+        var sound = CreateMockSoundManager();
+        var engine = new GameEngine(world, state, sound);
+
+        // Act - "sable" is aliased to "espada", but object name is "sable oxidado"
+        // The fallback to original name should find it
+        var result = engine.ProcessCommand("coger sable");
+
+        // Assert
+        Assert.Contains("obj_sable", engine.State.InventoryObjectIds);
+        Assert.Contains("coges", result.Message.ToLowerInvariant());
+    }
+
+    [Fact]
+    public void ProcessCommand_ExamineWithOriginalName_FindsObject()
+    {
+        // Arrange
+        var world = new WorldModel
+        {
+            Game = new GameInfo
+            {
+                Id = "test_examine",
+                Title = "Test Examine",
+                StartRoomId = "room1",
+                StartHour = 12
+            },
+            Rooms = new List<Room>
+            {
+                new Room
+                {
+                    Id = "room1",
+                    Name = "Sala",
+                    Description = "Una sala.",
+                    IsIlluminated = true,
+                    Exits = new List<Exit>(),
+                    ObjectIds = new List<string> { "obj_monedas" },
+                    NpcIds = new List<string>()
+                }
+            },
+            Objects = new List<GameObject>
+            {
+                new GameObject
+                {
+                    Id = "obj_monedas",
+                    Name = "monedas de plata",  // "monedas" aliased to "oro"
+                    Description = "Monedas brillantes de plata.",
+                    CanTake = true,
+                    Visible = true,
+                    RoomId = "room1"
+                }
+            },
+            Npcs = new List<Npc>(),
+            Doors = new List<Door>(),
+            Quests = new List<QuestDefinition>()
+        };
+        var state = WorldLoader.CreateInitialState(world);
+        var sound = CreateMockSoundManager();
+        var engine = new GameEngine(world, state, sound);
+
+        // Act - "monedas" aliased to "oro", but object is "monedas de plata"
+        var result = engine.ProcessCommand("examinar monedas");
+
+        // Assert - Should find via original name fallback
+        Assert.Contains("plata", result.Message.ToLowerInvariant());
+    }
+
+    #endregion
+
+    #region Container Tests
+
+    /// <summary>
+    /// Creates a test world with a container.
+    /// </summary>
+    private static (WorldModel world, GameState state) CreateTestWorldWithContainer()
+    {
+        var world = new WorldModel
+        {
+            Game = new GameInfo
+            {
+                Id = "test_container",
+                Title = "Test Container",
+                StartRoomId = "room1",
+                StartHour = 12
+            },
+            Rooms = new List<Room>
+            {
+                new Room
+                {
+                    Id = "room1",
+                    Name = "Sala con cofre",
+                    Description = "Una sala con un cofre.",
+                    IsIlluminated = true,
+                    Exits = new List<Exit>(),
+                    ObjectIds = new List<string> { "obj_chest", "obj_gem" },
+                    NpcIds = new List<string>()
+                }
+            },
+            Objects = new List<GameObject>
+            {
+                new GameObject
+                {
+                    Id = "obj_chest",
+                    Name = "cofre de madera",
+                    Description = "Un viejo cofre de madera.",
+                    CanTake = false,
+                    Visible = true,
+                    RoomId = "room1",
+                    IsContainer = true,
+                    IsOpenable = true,
+                    IsOpen = true,
+                    ContainedObjectIds = new List<string> { "obj_coin" }
+                },
+                new GameObject
+                {
+                    Id = "obj_coin",
+                    Name = "moneda de oro",
+                    Description = "Una brillante moneda de oro.",
+                    CanTake = true,
+                    Visible = true
+                },
+                new GameObject
+                {
+                    Id = "obj_gem",
+                    Name = "gema roja",
+                    Description = "Una gema roja brillante.",
+                    CanTake = true,
+                    Visible = true,
+                    RoomId = "room1"
+                }
+            },
+            Npcs = new List<Npc>(),
+            Doors = new List<Door>(),
+            Quests = new List<QuestDefinition>()
+        };
+
+        var state = WorldLoader.CreateInitialState(world);
+        return (world, state);
+    }
+
+    [Fact]
+    public void ProcessCommand_LookIn_ShowsContainerContents()
+    {
+        // Arrange
+        var (world, state) = CreateTestWorldWithContainer();
+        var sound = CreateMockSoundManager();
+        var engine = new GameEngine(world, state, sound);
+
+        // Note: "ver en" is defined as alias for "look_in" but parser only takes first word as verb
+        // So we use the English command directly for this test
+        // Act
+        var result = engine.ProcessCommand("look_in cofre");
+
+        // Assert
+        Assert.Contains("moneda", result.Message.ToLowerInvariant());
+    }
+
+    [Fact]
+    public void ProcessCommand_PutIn_MovesObjectToContainer()
+    {
+        // Arrange
+        var (world, state) = CreateTestWorldWithContainer();
+        state.InventoryObjectIds.Add("obj_gem");
+        state.Rooms.First(r => r.Id == "room1").ObjectIds.Remove("obj_gem");
+        var sound = CreateMockSoundManager();
+        var engine = new GameEngine(world, state, sound);
+
+        var chest = state.Objects.First(o => o.Id == "obj_chest");
+        Assert.DoesNotContain("obj_gem", chest.ContainedObjectIds);
+
+        // Act
+        var result = engine.ProcessCommand("meter gema en cofre");
+
+        // Assert
+        Assert.Contains("obj_gem", chest.ContainedObjectIds);
+        Assert.DoesNotContain("obj_gem", engine.State.InventoryObjectIds);
+    }
+
+    [Fact]
+    public void ProcessCommand_GetFrom_MovesObjectFromContainer()
+    {
+        // Arrange
+        var (world, state) = CreateTestWorldWithContainer();
+        var sound = CreateMockSoundManager();
+        var engine = new GameEngine(world, state, sound);
+
+        var chest = state.Objects.First(o => o.Id == "obj_chest");
+        Assert.Contains("obj_coin", chest.ContainedObjectIds);
+
+        // Act
+        var result = engine.ProcessCommand("sacar moneda de cofre");
+
+        // Assert
+        Assert.DoesNotContain("obj_coin", chest.ContainedObjectIds);
+    }
+
+    [Fact]
+    public void ProcessCommand_OpenContainer_OpensContainer()
+    {
+        // Arrange
+        var (world, state) = CreateTestWorldWithContainer();
+        var chest = state.Objects.First(o => o.Id == "obj_chest");
+        chest.IsOpen = false;
+
+        var sound = CreateMockSoundManager();
+        var engine = new GameEngine(world, state, sound);
+
+        // Act
+        var result = engine.ProcessCommand("abrir cofre");
+
+        // Assert
+        Assert.True(chest.IsOpen);
+    }
+
+    [Fact]
+    public void ProcessCommand_CloseContainer_ClosesContainer()
+    {
+        // Arrange
+        var (world, state) = CreateTestWorldWithContainer();
+        var chest = state.Objects.First(o => o.Id == "obj_chest");
+        Assert.True(chest.IsOpen);
+
+        var sound = CreateMockSoundManager();
+        var engine = new GameEngine(world, state, sound);
+
+        // Act
+        var result = engine.ProcessCommand("cerrar cofre");
+
+        // Assert
+        Assert.False(chest.IsOpen);
+    }
+
+    [Fact]
+    public void ProcessCommand_TakeFromOpenContainer_Works()
+    {
+        // Arrange
+        var (world, state) = CreateTestWorldWithContainer();
+        var sound = CreateMockSoundManager();
+        var engine = new GameEngine(world, state, sound);
+
+        // Act - take object from inside open container
+        var result = engine.ProcessCommand("coger moneda");
+
+        // Assert
+        Assert.Contains("obj_coin", engine.State.InventoryObjectIds);
+    }
+
+    #endregion
+
+    #region Examine Tests
+
+    [Fact]
+    public void ProcessCommand_Examine_ReturnsObjectDescription()
+    {
+        // Arrange
+        var (world, state) = CreateTestWorld();
+        var sound = CreateMockSoundManager();
+        var engine = new GameEngine(world, state, sound);
+
+        // Act
+        var result = engine.ProcessCommand("examinar espada");
+
+        // Assert
+        Assert.Contains("oxidada", result.Message.ToLowerInvariant());
+    }
+
+    [Fact]
+    public void ProcessCommand_ExamineNonExistent_ReturnsError()
+    {
+        // Arrange
+        var (world, state) = CreateTestWorld();
+        var sound = CreateMockSoundManager();
+        var engine = new GameEngine(world, state, sound);
+
+        // Act
+        var result = engine.ProcessCommand("examinar dragon");
+
+        // Assert
+        Assert.Contains("no ves eso", result.Message.ToLowerInvariant());
+    }
+
+    [Fact]
+    public void ProcessCommand_ExamineInInventory_Works()
+    {
+        // Arrange
+        var (world, state) = CreateTestWorld();
+        state.InventoryObjectIds.Add("obj_sword");
+        state.Rooms.First(r => r.Id == "room1").ObjectIds.Remove("obj_sword");
+        var sound = CreateMockSoundManager();
+        var engine = new GameEngine(world, state, sound);
+
+        // Act
+        var result = engine.ProcessCommand("examinar espada");
+
+        // Assert
+        Assert.Contains("oxidada", result.Message.ToLowerInvariant());
+    }
+
+    #endregion
+
+    #region Use Command Tests
+
+    [Fact]
+    public void ProcessCommand_Use_WithNoScript_ReturnsDefaultMessage()
+    {
+        // Arrange
+        var (world, state) = CreateTestWorld();
+        var sound = CreateMockSoundManager();
+        var engine = new GameEngine(world, state, sound);
+
+        // Act
+        var result = engine.ProcessCommand("usar espada");
+
+        // Assert - Should indicate there's no special use
+        Assert.NotNull(result.Message);
+        Assert.True(result.Message.Length > 0);
+    }
+
+    #endregion
 }

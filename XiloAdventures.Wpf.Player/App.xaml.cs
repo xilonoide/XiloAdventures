@@ -193,13 +193,7 @@ public partial class App : Application
         try
         {
             // Buscar archivo de configuración en la misma carpeta del ejecutable
-            var exePath = System.Reflection.Assembly.GetExecutingAssembly().Location;
-            var exeDir = Path.GetDirectoryName(exePath);
-            if (string.IsNullOrEmpty(exeDir))
-            {
-                return new UiSettings { FontSize = 18, UseLlmForUnknownCommands = false };
-            }
-
+            var exeDir = AppContext.BaseDirectory;
             var configPath = Path.Combine(exeDir, "config.xac");
             if (File.Exists(configPath))
             {
