@@ -22,6 +22,7 @@
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
@@ -80,7 +81,7 @@
                     Background="#444444"
                     CornerRadius="4"
                     Padding="8,4"
-                    Margin="0,0,0,10"
+                    Margin="0,0,4,10"
                     Cursor="Hand"
                     VerticalAlignment="Center"
                     ToolTip="Refrescar lista"
@@ -92,8 +93,25 @@
                            VerticalAlignment="Center"/>
             </Border>
 
+            <!-- Generador de mundos -->
+            <Border Grid.Column="4"
+                    Background="#444444"
+                    CornerRadius="4"
+                    Padding="8,4"
+                    Margin="0,0,0,10"
+                    Cursor="Hand"
+                    VerticalAlignment="Center"
+                    ToolTip="Generador de mundos con IA"
+                    MouseLeftButtonUp="WorldGenerator_Click">
+                <TextBlock Text="&#xE943;"
+                           FontFamily="Segoe MDL2 Assets"
+                           FontSize="16"
+                           Foreground="#BB88FF"
+                           VerticalAlignment="Center"/>
+            </Border>
+
             <!-- Donaciones -->
-            <Border Grid.Column="5"
+            <Border Grid.Column="6"
                     Background="#3a5a3a"
                     CornerRadius="4"
                     Padding="10,6"

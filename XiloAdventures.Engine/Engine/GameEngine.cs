@@ -597,7 +597,6 @@ public class GameEngine
 
         return parsedCmd.Verb switch
         {
-            "look" => HandleLook(),
             "examine" => HandleExamine(parsedCmd),
             "go" => HandleGo(parsedCmd),
             "open" => HandleOpen(parsedCmd),
@@ -681,14 +680,14 @@ public class GameEngine
         // Verbos infinitivos comunes
         var verbs = new[] {
             "guardar", "meter", "poner", "sacar", "coger", "tomar", "dejar", "soltar",
-            "abrir", "cerrar", "usar", "examinar", "mirar", "ir", "hablar", "dar",
+            "abrir", "cerrar", "usar", "examinar", "ir", "hablar", "dar",
             "desbloquear", "bloquear", "empujar", "tirar", "leer", "comer", "beber"
         };
 
         // Pronombres con verbo conjugado (guárdala, mételo, cógela, etc.)
         var pronounPatterns = new[] {
             "guárdal", "métel", "ponl", "sácal", "cógel", "tómal", "déjal", "suéltal",
-            "ábrel", "ciérral", "úsal", "examínal", "míral", "dal"
+            "ábrel", "ciérral", "úsal", "examínal", "dal"
         };
 
         foreach (var verb in verbs)
@@ -764,18 +763,6 @@ public class GameEngine
             // En exteriores depende de si es de día o de noche.
             return !isNight;
         }
-    }
-
-    private CommandResult HandleLook()
-    {
-        var room = CurrentRoom;
-        if (room != null)
-        {
-            // Disparar Event_OnLook de la sala
-            _ = TriggerRoomScriptsAsync(room.Id, "Event_OnLook");
-        }
-        // La descripción se muestra en el área fija superior
-        return CommandResult.Success("");
     }
 
     /// <summary>
@@ -1555,7 +1542,7 @@ public class GameEngine
 
         var containerName = (parsed.DirectObject ?? string.Empty).Trim();
         if (string.IsNullOrEmpty(containerName))
-            return CommandResult.Error("¿Qué quieres mirar?");
+            return CommandResult.Error("¿Dentro de qué quieres ver?");
 
         var container = FindObjectInRoomOrInventory(room, containerName);
         if (container == null || !container.IsContainer)
@@ -2032,7 +2019,6 @@ public class GameEngine
     private static string GetHelpText()
     {
         return @"Comandos básicos:
- - mirar (describe la sala actual)
  - examinar <algo> / x <algo> (describe un objeto, NPC o puerta)
  - leer <objeto> (lee el contenido de libros, cartas, pergaminos...)
  - ir <dirección> (n, s, e, o, ne, no, se, so, subir, bajar, arriba, abajo)
@@ -2061,7 +2047,6 @@ public class GameEngine
 ║  subir, bajar, arriba, abajo                                 ║
 ╠══════════════════════════════════════════════════════════════╣
 ║ EXPLORACIÓN                                                  ║
-║  mirar, mira, ver, observa  → ""mirar"" (describe la sala)     ║
 ║  examinar, x                → ""examinar espada"", ""x cofre""   ║
 ║  leer, lee                  → ""leer pergamino"", ""lee carta""  ║
 ╠══════════════════════════════════════════════════════════════╣

@@ -70,7 +70,7 @@ internal sealed class ParserDictionaryDto
 /// </summary>
 /// <remarks>
 /// The parser normalizes player input by:
-/// - Converting verb synonyms to canonical forms (e.g., "mirar" -> "look")
+/// - Converting verb synonyms to canonical forms (e.g., "examinar" -> "examine")
 /// - Handling prepositions (a, con, de, en)
 /// - Recognizing direction shortcuts (n, s, e, o, etc.)
 /// - Supporting per-world custom dictionaries
@@ -116,7 +116,6 @@ public static class Parser
     private static void InitializeDictionaries()
     {
         // Verbos base en castellano -> verbos canónicos
-        AddVerbAlias("look", "mirar", "mira", "ver", "observa");
         AddVerbAlias("examine", "examinar", "examina", "x");
         AddVerbAlias("go", "ir", "ve", "andar", "caminar");
         AddVerbAlias("inventory", "inventario", "inv", "i");
@@ -128,7 +127,7 @@ public static class Parser
         AddVerbAlias("lock", "bloquear", "cerrar con llave", "cerrar con");
         AddVerbAlias("put", "meter", "poner", "colocar", "guardar");
         AddVerbAlias("get_from", "sacar", "quitar", "extraer");
-        AddVerbAlias("look_in", "mirar en", "mirar dentro", "ver en", "ver dentro");
+        AddVerbAlias("look_in", "ver en", "ver dentro");
         AddVerbAlias("talk", "hablar", "habla", "charlar", "conversar", "decir", "di");
         AddVerbAlias("say", "responder", "contestar");
         AddVerbAlias("option", "opcion", "opción");

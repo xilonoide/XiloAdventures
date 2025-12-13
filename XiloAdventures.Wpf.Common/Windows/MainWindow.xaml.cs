@@ -388,7 +388,6 @@ public partial class MainWindow : Window
         promptBuilder.AppendLine("Tu trabajo es interpretar lo que el jugador quiso decir y devolver un comando válido.");
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("VERBOS VÁLIDOS que el juego entiende:");
-        promptBuilder.AppendLine("- mirar (sin objeto = describe la sala)");
         promptBuilder.AppendLine("- examinar <objeto> (examina un objeto específico)");
         promptBuilder.AppendLine("- ir <dirección> (norte, sur, este, oeste, arriba, abajo)");
         promptBuilder.AppendLine("- coger <objeto>");

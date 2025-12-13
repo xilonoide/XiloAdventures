@@ -129,7 +129,6 @@ public partial class PromptGeneratorWindow : Window
 - `Event_OnGameStart` - Al iniciar el juego (OwnerType: Game)
 - `Event_OnEnter` - Al entrar a la sala (OwnerType: Room)
 - `Event_OnExit` - Al salir de la sala (OwnerType: Room)
-- `Event_OnLook` - Al mirar la sala (OwnerType: Room)
 - `Event_OnTalk` - Al hablar con NPC (OwnerType: Npc)
 - `Event_OnNpcSee` - Cuando el NPC ve al jugador entrar (OwnerType: Npc)
 - `Event_OnTake` - Al coger objeto (OwnerType: GameObject)

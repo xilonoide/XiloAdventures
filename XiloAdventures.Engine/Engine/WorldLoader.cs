@@ -112,7 +112,7 @@ public static class WorldLoader
         world.Fxs ??= new List<FxAsset>();
         world.Scripts ??= new List<ScriptDefinition>();
 
-        // Normalizar Properties de scripts para ser case-insensitive
+        // Normalizar Properties de scripts y corregir categorías de nodos
         foreach (var script in world.Scripts)
         {
             foreach (var node in script.Nodes)
@@ -121,6 +121,14 @@ public static class WorldLoader
                 var normalizedProps = new Dictionary<string, object?>(
                     node.Properties, StringComparer.OrdinalIgnoreCase);
                 node.Properties = normalizedProps;
+
+                // Corregir la categoría del nodo según el registro de tipos
+                // (útil cuando se carga JSON generado externamente que no incluye Category)
+                var typeDef = NodeTypeRegistry.GetNodeType(node.NodeType);
+                if (typeDef != null)
+                {
+                    node.Category = typeDef.Category;
+                }
             }
         }
 

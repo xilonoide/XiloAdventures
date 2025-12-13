@@ -1912,7 +1912,7 @@ public partial class PropertyEditor : UserControl
     {
         const string exampleJson = @"{
   ""verbs"": {
-    ""mirar"": [""examinar"", ""observar""],
+    ""examinar"": [""inspeccionar"", ""observar""],
     ""coger"": [""tomar"", ""agarrar""],
     ""usar"": [""emplear""]
   },

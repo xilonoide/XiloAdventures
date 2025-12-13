@@ -572,6 +572,15 @@ public partial class StartupWindow : Window
         ReloadWorlds();
     }
 
+    private void WorldGenerator_Click(object sender, MouseButtonEventArgs e)
+    {
+        var promptWindow = new PromptGeneratorWindow
+        {
+            Owner = this
+        };
+        promptWindow.ShowDialog();
+    }
+
     private void CreateNewWorld_Click(object sender, MouseButtonEventArgs e)
     {
         // Abrir el editor con null para crear un mundo nuevo

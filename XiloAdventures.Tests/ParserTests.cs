@@ -204,18 +204,18 @@ public class ParserTests
     [Fact]
     public void Parse_MultipleArticlesStripped_FromDirectObject()
     {
-        var parsed = Parser.Parse("mirar el viejo libro");
+        var parsed = Parser.Parse("examinar el viejo libro");
 
-        Assert.Equal("look", parsed.Verb);
+        Assert.Equal("examine", parsed.Verb);
         Assert.Equal("viejo libro", parsed.DirectObject);
     }
 
     [Fact]
     public void Parse_PunctuationStripped_FromInput()
     {
-        var parsed = Parser.Parse("mirar la espada!");
+        var parsed = Parser.Parse("examinar la espada!");
 
-        Assert.Equal("look", parsed.Verb);
+        Assert.Equal("examine", parsed.Verb);
         Assert.Equal("espada", parsed.DirectObject);
     }
 
@@ -226,15 +226,6 @@ public class ParserTests
 
         Assert.Equal("take", parsed.Verb);
         Assert.Equal("espada", parsed.DirectObject);
-    }
-
-    [Fact]
-    public void Parse_LookVerb_ParsesCorrectly()
-    {
-        var parsed = Parser.Parse("mirar");
-
-        Assert.Equal("look", parsed.Verb);
-        Assert.Null(parsed.DirectObject);
     }
 
     [Fact]

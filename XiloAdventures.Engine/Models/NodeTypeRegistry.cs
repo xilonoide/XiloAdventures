@@ -146,16 +146,6 @@ public static class NodeTypeRegistry
             }
         });
 
-        Register(new NodeTypeDefinition
-        {
-            TypeId = "Event_OnLook",
-            DisplayName = "Al Mirar",
-            Description = "Se ejecuta cuando el jugador mira la sala",
-            Category = NodeCategory.Event,
-            OwnerTypes = new[] { "Room" },
-            OutputPorts = new[] { new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" } }
-        });
-
         // === DOOR EVENTS ===
         Register(new NodeTypeDefinition
         {

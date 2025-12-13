@@ -109,11 +109,12 @@ public class GameEngineTests
         Assert.Equal("room1", engine.State.CurrentRoomId);
 
         // Act
-        var result = engine.ProcessCommand("ir norte");
+        engine.ProcessCommand("ir norte");
 
         // Assert
         Assert.Equal("room2", engine.State.CurrentRoomId);
-        Assert.Contains("north room", result.Message.ToLowerInvariant());
+        // Room description is shown in fixed panel, not in message
+        Assert.Contains("north room", engine.DescribeCurrentRoom().ToLowerInvariant());
     }
 
     [Fact]
@@ -149,24 +150,7 @@ public class GameEngineTests
 
     #endregion
 
-    #region Look/Describe Tests
-
-    [Fact]
-    public void ProcessCommand_Look_DescribesCurrentRoom()
-    {
-        // Arrange
-        var (world, state) = CreateTestWorld();
-        var sound = CreateMockSoundManager();
-        var engine = new GameEngine(world, state, sound);
-
-        // Act
-        var result = engine.ProcessCommand("mirar");
-
-        // Assert
-        Assert.Contains("starting room", result.Message.ToLowerInvariant());
-        Assert.Contains("espada", result.Message.ToLowerInvariant());  // Should show objects
-        Assert.Contains("norte", result.Message.ToLowerInvariant());   // Should show exits
-    }
+    #region Describe Tests
 
     [Fact]
     public void DescribeCurrentRoom_WithObjects_ListsVisibleObjects()
@@ -320,8 +304,8 @@ public class GameEngineTests
         var result = engine.ProcessCommand("ayuda");
 
         // Assert
-        Assert.Contains("comandos básicos", result.Message.ToLowerInvariant());
-        Assert.Contains("mirar", result.Message.ToLowerInvariant());
+        Assert.Contains("verbos disponibles", result.Message.ToLowerInvariant());
+        Assert.Contains("examinar", result.Message.ToLowerInvariant());
         Assert.Contains("coger", result.Message.ToLowerInvariant());
     }
 
@@ -369,7 +353,7 @@ public class GameEngineTests
         var initialTurn = engine.State.TurnCounter;
 
         // Act
-        engine.ProcessCommand("mirar");
+        engine.ProcessCommand("inventario");
 
         // Assert
         Assert.Equal(initialTurn + 1, engine.State.TurnCounter);
@@ -502,11 +486,12 @@ public class GameEngineTests
 
         // Act - Usamos "e" en lugar de "este" porque el Parser trata "este"
         // como demostrativos (este/esta/estos) y lo elimina del comando
-        var result = engine.ProcessCommand("e");
+        engine.ProcessCommand("e");
 
         // Assert
         Assert.Equal("room2", engine.State.CurrentRoomId);
-        Assert.Contains("sala este", result.Message.ToLowerInvariant());
+        // Room description is shown in fixed panel, not in message
+        Assert.Contains("sala este", engine.DescribeCurrentRoom().ToLowerInvariant());
     }
 
     [Fact]
