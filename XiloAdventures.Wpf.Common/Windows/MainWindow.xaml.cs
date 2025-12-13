@@ -12,6 +12,7 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Navigation;
+using System.Windows.Shapes;
 using Microsoft.Win32;
 using XiloAdventures.Engine;
 using XiloAdventures.Engine.Models;
@@ -37,6 +38,26 @@ public partial class MainWindow : Window
     private readonly List<string> _commandHistory = new();
     private int _commandHistoryIndex = -1;
     private bool _isInitializingCheckbox;
+    private bool _skipClosingConfirmation;
+
+    // Mapa de salas visitadas
+    private readonly HashSet<string> _visitedRooms = new();
+    private readonly Dictionary<string, (int X, int Y)> _roomCoordinates = new();
+    private const int RoomWidth = 100;
+    private const int RoomHeight = 60;
+    private const int RoomSpacing = 20;
+    private const double BaseWindowWidth = 1000;
+    private const double MapPanelWidth = 600;
+
+    // Zoom y pan del mapa
+    private double _mapZoom = 1.0;
+    private const double MinZoom = 0.3;
+    private const double MaxZoom = 3.0;
+    private const double ZoomStep = 0.1;
+    private bool _isPanning;
+    private Point _panStart;
+    private double _panOffsetX;
+    private double _panOffsetY;
 
     public MainWindow(WorldModel world, GameState state, SoundManager soundManager, UiSettings uiSettings, bool isRunningFromEditor = false)
     {
@@ -57,7 +78,9 @@ public partial class MainWindow : Window
 
         // Establecer tamaño de ventana
         Height = SystemParameters.WorkArea.Height - 100;
-        Width = 1300;
+
+        // Redibujar mapa cuando el canvas tenga su tamaño real
+        MapCanvas.SizeChanged += (_, _) => { if (_uiSettings.MapEnabled) DrawMap(); };
 
         ApplyUiSettings();
 
@@ -68,7 +91,6 @@ public partial class MainWindow : Window
     {
         Title = $"Xilo Adventures - {_world.Game.Title}";
         InputTextBox.Focus();
-        AppendText(_engine.DescribeCurrentRoom());
         UpdateStatusPanel();
         UpdateRoomVisuals();
 
@@ -84,6 +106,24 @@ public partial class MainWindow : Window
         OutputTextBox.FontSize = size;
         InputTextBox.FontSize = size;
         RoomTitleText.FontSize = size + 2;
+        RoomDescriptionText.FontSize = size;
+
+        // Mostrar/ocultar mapa (el ancho de ventana siempre incluye espacio para el mapa)
+        Width = BaseWindowWidth + MapPanelWidth;
+        if (_uiSettings.MapEnabled)
+        {
+            MapPanel.Visibility = Visibility.Visible;
+            MapColumn.Width = new GridLength(580);
+            ExitsSection.Visibility = Visibility.Collapsed; // Las salidas se ven en el mapa
+            UpdateArrows();
+            DrawMap();
+        }
+        else
+        {
+            MapPanel.Visibility = Visibility.Collapsed;
+            MapColumn.Width = new GridLength(0);
+            ExitsSection.Visibility = Visibility.Visible; // Mostrar salidas en texto
+        }
     }
 
     private void AppendText(string text)
@@ -480,6 +520,7 @@ public partial class MainWindow : Window
     private void UpdateStatusPanel()
     {
         StatsLabel.Text = _engine.DescribePlayerStats();
+        GoldLabel.Text = _engine.DescribePlayerGold();
         InventoryLabel.Text = _engine.DescribeInventory();
         ExitsLabel.Text = _engine.DescribeExits();
 
@@ -502,7 +543,36 @@ public partial class MainWindow : Window
 
     private void Engine_RoomChanged(Room obj)
     {
+        // Limpiar el área de texto al entrar en una nueva sala
+        OutputTextBox.Document.Blocks.Clear();
+
         UpdateRoomVisuals();
+        TrackVisitedRoom(obj);
+        if (_uiSettings.MapEnabled)
+        {
+            UpdateArrows();
+            DrawMap();
+        }
+    }
+
+    private void TrackVisitedRoom(Room room)
+    {
+        if (room == null) return;
+
+        if (!_visitedRooms.Contains(room.Id))
+        {
+            _visitedRooms.Add(room.Id);
+
+            // Asignar coordenadas si no tiene
+            if (!_roomCoordinates.ContainsKey(room.Id))
+            {
+                // Si es la primera sala, ponerla en el centro
+                if (_roomCoordinates.Count == 0)
+                {
+                    _roomCoordinates[room.Id] = (0, 0);
+                }
+            }
+        }
     }
 
     private void Engine_ScriptMessage(string message)
@@ -594,6 +664,7 @@ public partial class MainWindow : Window
             return;
 
         RoomTitleText.Text = room.Name;
+        RoomDescriptionText.Text = _engine.DescribeCurrentRoom();
 
         RoomImage.Source = TryLoadRoomImage(room.ImageBase64) ?? DefaultRoomImage;
     }
@@ -731,6 +802,7 @@ public partial class MainWindow : Window
         _uiSettings.EffectsVolume = settings.EffectsVolume;
         _uiSettings.MasterVolume = settings.MasterVolume;
         _uiSettings.VoiceVolume = settings.VoiceVolume;
+        _uiSettings.MapEnabled = settings.MapEnabled;
 
         _sound.SoundEnabled = settings.SoundEnabled;
         _sound.MusicVolume = (float)(settings.MusicVolume / 10.0);
@@ -783,6 +855,32 @@ public partial class MainWindow : Window
         Close();
     }
 
+    private void RestartMenu_Click(object sender, RoutedEventArgs e)
+    {
+        var confirmDlg = new ConfirmWindow(
+            "¿Seguro que quieres reiniciar la partida?\n\nPerderás todo el progreso no guardado.",
+            "Reiniciar partida")
+        {
+            Owner = this
+        };
+
+        if (confirmDlg.ShowDialog() != true)
+            return;
+
+        // Crear un nuevo estado inicial
+        var newState = WorldLoader.CreateInitialState(_world);
+
+        // Crear nueva ventana con el estado fresco
+        var newWindow = new MainWindow(_world, newState, _sound, _uiSettings, _isRunningFromEditor)
+        {
+            Owner = Owner
+        };
+
+        // Cerrar sin preguntar (ya confirmamos)
+        _skipClosingConfirmation = true;
+        Close();
+        newWindow.Show();
+    }
 
     private void AboutMenu_Click(object sender, RoutedEventArgs e)
     {
@@ -796,6 +894,13 @@ public partial class MainWindow : Window
 
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
+        // Si es un reinicio, no preguntar ni detener música
+        if (_skipClosingConfirmation)
+        {
+            base.OnClosing(e);
+            return;
+        }
+
         var saveChangesWindow = new SaveChangesWindow(
             "¿Seguro que quieres salir?",
             saveButtonText: "Guardar y salir",
@@ -949,7 +1054,7 @@ public partial class MainWindow : Window
 
     private void LlmInfoIcon_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
-        var message = "Si activas la IA, el juego intentará entender mejor comandos complejos o mal escritos. Además, si subes el volumen de voz en las opciones, oirás las descripciones de las salas.\n\nPara usarla debes tener Docker Desktop instalado y funcionando. La primera vez que se use se descargarán algunos componentes y puede tardar unos minutos. Después funcionará muy rápido.";
+        var message = "Si activas la IA, el juego intentará entender mejor comandos complejos o mal escritos. Además, si subes el volumen de voz en las opciones, oirás las descripciones de las salas.\n\nPara usarla debes tener Docker Desktop instalado. La primera vez que se use se descargarán algunos componentes y puede tardar unos minutos. Después funcionará muy rápido.";
 
         var link = new TextBlock
         {
@@ -988,4 +1093,476 @@ public partial class MainWindow : Window
             // Ignorar errores al abrir el navegador
         }
     }
+
+    #region Mapa y Navegación
+
+    private void UpdateArrows()
+    {
+        var room = _engine.CurrentRoom;
+        if (room == null) return;
+
+        var exits = GetAllExitsFromRoom(room);
+        var doors = GetDoorsInRoom(room);
+
+        UpdateArrowButton(ArrowN, "n", exits, doors);
+        UpdateArrowButton(ArrowS, "s", exits, doors);
+        UpdateArrowButton(ArrowE, "e", exits, doors);
+        UpdateArrowButton(ArrowW, "o", exits, doors);
+        UpdateArrowButton(ArrowNE, "ne", exits, doors);
+        UpdateArrowButton(ArrowNW, "no", exits, doors);
+        UpdateArrowButton(ArrowSE, "se", exits, doors);
+        UpdateArrowButton(ArrowSW, "so", exits, doors);
+        UpdateArrowButton(ArrowUp, "ar", exits, doors);
+        UpdateArrowButton(ArrowDown, "ab", exits, doors);
+    }
+
+    private void UpdateArrowButton(Button button, string dirCode, Dictionary<string, (string TargetRoomId, string? DoorId)> exits, Dictionary<string, Door> doors)
+    {
+        if (exits.TryGetValue(dirCode, out var exitInfo))
+        {
+            button.Visibility = Visibility.Visible;
+
+            // Verificar si hay puerta
+            if (!string.IsNullOrEmpty(exitInfo.DoorId) && doors.TryGetValue(exitInfo.DoorId, out var door))
+            {
+                button.Foreground = door.IsOpen
+                    ? new SolidColorBrush(Color.FromRgb(100, 200, 100))  // Verde - puerta abierta
+                    : new SolidColorBrush(Color.FromRgb(200, 100, 100)); // Rojo - puerta cerrada
+            }
+            else
+            {
+                button.Foreground = new SolidColorBrush(Color.FromRgb(180, 180, 180)); // Gris claro - sin puerta
+            }
+        }
+        else
+        {
+            button.Visibility = Visibility.Hidden;
+        }
+    }
+
+    private Dictionary<string, (string TargetRoomId, string? DoorId)> GetAllExitsFromRoom(Room room)
+    {
+        var exits = new Dictionary<string, (string, string?)>(StringComparer.OrdinalIgnoreCase);
+
+        // Salidas directas
+        foreach (var exit in room.Exits)
+        {
+            var norm = NormalizeDirection(exit.Direction);
+            if (!exits.ContainsKey(norm))
+                exits[norm] = (exit.TargetRoomId, exit.DoorId);
+        }
+
+        // Salidas inversas
+        foreach (var candidateRoom in _engine.State.Rooms)
+        {
+            if (candidateRoom.Id.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            foreach (var candidateExit in candidateRoom.Exits)
+            {
+                if (!candidateExit.TargetRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var normCandidate = NormalizeDirection(candidateExit.Direction);
+                var opposite = GetOppositeDirection(normCandidate);
+
+                if (!exits.ContainsKey(opposite))
+                    exits[opposite] = (candidateRoom.Id, candidateExit.DoorId);
+            }
+        }
+
+        return exits;
+    }
+
+    private Dictionary<string, Door> GetDoorsInRoom(Room room)
+    {
+        var doors = new Dictionary<string, Door>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var exit in room.Exits)
+        {
+            if (!string.IsNullOrEmpty(exit.DoorId))
+            {
+                var door = _engine.State.Doors.FirstOrDefault(d =>
+                    d.Id.Equals(exit.DoorId, StringComparison.OrdinalIgnoreCase));
+                if (door != null)
+                    doors[exit.DoorId] = door;
+            }
+        }
+
+        return doors;
+    }
+
+    private static string NormalizeDirection(string dir)
+    {
+        dir = dir.ToLowerInvariant().Trim();
+        return dir switch
+        {
+            "norte" or "north" or "n" => "n",
+            "sur" or "south" or "s" => "s",
+            "este" or "east" or "e" => "e",
+            "oeste" or "west" or "o" or "w" => "o",
+            "noreste" or "northeast" or "ne" => "ne",
+            "noroeste" or "northwest" or "no" or "nw" => "no",
+            "sureste" or "southeast" or "se" => "se",
+            "suroeste" or "southwest" or "so" or "sw" => "so",
+            "arriba" or "up" or "ar" or "u" => "ar",
+            "abajo" or "down" or "ab" or "d" => "ab",
+            _ => dir
+        };
+    }
+
+    private static string GetOppositeDirection(string dir)
+    {
+        return dir switch
+        {
+            "n" => "s",
+            "s" => "n",
+            "e" => "o",
+            "o" => "e",
+            "ne" => "so",
+            "no" => "se",
+            "se" => "no",
+            "so" => "ne",
+            "ar" => "ab",
+            "ab" => "ar",
+            _ => dir
+        };
+    }
+
+    private void Arrow_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button button) return;
+        var direction = button.Tag?.ToString();
+        if (string.IsNullOrEmpty(direction)) return;
+
+        // Mostrar el comando ejecutado
+        var cmd = $"ir {direction}";
+        AppendText($"> {cmd}");
+        AppendSeparator();
+
+        // Ejecutar el comando de movimiento
+        var result = _engine.ProcessCommand(cmd);
+        if (!string.IsNullOrWhiteSpace(result.Message))
+        {
+            AppendText(result.Message);
+        }
+
+        UpdateStatusPanel();
+        UpdateRoomVisuals();
+    }
+
+    private void DrawMap()
+    {
+        MapCanvas.Children.Clear();
+
+        var room = _engine.CurrentRoom;
+        if (room == null) return;
+
+        // Asegurar que la sala actual está registrada
+        TrackVisitedRoom(room);
+
+        // Calcular coordenadas basadas en las conexiones
+        CalculateRoomCoordinates(room);
+
+        // Obtener coordenadas de la sala actual
+        if (!_roomCoordinates.TryGetValue(room.Id, out var currentCoords)) return;
+
+        var canvasWidth = MapCanvas.ActualWidth > 0 ? MapCanvas.ActualWidth : 260;
+        var canvasHeight = MapCanvas.ActualHeight > 0 ? MapCanvas.ActualHeight : 200;
+
+        // Centrar el mapa en la sala actual
+        var offsetX = canvasWidth / 2 - currentCoords.X * (RoomWidth + RoomSpacing) - RoomWidth / 2;
+        var offsetY = canvasHeight / 2 + currentCoords.Y * (RoomHeight + RoomSpacing) - RoomHeight / 2;
+
+        // Construir mapa de colisiones: agrupar salas por coordenadas
+        var collisionMap = new Dictionary<(int X, int Y), List<string>>();
+        foreach (var roomId in _visitedRooms)
+        {
+            if (!_roomCoordinates.TryGetValue(roomId, out var coords)) continue;
+            if (!collisionMap.ContainsKey(coords))
+                collisionMap[coords] = new List<string>();
+            collisionMap[coords].Add(roomId);
+        }
+
+        // Función para obtener el desplazamiento de colisión en píxeles
+        (double pixelOffsetX, double pixelOffsetY) GetCollisionOffset(string roomId, (int X, int Y) coords)
+        {
+            if (!collisionMap.TryGetValue(coords, out var roomsAtPosition))
+                return (0, 0);
+            var index = roomsAtPosition.IndexOf(roomId);
+            return (index * 10, index * 10); // 10px por cada sala adicional
+        }
+
+        // Dibujar conexiones primero
+        foreach (var roomId in _visitedRooms)
+        {
+            if (!_roomCoordinates.TryGetValue(roomId, out var coords)) continue;
+            var visitedRoom = _engine.State.Rooms.FirstOrDefault(r => r.Id == roomId);
+            if (visitedRoom == null) continue;
+
+            var (collOffX1, collOffY1) = GetCollisionOffset(roomId, coords);
+            var x1 = offsetX + coords.X * (RoomWidth + RoomSpacing) + RoomWidth / 2 + collOffX1;
+            var y1 = offsetY - coords.Y * (RoomHeight + RoomSpacing) + RoomHeight / 2 + collOffY1;
+
+            foreach (var exit in visitedRoom.Exits)
+            {
+                if (_roomCoordinates.TryGetValue(exit.TargetRoomId, out var targetCoords))
+                {
+                    var (collOffX2, collOffY2) = GetCollisionOffset(exit.TargetRoomId, targetCoords);
+                    var x2 = offsetX + targetCoords.X * (RoomWidth + RoomSpacing) + RoomWidth / 2 + collOffX2;
+                    var y2 = offsetY - targetCoords.Y * (RoomHeight + RoomSpacing) + RoomHeight / 2 + collOffY2;
+
+                    var line = new Line
+                    {
+                        X1 = x1, Y1 = y1, X2 = x2, Y2 = y2,
+                        Stroke = new SolidColorBrush(Color.FromRgb(80, 80, 80)),
+                        StrokeThickness = 2
+                    };
+                    MapCanvas.Children.Add(line);
+                }
+            }
+        }
+
+        // Dibujar salas
+        foreach (var roomId in _visitedRooms)
+        {
+            if (!_roomCoordinates.TryGetValue(roomId, out var coords)) continue;
+            var visitedRoom = _engine.State.Rooms.FirstOrDefault(r => r.Id == roomId);
+            if (visitedRoom == null) continue;
+
+            var (collOffX, collOffY) = GetCollisionOffset(roomId, coords);
+            var x = offsetX + coords.X * (RoomWidth + RoomSpacing) + collOffX;
+            var y = offsetY - coords.Y * (RoomHeight + RoomSpacing) + collOffY;
+
+            var isCurrentRoom = roomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase);
+
+            var rect = new Rectangle
+            {
+                Width = RoomWidth,
+                Height = RoomHeight,
+                Fill = isCurrentRoom
+                    ? new SolidColorBrush(Color.FromRgb(80, 120, 180))
+                    : new SolidColorBrush(Color.FromRgb(50, 50, 60)),
+                Stroke = isCurrentRoom
+                    ? new SolidColorBrush(Color.FromRgb(100, 180, 255))
+                    : new SolidColorBrush(Color.FromRgb(80, 80, 100)),
+                StrokeThickness = isCurrentRoom ? 2 : 1,
+                RadiusX = 4,
+                RadiusY = 4
+            };
+            Canvas.SetLeft(rect, x);
+            Canvas.SetTop(rect, y);
+            MapCanvas.Children.Add(rect);
+
+            // Nombre de la sala (permite múltiples líneas)
+            var tooltipContent = new StackPanel { MaxWidth = 300 };
+            tooltipContent.Children.Add(new TextBlock
+            {
+                Text = visitedRoom.Name,
+                FontWeight = FontWeights.Bold,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 8)
+            });
+            tooltipContent.Children.Add(new TextBlock
+            {
+                Text = visitedRoom.Description,
+                TextWrapping = TextWrapping.Wrap
+            });
+
+            var text = new TextBlock
+            {
+                Text = visitedRoom.Name,
+                Foreground = Brushes.White,
+                FontSize = 14,
+                TextWrapping = TextWrapping.Wrap,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Width = RoomWidth - 4,
+                Height = RoomHeight - 4,
+                TextAlignment = TextAlignment.Center,
+                ToolTip = tooltipContent
+            };
+            Canvas.SetLeft(text, x + 2);
+            Canvas.SetTop(text, y + 2);
+            MapCanvas.Children.Add(text);
+        }
+    }
+
+    private void CalculateRoomCoordinates(Room startRoom)
+    {
+        // Si es la primera sala (no hay coordenadas aún), iniciar en (0, 0)
+        if (_roomCoordinates.Count == 0)
+        {
+            _roomCoordinates[startRoom.Id] = (0, 0);
+        }
+        else if (!_roomCoordinates.ContainsKey(startRoom.Id))
+        {
+            // Buscar una sala ya posicionada que conecte con esta
+            foreach (var existingRoomId in _roomCoordinates.Keys.ToList())
+            {
+                var existingRoom = _engine.State.Rooms.FirstOrDefault(r => r.Id == existingRoomId);
+                if (existingRoom == null) continue;
+
+                foreach (var exit in existingRoom.Exits)
+                {
+                    if (exit.TargetRoomId.Equals(startRoom.Id, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var existingCoords = _roomCoordinates[existingRoomId];
+                        var dir = NormalizeDirection(exit.Direction);
+                        var (dx, dy) = GetDirectionOffset(dir);
+                        _roomCoordinates[startRoom.Id] = (existingCoords.X + dx, existingCoords.Y + dy);
+                        goto foundCoords;
+                    }
+                }
+            }
+
+            // Si no encontramos conexión inversa, buscar desde startRoom hacia salas posicionadas
+            foreach (var exit in startRoom.Exits)
+            {
+                if (_roomCoordinates.TryGetValue(exit.TargetRoomId, out var targetCoords))
+                {
+                    var dir = NormalizeDirection(exit.Direction);
+                    var (dx, dy) = GetDirectionOffset(dir);
+                    // La nueva sala está en dirección opuesta respecto a la sala destino
+                    _roomCoordinates[startRoom.Id] = (targetCoords.X - dx, targetCoords.Y - dy);
+                    break;
+                }
+            }
+            foundCoords:;
+        }
+
+        // BFS para calcular posiciones de salas conectadas visitadas
+        var processed = new HashSet<string>();
+        var queue = new Queue<string>();
+
+        // Iniciar desde todas las salas con coordenadas
+        foreach (var roomId in _roomCoordinates.Keys)
+        {
+            queue.Enqueue(roomId);
+        }
+
+        while (queue.Count > 0)
+        {
+            var currentId = queue.Dequeue();
+            if (processed.Contains(currentId)) continue;
+            processed.Add(currentId);
+
+            if (!_roomCoordinates.TryGetValue(currentId, out var currentCoords)) continue;
+
+            var currentRoom = _engine.State.Rooms.FirstOrDefault(r => r.Id == currentId);
+            if (currentRoom == null) continue;
+
+            foreach (var exit in currentRoom.Exits)
+            {
+                if (!_visitedRooms.Contains(exit.TargetRoomId)) continue;
+                if (_roomCoordinates.ContainsKey(exit.TargetRoomId)) continue;
+
+                var dir = NormalizeDirection(exit.Direction);
+                var (dx, dy) = GetDirectionOffset(dir);
+
+                _roomCoordinates[exit.TargetRoomId] = (currentCoords.X + dx, currentCoords.Y + dy);
+                queue.Enqueue(exit.TargetRoomId);
+            }
+        }
+    }
+
+    private static (int dx, int dy) GetDirectionOffset(string dir)
+    {
+        // Norte = +Y, Sur = -Y, Este = +X, Oeste = -X
+        // Arriba/Abajo se desplazan diagonalmente para no solapar con norte/sur
+        return dir switch
+        {
+            "n" => (0, 1),
+            "s" => (0, -1),
+            "e" => (1, 0),
+            "o" => (-1, 0),
+            "ne" => (1, 1),
+            "no" => (-1, 1),
+            "se" => (1, -1),
+            "so" => (-1, -1),
+            "ar" or "up" => (1, 1),    // Arriba: diagonal derecha-arriba
+            "ab" or "down" => (1, -1), // Abajo: diagonal derecha-abajo
+            _ => (0, 0)
+        };
+    }
+
+    private void MapCanvas_MouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        var delta = e.Delta > 0 ? ZoomStep : -ZoomStep;
+        var newZoom = Math.Clamp(_mapZoom + delta, MinZoom, MaxZoom);
+        if (Math.Abs(newZoom - _mapZoom) < 0.001) return;
+
+        // Obtener posición del ratón relativa al canvas
+        var mousePos = e.GetPosition(MapCanvas);
+
+        // Calcular el nuevo offset para mantener el punto bajo el cursor
+        var scale = newZoom / _mapZoom;
+        _panOffsetX = mousePos.X - (mousePos.X - _panOffsetX) * scale;
+        _panOffsetY = mousePos.Y - (mousePos.Y - _panOffsetY) * scale;
+
+        _mapZoom = newZoom;
+        ApplyMapTransform();
+        e.Handled = true;
+    }
+
+    private void MapCanvas_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        // Botón central (Middle) para arrastrar
+        if (e.MiddleButton == MouseButtonState.Pressed)
+        {
+            _isPanning = true;
+            _panStart = e.GetPosition(this);
+            ((FrameworkElement)sender).CaptureMouse();
+            e.Handled = true;
+        }
+    }
+
+    private void MapCanvas_MouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_isPanning && e.MiddleButton == MouseButtonState.Released)
+        {
+            _isPanning = false;
+            ((FrameworkElement)sender).ReleaseMouseCapture();
+            e.Handled = true;
+        }
+    }
+
+    private void MapCanvas_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_isPanning) return;
+
+        var currentPos = e.GetPosition(this);
+        var delta = currentPos - _panStart;
+        _panStart = currentPos;
+
+        _panOffsetX += delta.X;
+        _panOffsetY += delta.Y;
+        ApplyMapTransform();
+    }
+
+    private void MapCanvas_MouseLeave(object sender, MouseEventArgs e)
+    {
+        if (_isPanning)
+        {
+            _isPanning = false;
+            ((FrameworkElement)sender).ReleaseMouseCapture();
+        }
+    }
+
+    private void ApplyMapTransform()
+    {
+        MapScaleTransform.ScaleX = _mapZoom;
+        MapScaleTransform.ScaleY = _mapZoom;
+        MapTranslateTransform.X = _panOffsetX;
+        MapTranslateTransform.Y = _panOffsetY;
+    }
+
+    private void ResetMapTransform()
+    {
+        _mapZoom = 1.0;
+        _panOffsetX = 0;
+        _panOffsetY = 0;
+        ApplyMapTransform();
+    }
+
+    #endregion
 }

@@ -213,6 +213,12 @@ public partial class WorldEditorWindow : Window
             BuildTree();
         }
 
+        // Si se cambia IsOpen o IsLocked de una puerta, redibujar el mapa
+        if (obj is Door && (propertyName == "IsOpen" || propertyName == "IsLocked"))
+        {
+            MapPanel.InvalidateVisual();
+        }
+
         PushUndoSnapshot();
         SetDirty(true);
     }

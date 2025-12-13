@@ -26,7 +26,8 @@ public partial class OptionsWindow : Window
             MusicVolume = settings.MusicVolume,
             EffectsVolume = settings.EffectsVolume,
             MasterVolume = settings.MasterVolume,
-            VoiceVolume = settings.VoiceVolume
+            VoiceVolume = settings.VoiceVolume,
+            MapEnabled = settings.MapEnabled
         };
         _onChanged = onChanged;
         _worldId = worldId;
@@ -62,7 +63,7 @@ public partial class OptionsWindow : Window
         SoundCheckBox.Checked += SoundCheckBox_Changed;
         SoundCheckBox.Unchecked += SoundCheckBox_Changed;
 
-
+        MapEnabledCheckBox.IsChecked = _settings.MapEnabled;
     }
 
     private void SoundCheckBox_Changed(object sender, RoutedEventArgs e)
@@ -134,6 +135,9 @@ public partial class OptionsWindow : Window
         _onChanged?.Invoke(_settings);
     }
 
-
-
+    private void MapEnabledCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        _settings.MapEnabled = MapEnabledCheckBox.IsChecked == true;
+        ApplyChanges();
+    }
 }

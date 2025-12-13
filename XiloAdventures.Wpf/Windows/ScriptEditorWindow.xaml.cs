@@ -714,6 +714,10 @@ public partial class ScriptEditorWindow : Window
                 UpdateCurrentEntityTreeColor();
             };
 
+            // Hacer que la etiqueta también active/desactive el checkbox
+            label.Cursor = Cursors.Hand;
+            label.MouseLeftButtonDown += (_, _) => check.IsChecked = !check.IsChecked;
+
             editor = check;
         }
         else if (propDef.DataType == "int")

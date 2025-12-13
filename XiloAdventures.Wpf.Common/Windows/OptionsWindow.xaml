@@ -75,7 +75,7 @@
 
 
 
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,10">
                 <TextBlock Text="Tamaño de fuente:" Width="180" VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <Slider x:Name="FontSizeSlider"
                         Minimum="8" Maximum="26"
@@ -87,6 +87,13 @@
                            VerticalAlignment="Center"
                            Margin="8,0,0,0"/>
             </StackPanel>
+
+            <CheckBox x:Name="MapEnabledCheckBox"
+                      Content="Mostrar mapa de salas visitadas"
+                      Foreground="White"
+                      Margin="10,0,0,0"
+                      Checked="MapEnabledCheckBox_Changed"
+                      Unchecked="MapEnabledCheckBox_Changed"/>
         </StackPanel>
 
 

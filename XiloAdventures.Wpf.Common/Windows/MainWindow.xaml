@@ -99,6 +99,12 @@
             </Menu.Resources>
 
                         <MenuItem Header="Archivo" Style="{StaticResource TopMenuItemStyle}">
+                <MenuItem Header="Reiniciar" Click="RestartMenu_Click" Style="{StaticResource SubMenuItemStyle}">
+                    <MenuItem.Icon>
+                        <TextBlock FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Text="&#xE72C;" FontSize="18" Margin="2"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <Separator/>
                 <MenuItem Header="Guardar partida..." Click="SaveMenu_Click" Style="{StaticResource SubMenuItemStyle}">
                     <MenuItem.Icon>
                         <TextBlock FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Text="&#xE105;" FontSize="18" Margin="2"/>
@@ -159,16 +165,14 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
-                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,8,0">
-                            <CheckBox x:Name="UseLlmCheckBox"
-                                      VerticalAlignment="Center"
-                                      Checked="UseLlmCheckBox_Changed"
-                                      Unchecked="UseLlmCheckBox_Changed"
-                                      Margin="0,0,8,0"/>
-                            <TextBlock Text="Usar IA"
-                                       Foreground="White"
-                                       VerticalAlignment="Center"/>
-                        </StackPanel>
+                        <CheckBox x:Name="UseLlmCheckBox"
+                                  Grid.Column="0"
+                                  Content="Usar IA"
+                                  Foreground="White"
+                                  VerticalAlignment="Center"
+                                  Checked="UseLlmCheckBox_Changed"
+                                  Unchecked="UseLlmCheckBox_Changed"
+                                  Margin="0,0,8,0"/>
 
                         <TextBlock Grid.Column="1"
                                    Text="?"
@@ -193,15 +197,18 @@
                 </Border>
             </StackPanel>
 
-            <!-- Texto de aventura + panel lateral -->
+            <!-- Texto de aventura + panel lateral + mapa -->
             <Grid Grid.Row="1">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="3*"/>
-                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition x:Name="MapColumn" Width="580"/>
                 </Grid.ColumnDefinitions>
 
                 <Grid Grid.Column="0">
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
@@ -230,8 +237,22 @@
                                    Visibility="Collapsed"/>
                     </StackPanel>
 
+                    <!-- Descripción de la sala (fija) -->
+                    <TextBlock x:Name="RoomDescriptionText"
+                               Grid.Row="1"
+                               TextWrapping="Wrap"
+                               Margin="0,0,8,8"
+                               FontFamily="Consolas"/>
+
+                    <!-- Línea divisoria (más gruesa para diferenciar de separadores de comandos) -->
+                    <Border Grid.Row="2"
+                            Height="2"
+                            Background="#666"
+                            Margin="0,0,8,8"/>
+
+                    <!-- Texto de comandos (scrollable) -->
                     <RichTextBox x:Name="OutputTextBox"
-                                 Grid.Row="1"
+                                 Grid.Row="3"
                                  Background="#181818"
                                  Foreground="White"
                                  BorderThickness="0"
@@ -241,11 +262,17 @@
                                  Margin="0,0,8,0"/>
                 </Grid>
 
-                <StackPanel Grid.Column="1">
+                <StackPanel Grid.Column="1" Width="260" Margin="0,0,8,0">
                     <TextBlock Text="Estado del jugador"
                                FontWeight="Bold"
                                Margin="0,0,0,4"/>
                     <TextBlock x:Name="StatsLabel"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,4"/>
+                    <TextBlock Text="Dinero"
+                               FontWeight="Bold"
+                               Margin="0,4,0,0"/>
+                    <TextBlock x:Name="GoldLabel"
                                TextWrapping="Wrap"
                                Margin="0,0,0,4"/>
                     <TextBlock Text="Hora"
@@ -259,12 +286,144 @@
                                Margin="0,0,0,4"/>
                     <TextBlock x:Name="InventoryLabel"
                                TextWrapping="Wrap"/>
-                    <TextBlock Text="Salidas"
-                               FontWeight="Bold"
-                               Margin="0,8,0,4"/>
-                    <TextBlock x:Name="ExitsLabel"
-                               TextWrapping="Wrap"/>
+                    <StackPanel x:Name="ExitsSection">
+                        <TextBlock Text="Salidas"
+                                   FontWeight="Bold"
+                                   Margin="0,8,0,4"/>
+                        <TextBlock x:Name="ExitsLabel"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
                 </StackPanel>
+
+                <!-- Panel del mapa -->
+                <Grid x:Name="MapPanel" Grid.Column="2">
+                    <Grid.Resources>
+                        <Style x:Key="ArrowButtonStyle" TargetType="Button">
+                            <Setter Property="Background" Value="#252525"/>
+                            <Setter Property="Foreground" Value="Gray"/>
+                            <Setter Property="BorderBrush" Value="#333"/>
+                            <Setter Property="BorderThickness" Value="1"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="Border"
+                                                Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="{TemplateBinding BorderThickness}">
+                                            <ContentPresenter HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Border" Property="Background" Value="#353535"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="Border" Property="Background" Value="#404040"/>
+                                            </Trigger>
+                                            <Trigger Property="IsEnabled" Value="False">
+                                                <Setter TargetName="Border" Property="Background" Value="#1a1a1a"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </Grid.Resources>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Canvas del mapa -->
+                    <Border Grid.Row="0" Background="#181818" BorderBrush="#333" BorderThickness="1" Margin="0,0,0,8"
+                            ClipToBounds="True"
+                            MouseWheel="MapCanvas_MouseWheel"
+                            MouseDown="MapCanvas_MouseDown"
+                            MouseUp="MapCanvas_MouseUp"
+                            MouseMove="MapCanvas_MouseMove"
+                            MouseLeave="MapCanvas_MouseLeave">
+                        <Canvas x:Name="MapCanvas">
+                            <Canvas.RenderTransform>
+                                <TransformGroup>
+                                    <ScaleTransform x:Name="MapScaleTransform"/>
+                                    <TranslateTransform x:Name="MapTranslateTransform"/>
+                                </TransformGroup>
+                            </Canvas.RenderTransform>
+                        </Canvas>
+                    </Border>
+
+                    <!-- Flechas de navegación -->
+                    <Grid Grid.Row="1" HorizontalAlignment="Center">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="16"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="16"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Cruz de direcciones -->
+                        <Grid Grid.Column="0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="28"/>
+                                <RowDefinition Height="28"/>
+                                <RowDefinition Height="28"/>
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="28"/>
+                                <ColumnDefinition Width="28"/>
+                                <ColumnDefinition Width="28"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Fila superior: NO, N, NE -->
+                            <Button x:Name="ArrowNW" Grid.Row="0" Grid.Column="0" Content="↖" FontSize="16"
+                                    Style="{StaticResource ArrowButtonStyle}" Click="Arrow_Click" Tag="noroeste"/>
+                            <Button x:Name="ArrowN" Grid.Row="0" Grid.Column="1" Content="↑" FontSize="16"
+                                    Style="{StaticResource ArrowButtonStyle}" Click="Arrow_Click" Tag="norte"/>
+                            <Button x:Name="ArrowNE" Grid.Row="0" Grid.Column="2" Content="↗" FontSize="16"
+                                    Style="{StaticResource ArrowButtonStyle}" Click="Arrow_Click" Tag="noreste"/>
+
+                            <!-- Fila central: O, centro, E -->
+                            <Button x:Name="ArrowW" Grid.Row="1" Grid.Column="0" Content="←" FontSize="16"
+                                    Style="{StaticResource ArrowButtonStyle}" Click="Arrow_Click" Tag="oeste"/>
+                            <Border Grid.Row="1" Grid.Column="1" Background="Transparent"/>
+                            <Button x:Name="ArrowE" Grid.Row="1" Grid.Column="2" Content="→" FontSize="16"
+                                    Style="{StaticResource ArrowButtonStyle}" Click="Arrow_Click" Tag="este"/>
+
+                            <!-- Fila inferior: SO, S, SE -->
+                            <Button x:Name="ArrowSW" Grid.Row="2" Grid.Column="0" Content="↙" FontSize="16"
+                                    Style="{StaticResource ArrowButtonStyle}" Click="Arrow_Click" Tag="suroeste"/>
+                            <Button x:Name="ArrowS" Grid.Row="2" Grid.Column="1" Content="↓" FontSize="16"
+                                    Style="{StaticResource ArrowButtonStyle}" Click="Arrow_Click" Tag="sur"/>
+                            <Button x:Name="ArrowSE" Grid.Row="2" Grid.Column="2" Content="↘" FontSize="16"
+                                    Style="{StaticResource ArrowButtonStyle}" Click="Arrow_Click" Tag="sureste"/>
+                        </Grid>
+
+                        <!-- Flechas arriba/abajo -->
+                        <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                            <Button x:Name="ArrowUp" Content="▲" FontSize="14" Width="28" Height="28" Margin="0,0,0,4"
+                                    Style="{StaticResource ArrowButtonStyle}" Click="Arrow_Click" Tag="arriba"/>
+                            <Button x:Name="ArrowDown" Content="▼" FontSize="14" Width="28" Height="28"
+                                    Style="{StaticResource ArrowButtonStyle}" Click="Arrow_Click" Tag="abajo"/>
+                        </StackPanel>
+
+                        <!-- Leyenda de colores -->
+                        <StackPanel Grid.Column="4" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                                <Border Width="12" Height="12" Background="#B4B4B4" BorderBrush="#333" BorderThickness="1"/>
+                                <TextBlock Text="Salida" Foreground="#AAA" FontSize="10" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                                <Border Width="12" Height="12" Background="#64C864" BorderBrush="#333" BorderThickness="1"/>
+                                <TextBlock Text="Puerta abierta" Foreground="#AAA" FontSize="10" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Width="12" Height="12" Background="#C86464" BorderBrush="#333" BorderThickness="1"/>
+                                <TextBlock Text="Puerta cerrada" Foreground="#AAA" FontSize="10" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
             </Grid>
 
             <!-- Entrada de comandos -->

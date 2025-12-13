@@ -774,8 +774,8 @@ public class GameEngine
             // Disparar Event_OnLook de la sala
             _ = TriggerRoomScriptsAsync(room.Id, "Event_OnLook");
         }
-        // Limpiar pantalla antes de mostrar la descripción de la sala
-        return CommandResult.SuccessWithClear(DescribeCurrentRoom());
+        // La descripción se muestra en el área fija superior
+        return CommandResult.Success("");
     }
 
     /// <summary>
@@ -911,9 +911,12 @@ public class GameEngine
         sb.AppendLine($"Inteligencia: {p.Intelligence}");
         sb.AppendLine($"Destreza: {p.Dexterity}");
         sb.AppendLine($"Carisma: {p.Charisma}");
-        sb.AppendLine();
-        sb.AppendLine($"Dinero: {p.Gold} monedas");
         return sb.ToString().TrimEnd();
+    }
+
+    public string DescribePlayerGold()
+    {
+        return $"{_state.Player.Gold} monedas";
     }
 
     /// <summary>
@@ -1080,7 +1083,7 @@ public class GameEngine
         _state.CurrentRoomId = targetRoom.Id;
         WorldLoader.RebuildRoomIndexes(_state); // por si algún script ha cambiado cosas
         OnRoomChanged();
-        return CommandResult.Success(DescribeCurrentRoom());
+        return CommandResult.Success(""); // La descripción se muestra en el área fija superior
     }
 
 

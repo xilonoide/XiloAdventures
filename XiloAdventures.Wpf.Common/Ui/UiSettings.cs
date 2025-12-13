@@ -29,6 +29,10 @@ public class UiSettings
     /// Volumen de la voz (0-10).
     /// </summary>
     public double VoiceVolume { get; set; } = 10.0;
+    /// <summary>
+    /// Si está activo, se muestra el mapa de salas visitadas.
+    /// </summary>
+    public bool MapEnabled { get; set; } = true;
 }
 
 public static class UiSettingsManager
@@ -94,7 +98,8 @@ public static class UiSettingsManager
             MusicVolume = GlobalSettings.MusicVolume,
             EffectsVolume = GlobalSettings.EffectsVolume,
             MasterVolume = GlobalSettings.MasterVolume,
-            VoiceVolume = GlobalSettings.VoiceVolume
+            VoiceVolume = GlobalSettings.VoiceVolume,
+            MapEnabled = GlobalSettings.MapEnabled
         });
     }
 

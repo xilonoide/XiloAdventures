@@ -428,8 +428,9 @@ public static class Parser
             return null;
 
         // eliminar artículos / determinantes iniciales
+        // pero NO eliminar si es una dirección válida (este = east vs este = this)
         var parts = s.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
-        while (parts.Count > 0 && IgnoredNounPrefixes.Contains(parts[0]))
+        while (parts.Count > 0 && IgnoredNounPrefixes.Contains(parts[0]) && !IsDirection(parts[0]))
         {
             parts.RemoveAt(0);
         }

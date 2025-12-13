@@ -542,8 +542,10 @@ public partial class PropertyEditor : UserControl
                 FontWeight = FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(Color.FromRgb(0xCC, 0xCC, 0xCC)),
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(8, 0, 0, 0)
+                Margin = new Thickness(8, 0, 0, 0),
+                Cursor = Cursors.Hand
             };
+            boolLabel.MouseLeftButtonDown += (_, _) => chk.IsChecked = !chk.IsChecked;
             panel.Children.Add(boolLabel);
 
             containerPanel.Children.Add(panel);
@@ -875,14 +877,17 @@ public partial class PropertyEditor : UserControl
                     };
 
                     manualCheckPanel.Children.Add(manualCheck);
-                    manualCheckPanel.Children.Add(new TextBlock
+                    var manualCheckLabel = new TextBlock
                     {
                         Text = "No sobrescribir con IA",
                         Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA)),
                         VerticalAlignment = VerticalAlignment.Center,
                         Margin = new Thickness(6, 0, 0, 0),
-                        FontSize = 12
-                    });
+                        FontSize = 12,
+                        Cursor = Cursors.Hand
+                    };
+                    manualCheckLabel.MouseLeftButtonDown += (_, _) => manualCheck.IsChecked = !manualCheck.IsChecked;
+                    manualCheckPanel.Children.Add(manualCheckLabel);
 
                     genderPanel.Children.Add(manualCheckPanel);
 
