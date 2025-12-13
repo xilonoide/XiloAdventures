@@ -208,6 +208,26 @@ public class GameEngine
     private GameObject? FindObjectById(string id)
         => _state.Objects.FirstOrDefault(o => o.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
 
+    /// <summary>
+    /// Comprueba si el nombre del objeto coincide con alguna de las variantes proporcionadas.
+    /// Útil cuando el parser normaliza sustantivos (ej: "sable" → "espada") pero el objeto
+    /// real se llama "sable oxidado". Primero se intenta con el valor normalizado,
+    /// y si falla, con el valor original.
+    /// </summary>
+    private static bool MatchesName(string objectName, string? normalizedName, string? originalName)
+    {
+        if (!string.IsNullOrEmpty(normalizedName) &&
+            objectName.Contains(normalizedName, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (!string.IsNullOrEmpty(originalName) &&
+            !string.Equals(originalName, normalizedName, StringComparison.OrdinalIgnoreCase) &&
+            objectName.Contains(originalName, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
+    }
+
     private Room? FindRoomById(string id)
         => _state.Rooms.FirstOrDefault(r => r.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
 
@@ -263,9 +283,10 @@ public class GameEngine
     private static string WithIndefiniteArticleCap(GameObject obj) => Cap($"{IndefiniteArticle(obj)} {Low(obj.Name)}");
 
     /// <summary>
-    /// Find an object in the current room or player inventory by name
+    /// Find an object in the current room or player inventory by name.
+    /// Supports fallback to original name when noun aliases don't match.
     /// </summary>
-    private GameObject? FindObjectInRoomOrInventory(Room room, string name)
+    private GameObject? FindObjectInRoomOrInventory(Room room, string name, string? originalName = null)
     {
         var allObjectIds = new List<string>(_state.InventoryObjectIds);
         allObjectIds.AddRange(room.ObjectIds);
@@ -273,7 +294,7 @@ public class GameEngine
         foreach (var objId in allObjectIds)
         {
             var obj = FindObjectById(objId);
-            if (obj != null && obj.Visible && obj.Name.Contains(name, StringComparison.OrdinalIgnoreCase))
+            if (obj != null && obj.Visible && MatchesName(obj.Name, name, originalName))
                 return obj;
         }
 
@@ -1094,11 +1115,12 @@ public class GameEngine
             return CommandResult.Error("Estás perdido.");
 
         var arg = (parsed.DirectObject ?? string.Empty).Trim();
+        var originalArg = parsed.OriginalDirectObject;
         if (string.IsNullOrEmpty(arg))
             return CommandResult.Error("¿Qué quieres abrir?");
 
         // Primero intentar con objetos contenedores
-        var obj = FindObjectInRoomOrInventory(room, arg);
+        var obj = FindObjectInRoomOrInventory(room, arg, originalArg);
         if (obj != null && obj.IsContainer)
         {
             if (CanOpenContainer(obj, out string message))
@@ -1153,11 +1175,12 @@ public class GameEngine
             return CommandResult.Error("Estás perdido.");
 
         var arg = (parsed.DirectObject ?? string.Empty).Trim();
+        var originalArg = parsed.OriginalDirectObject;
         if (string.IsNullOrEmpty(arg))
             return CommandResult.Error("¿Qué quieres cerrar?");
 
         // Primero intentar con objetos contenedores
-        var obj = FindObjectInRoomOrInventory(room, arg);
+        var obj = FindObjectInRoomOrInventory(room, arg, originalArg);
         if (obj != null && obj.IsContainer)
         {
             if (CanCloseContainer(obj, out string message))
@@ -1380,10 +1403,11 @@ public class GameEngine
             return CommandResult.Error("Estás perdido.");
 
         var arg = (parsed.DirectObject ?? string.Empty).Trim();
+        var originalArg = parsed.OriginalDirectObject;
         if (string.IsNullOrEmpty(arg))
             return CommandResult.Error("¿Qué quieres desbloquear?");
 
-        var obj = FindObjectInRoomOrInventory(room, arg);
+        var obj = FindObjectInRoomOrInventory(room, arg, originalArg);
         if (obj == null || !obj.IsContainer)
             return CommandResult.Error("No hay ningún contenedor con ese nombre.");
 
@@ -1410,10 +1434,11 @@ public class GameEngine
             return CommandResult.Error("Estás perdido.");
 
         var arg = (parsed.DirectObject ?? string.Empty).Trim();
+        var originalArg = parsed.OriginalDirectObject;
         if (string.IsNullOrEmpty(arg))
             return CommandResult.Error("¿Qué quieres bloquear?");
 
-        var obj = FindObjectInRoomOrInventory(room, arg);
+        var obj = FindObjectInRoomOrInventory(room, arg, originalArg);
         if (obj == null || !obj.IsContainer)
             return CommandResult.Error("No hay ningún contenedor con ese nombre.");
 
@@ -1445,7 +1470,9 @@ public class GameEngine
 
         // Necesitamos parsear "meter X en Y" - DirectObject es X, Preposition + IndirectObject es "en Y"
         var objectName = (parsed.DirectObject ?? string.Empty).Trim();
+        var originalObjectName = parsed.OriginalDirectObject;
         var containerName = (parsed.IndirectObject ?? string.Empty).Trim();
+        var originalContainerName = parsed.OriginalIndirectObject;
 
         if (string.IsNullOrEmpty(objectName))
             return CommandResult.Error("¿Qué quieres meter?");
@@ -1454,7 +1481,7 @@ public class GameEngine
             return CommandResult.Error("¿Dónde quieres meterlo?");
 
         // Buscar el objeto a meter (puede estar en el inventario o en la sala)
-        var objToInsert = FindObjectInRoomOrInventory(room, objectName);
+        var objToInsert = FindObjectInRoomOrInventory(room, objectName, originalObjectName);
 
         if (objToInsert == null)
             return CommandResult.Error("No ves ese objeto por aquí.");
@@ -1467,7 +1494,7 @@ public class GameEngine
             return CommandResult.Error("No puedes coger ese objeto.");
 
         // Buscar el contenedor
-        var container = FindObjectInRoomOrInventory(room, containerName);
+        var container = FindObjectInRoomOrInventory(room, containerName, originalContainerName);
         if (container == null || !container.IsContainer)
             return CommandResult.Error("No hay ningún contenedor con ese nombre.");
 
@@ -1503,7 +1530,9 @@ public class GameEngine
             return CommandResult.Error("Estás perdido.");
 
         var objectName = (parsed.DirectObject ?? string.Empty).Trim();
+        var originalObjectName = parsed.OriginalDirectObject;
         var containerName = (parsed.IndirectObject ?? string.Empty).Trim();
+        var originalContainerName = parsed.OriginalIndirectObject;
 
         if (string.IsNullOrEmpty(objectName))
             return CommandResult.Error("¿Qué quieres sacar?");
@@ -1512,7 +1541,7 @@ public class GameEngine
             return CommandResult.Error("¿De dónde quieres sacarlo?");
 
         // Buscar el contenedor
-        var container = FindObjectInRoomOrInventory(room, containerName);
+        var container = FindObjectInRoomOrInventory(room, containerName, originalContainerName);
         if (container == null || !container.IsContainer)
             return CommandResult.Error("No hay ningún contenedor con ese nombre.");
 
@@ -1522,7 +1551,7 @@ public class GameEngine
         // Buscar el objeto dentro del contenedor
         var objToExtract = container.ContainedObjectIds
             .Select(FindObjectById)
-            .FirstOrDefault(o => o != null && o.Name.Contains(objectName, StringComparison.OrdinalIgnoreCase));
+            .FirstOrDefault(o => o != null && MatchesName(o.Name, objectName, originalObjectName));
 
         if (objToExtract == null)
             return CommandResult.Error($"No hay ningún {objectName} en {WithArticle(container)}.");
@@ -1541,10 +1570,11 @@ public class GameEngine
             return CommandResult.Error("Estás perdido.");
 
         var containerName = (parsed.DirectObject ?? string.Empty).Trim();
+        var originalContainerName = parsed.OriginalDirectObject;
         if (string.IsNullOrEmpty(containerName))
             return CommandResult.Error("¿Dentro de qué quieres ver?");
 
-        var container = FindObjectInRoomOrInventory(room, containerName);
+        var container = FindObjectInRoomOrInventory(room, containerName, originalContainerName);
         if (container == null || !container.IsContainer)
             return CommandResult.Error("No hay ningún contenedor con ese nombre.");
 
@@ -1574,11 +1604,12 @@ public class GameEngine
             return CommandResult.Error("Estás perdido.");
 
         var target = (parsed.DirectObject ?? string.Empty).Trim();
+        var originalTarget = parsed.OriginalDirectObject;
         if (string.IsNullOrEmpty(target))
             return CommandResult.Error("¿Qué quieres examinar?");
 
         // Buscar objeto en la sala o inventario
-        var obj = FindObjectInRoomOrInventory(room, target);
+        var obj = FindObjectInRoomOrInventory(room, target, originalTarget);
         if (obj != null)
         {
             // Disparar script Event_OnExamine
@@ -1631,7 +1662,7 @@ public class GameEngine
         var npc = _state.Npcs.FirstOrDefault(n =>
             n.Visible &&
             n.RoomId?.Equals(room.Id, StringComparison.OrdinalIgnoreCase) == true &&
-            n.Name.Contains(target, StringComparison.OrdinalIgnoreCase));
+            MatchesName(n.Name, target, originalTarget));
         if (npc != null)
         {
             if (!string.IsNullOrWhiteSpace(npc.Description))
@@ -1672,6 +1703,7 @@ public class GameEngine
             return CommandResult.Error("No estás en ninguna parte.");
 
         var arg = parsed.DirectObject ?? string.Empty;
+        var originalArg = parsed.OriginalDirectObject;
         arg = arg.ToLowerInvariant();
 
         if (string.IsNullOrEmpty(arg))
@@ -1683,13 +1715,13 @@ public class GameEngine
         }
 
         // Primero buscar en la sala directamente
-        var obj = FindVisibleObjectInRoom(room, arg);
+        var obj = FindVisibleObjectInRoom(room, arg, originalArg);
         GameObject? container = null;
 
         // Si no está en la sala, buscar dentro de contenedores abiertos
         if (obj == null)
         {
-            (obj, container) = FindObjectInOpenContainers(room, arg);
+            (obj, container) = FindObjectInOpenContainers(room, arg, originalArg);
         }
 
         if (obj == null)
@@ -1813,6 +1845,7 @@ public class GameEngine
             return CommandResult.Error("No estás en ninguna parte.");
 
         var arg = parsed.DirectObject ?? string.Empty;
+        var originalArg = parsed.OriginalDirectObject;
         arg = arg.ToLowerInvariant();
 
         if (string.IsNullOrEmpty(arg))
@@ -1820,7 +1853,7 @@ public class GameEngine
 
         var obj = _state.InventoryObjectIds
             .Select(FindObjectById)
-            .FirstOrDefault(o => o != null && o.Name.Contains(arg, StringComparison.OrdinalIgnoreCase));
+            .FirstOrDefault(o => o != null && MatchesName(o.Name, arg, originalArg));
 
         if (obj == null)
             return CommandResult.Error("No llevas eso.");
@@ -1844,10 +1877,14 @@ public class GameEngine
             return CommandResult.Error("No estás en ninguna parte.");
 
         var arg = parsed.DirectObject ?? string.Empty;
+        var originalArg = parsed.OriginalDirectObject;
 
         // Si no hay objeto directo, intentar con el indirecto
         if (string.IsNullOrEmpty(arg))
+        {
             arg = parsed.IndirectObject ?? string.Empty;
+            originalArg = parsed.OriginalIndirectObject;
+        }
 
         if (string.IsNullOrEmpty(arg))
             return CommandResult.Error("¿Con quién quieres hablar?");
@@ -1858,12 +1895,12 @@ public class GameEngine
             .ToList();
 
         // Primero buscar con el objeto directo
-        var npc = npcsInRoom.FirstOrDefault(n => n.Name.Contains(arg, StringComparison.OrdinalIgnoreCase));
+        var npc = npcsInRoom.FirstOrDefault(n => MatchesName(n.Name, arg, originalArg));
 
         // Si no se encuentra y hay objeto indirecto, buscar con él (para "decir hola a gordo")
         if (npc == null && !string.IsNullOrEmpty(parsed.IndirectObject))
         {
-            npc = npcsInRoom.FirstOrDefault(n => n.Name.Contains(parsed.IndirectObject, StringComparison.OrdinalIgnoreCase));
+            npc = npcsInRoom.FirstOrDefault(n => MatchesName(n.Name, parsed.IndirectObject, parsed.OriginalIndirectObject));
         }
 
         if (npc == null)
@@ -1929,11 +1966,12 @@ public class GameEngine
     {
         var room = CurrentRoom;
         var objName = parsed.DirectObject ?? string.Empty;
+        var originalObjName = parsed.OriginalDirectObject;
         if (string.IsNullOrWhiteSpace(objName))
             return CommandResult.Error("¿Qué quieres usar?");
 
         // Buscar el objeto en la sala o inventario
-        var obj = room != null ? FindObjectInRoomOrInventory(room, objName) : null;
+        var obj = room != null ? FindObjectInRoomOrInventory(room, objName, originalObjName) : null;
         if (obj != null)
         {
             // Disparar script Event_OnUse
@@ -1961,11 +1999,12 @@ public class GameEngine
             return CommandResult.Error("No estás en ninguna parte.");
 
         var objName = parsed.DirectObject ?? string.Empty;
+        var originalObjName = parsed.OriginalDirectObject;
         if (string.IsNullOrWhiteSpace(objName))
             return CommandResult.Error("¿Qué quieres leer?");
 
         // Buscar el objeto en la sala o inventario
-        var obj = FindObjectInRoomOrInventory(room, objName);
+        var obj = FindObjectInRoomOrInventory(room, objName, originalObjName);
         if (obj == null)
             return CommandResult.Error("No ves eso por aquí.");
 
@@ -2083,18 +2122,18 @@ public class GameEngine
 ";
     }
 
-    private GameObject? FindVisibleObjectInRoom(Room room, string namePart)
+    private GameObject? FindVisibleObjectInRoom(Room room, string namePart, string? originalNamePart = null)
     {
         return _state.Objects
             .Where(o => o.Visible && room.ObjectIds.Contains(o.Id, StringComparer.OrdinalIgnoreCase))
-            .FirstOrDefault(o => o.Name.Contains(namePart, StringComparison.OrdinalIgnoreCase));
+            .FirstOrDefault(o => MatchesName(o.Name, namePart, originalNamePart));
     }
 
     /// <summary>
     /// Busca un objeto dentro de contenedores abiertos en la sala.
     /// Devuelve el objeto encontrado y el contenedor que lo contiene.
     /// </summary>
-    private (GameObject? obj, GameObject? container) FindObjectInOpenContainers(Room room, string namePart)
+    private (GameObject? obj, GameObject? container) FindObjectInOpenContainers(Room room, string namePart, string? originalNamePart = null)
     {
         // Buscar todos los contenedores visibles en la sala
         var containers = _state.Objects
@@ -2106,7 +2145,7 @@ public class GameEngine
         {
             var objInContainer = container.ContainedObjectIds
                 .Select(FindObjectById)
-                .FirstOrDefault(o => o != null && o.Visible && o.Name.Contains(namePart, StringComparison.OrdinalIgnoreCase));
+                .FirstOrDefault(o => o != null && o.Visible && MatchesName(o.Name, namePart, originalNamePart));
 
             if (objInContainer != null)
                 return (objInContainer, container);

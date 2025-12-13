@@ -40,21 +40,30 @@ public readonly struct ParsedCommand
     /// <summary>The canonical verb (e.g., "go", "take", "look").</summary>
     public string Verb { get; }
 
-    /// <summary>The direct object of the command (e.g., "sword", "north").</summary>
+    /// <summary>The direct object of the command (e.g., "sword", "north"), normalized by noun aliases.</summary>
     public string? DirectObject { get; }
 
-    /// <summary>The indirect object (e.g., "with key" -> "key").</summary>
+    /// <summary>The indirect object (e.g., "with key" -> "key"), normalized by noun aliases.</summary>
     public string? IndirectObject { get; }
 
     /// <summary>The preposition used in the command.</summary>
     public PrepositionKind Preposition { get; }
 
-    public ParsedCommand(string verb, string? directObject, string? indirectObject, PrepositionKind preposition)
+    /// <summary>The original direct object before noun alias normalization.</summary>
+    public string? OriginalDirectObject { get; }
+
+    /// <summary>The original indirect object before noun alias normalization.</summary>
+    public string? OriginalIndirectObject { get; }
+
+    public ParsedCommand(string verb, string? directObject, string? indirectObject, PrepositionKind preposition,
+        string? originalDirectObject = null, string? originalIndirectObject = null)
     {
         Verb = verb;
         DirectObject = directObject;
         IndirectObject = indirectObject;
         Preposition = preposition;
+        OriginalDirectObject = originalDirectObject;
+        OriginalIndirectObject = originalIndirectObject;
     }
 }
 
@@ -360,6 +369,11 @@ public static class Parser
             direct = rest;
         }
 
+        // Guardar valores limpios (sin artículos, etc.) antes de aplicar aliases de sustantivos
+        var originalDirect = CleanNoun(direct);
+        var originalIndirect = CleanNoun(indirect);
+
+        // Normalizar con aliases de sustantivos
         direct = NormalizeNoun(direct);
         indirect = NormalizeNoun(indirect);
 
@@ -370,6 +384,8 @@ public static class Parser
         {
             direct = indirect;
             indirect = null;
+            originalDirect = originalIndirect;
+            originalIndirect = null;
         }
 
         // "hablar con el enano", "decir al guardia"
@@ -378,13 +394,17 @@ public static class Parser
         {
             direct = indirect;
             indirect = null;
+            originalDirect = originalIndirect;
+            originalIndirect = null;
         }
 
         return new ParsedCommand(
             canonicalVerb,
             string.IsNullOrWhiteSpace(direct) ? null : direct,
             string.IsNullOrWhiteSpace(indirect) ? null : indirect,
-            prepKind);
+            prepKind,
+            string.IsNullOrWhiteSpace(originalDirect) ? null : originalDirect,
+            string.IsNullOrWhiteSpace(originalIndirect) ? null : originalIndirect);
     }
 
     private static bool HasVerbAlias(string token)
@@ -446,6 +466,41 @@ public static class Parser
             return nGlobal;
 
         return s;
+    }
+
+    /// <summary>
+    /// Limpia un sustantivo (quita artículos, puntuación, acentos) SIN aplicar aliases.
+    /// Usado para guardar el valor original antes de normalizar.
+    /// </summary>
+    private static string? CleanNoun(string? noun)
+    {
+        if (string.IsNullOrWhiteSpace(noun))
+            return null;
+
+        // minúsculas
+        var s = noun.ToLowerInvariant();
+
+        // quitar puntuación sencilla
+        s = ParserRegex.Punctuation.Replace(s, "");
+
+        // eliminar acentos
+        s = RemoveDiacritics(s);
+
+        // normalizar espacios
+        s = ParserRegex.MultiSpace.Replace(s, " ").Trim();
+        if (string.IsNullOrEmpty(s))
+            return null;
+
+        // eliminar artículos / determinantes iniciales
+        // pero NO eliminar si es una dirección válida (este = east vs este = this)
+        var parts = s.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
+        while (parts.Count > 0 && IgnoredNounPrefixes.Contains(parts[0]) && !IsDirection(parts[0]))
+        {
+            parts.RemoveAt(0);
+        }
+        s = string.Join(' ', parts);
+
+        return string.IsNullOrWhiteSpace(s) ? null : s;
     }
 
     private static string NormalizeToken(string token)
