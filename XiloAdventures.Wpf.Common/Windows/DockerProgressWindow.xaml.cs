@@ -37,10 +37,22 @@ public partial class DockerProgressWindow : Window
     private TaskCompletionSource<DockerProgressResult>? _tcs;
 
     /// <summary>
-    /// Si es false, no se iniciará el contenedor de Coqui TTS (solo Ollama).
+    /// Si es true, se iniciará el contenedor de Ollama para LLM.
+    /// Por defecto es true para mantener compatibilidad.
+    /// </summary>
+    public bool IncludeOllama { get; set; } = true;
+
+    /// <summary>
+    /// Si es false, no se iniciará el contenedor de Coqui TTS.
     /// Por defecto es true para mantener compatibilidad.
     /// </summary>
     public bool IncludeTts { get; set; } = true;
+
+    /// <summary>
+    /// Si es true, se iniciará el contenedor de Stable Diffusion para generación de imágenes.
+    /// Por defecto es false.
+    /// </summary>
+    public bool IncludeStableDiffusion { get; set; } = false;
 
     public DockerProgressWindow()
     {
@@ -70,7 +82,7 @@ public partial class DockerProgressWindow : Window
 
             try
             {
-                await DockerService.EnsureAllAsync(progress, _cts.Token, IncludeTts).ConfigureAwait(true);
+                await DockerService.EnsureAllAsync(progress, _cts.Token, IncludeTts, IncludeStableDiffusion, IncludeOllama).ConfigureAwait(true);
                 if (_cts.IsCancellationRequested)
                 {
                     return;
@@ -181,9 +193,11 @@ public partial class DockerProgressWindow : Window
             {
                 _lastDockerLogs = logs;
                 _logStepCounter++;
+                // Calcular total de pasos: 1 (Docker) + Ollama (2: contenedor + modelo) + TTS + SD
+                int totalSteps = 1 + (IncludeOllama ? 2 : 0) + (IncludeTts ? 1 : 0) + (IncludeStableDiffusion ? 1 : 0);
                 await Dispatcher.InvokeAsync(() =>
                 {
-                    StepText.Text = $"Paso {_logStepCounter} /4";
+                    StepText.Text = $"Paso {_logStepCounter} /{totalSteps}";
                 }).Task.ConfigureAwait(true);
             }
 

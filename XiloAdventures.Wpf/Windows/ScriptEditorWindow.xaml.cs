@@ -494,8 +494,11 @@ public partial class ScriptEditorWindow : Window
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        // Ignorar hotkeys si el foco está en un TextBox
-        if (Keyboard.FocusedElement is TextBox)
+        // Ignorar hotkeys sin modificador si el foco está en un control de entrada de texto
+        var focused = Keyboard.FocusedElement;
+        if (focused is TextBox || focused is PasswordBox || focused is System.Windows.Controls.Primitives.TextBoxBase)
+            return;
+        if (focused is ComboBox combo && combo.IsEditable)
             return;
 
         switch (e.Key)
@@ -1191,6 +1194,70 @@ public partial class ScriptEditorWindow : Window
             ConversationDefinition conv => conv.Name ?? conv.Id,
             _ => "Entidad"
         };
+    }
+
+    private void ExpandAllEntities_Click(object sender, RoutedEventArgs e)
+    {
+        foreach (var item in EntityTree.Items.OfType<TreeViewItem>())
+        {
+            SetEntityExpandedRecursive(item, true);
+        }
+    }
+
+    private void CollapseAllEntities_Click(object sender, RoutedEventArgs e)
+    {
+        foreach (var item in EntityTree.Items.OfType<TreeViewItem>())
+        {
+            SetEntityExpandedRecursive(item, false);
+        }
+    }
+
+    private void SetEntityExpandedRecursive(TreeViewItem item, bool expanded)
+    {
+        item.IsExpanded = expanded;
+        foreach (var child in item.Items.OfType<TreeViewItem>())
+        {
+            SetEntityExpandedRecursive(child, expanded);
+        }
+    }
+
+    private void EntitySearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        PerformEntitySearch(EntitySearchTextBox.Text);
+    }
+
+    private TreeViewItem? FindInEntityTree(TreeViewItem node, string text)
+    {
+        if (node.Header is string s && s.ToLowerInvariant().Contains(text))
+            return node;
+
+        foreach (TreeViewItem child in node.Items.OfType<TreeViewItem>())
+        {
+            var found = FindInEntityTree(child, text);
+            if (found != null)
+                return found;
+        }
+
+        return null;
+    }
+
+    private void PerformEntitySearch(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return;
+
+        var normalized = text.ToLowerInvariant();
+
+        foreach (TreeViewItem root in EntityTree.Items)
+        {
+            var found = FindInEntityTree(root, normalized);
+            if (found != null)
+            {
+                found.IsSelected = true;
+                found.BringIntoView();
+                break;
+            }
+        }
     }
 
     #endregion

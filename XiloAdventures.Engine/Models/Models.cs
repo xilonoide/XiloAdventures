@@ -91,6 +91,13 @@ public enum GrammaticalGender
 public class GameInfo
 {
     public string Id { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Tema o ambientación del mundo (ej: "fantasía medieval", "ciencia ficción", "horror gótico").
+    /// Se usa como contexto para la generación de contenido con IA.
+    /// </summary>
+    public string? Theme { get; set; }
+
     public string Title { get; set; } = "Aventura sin título";
     public string StartRoomId { get; set; } = string.Empty;
     public string? WorldMusicId { get; set; }

@@ -10,6 +10,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Win32;
@@ -43,13 +44,18 @@ public partial class WorldEditorWindow : Window
     private TreeViewItem? _gameTreeNode;
     private string? _initialWorldPath;
     private bool _useLlmForGenders;
-    private bool _isInitializingCheckbox;
     public bool IsCanceled { get; private set; }
 
     private static readonly HttpClient _httpClient = new()
     {
         BaseAddress = new Uri("http://localhost:11434/"),
         Timeout = TimeSpan.FromSeconds(60)
+    };
+
+    private static readonly HttpClient _sdHttpClient = new()
+    {
+        BaseAddress = new Uri("http://localhost:7860/"),
+        Timeout = TimeSpan.FromMinutes(10) // Generación de imágenes puede tardar mucho
     };
 
     public WorldEditorWindow()
@@ -59,6 +65,8 @@ public partial class WorldEditorWindow : Window
         PropertyEditor.PropertyEdited += PropertyEditor_PropertyEdited;
         PropertyEditor.RequestDeleteObject += PropertyEditor_RequestDeleteObject;
         PropertyEditor.RequestOpenScriptEditor += PropertyEditor_RequestOpenScriptEditor;
+        PropertyEditor.RequestAiImageGeneration += PropertyEditor_RequestAiImageGeneration;
+        PropertyEditor.RequestAiDescriptionGeneration += PropertyEditor_RequestAiDescriptionGeneration;
         PropertyEditor.GetRooms = () => _world.Rooms;
         PropertyEditor.GetMusics = () => _world.Musics;
         PropertyEditor.GetObjects = () => _world.Objects;
@@ -140,12 +148,9 @@ public partial class WorldEditorWindow : Window
             ToggleGridButton.IsChecked = _world.ShowGrid;
             ToggleSnapButton.IsChecked = _world.SnapToGrid;
 
-            // Inicializar checkbox de IA sin disparar el evento
-            _isInitializingCheckbox = true;
+            // Inicializar estado de IA
             _useLlmForGenders = _world.UseLlmForGenders;
-            UseLlmCheckBox.IsChecked = _useLlmForGenders;
             PropertyEditor.IsAiEnabled = _useLlmForGenders;
-            _isInitializingCheckbox = false;
 
             // Si la IA estaba activada en el mundo, iniciar Docker silenciosamente
             if (_useLlmForGenders)
@@ -1625,6 +1630,25 @@ public partial class WorldEditorWindow : Window
         SetDirty(true);
     }
 
+    private void GenerateDataMenu_Click(object sender, RoutedEventArgs e)
+    {
+        var generatorWindow = new AiDataGeneratorWindow(_world)
+        {
+            Owner = this
+        };
+        generatorWindow.ShowDialog();
+
+        // Refresh UI after potential changes
+        MapPanel.SetWorld(_world);
+        BuildTree();
+        var currentObject = PropertyEditor.GetCurrentObject();
+        if (currentObject != null)
+        {
+            PropertyEditor.SetObject(currentObject);
+        }
+        SetDirty(true);
+    }
+
     private void PromptGeneratorMenu_Click(object sender, RoutedEventArgs e)
     {
         var promptWindow = new PromptGeneratorWindow
@@ -1959,6 +1983,431 @@ public partial class WorldEditorWindow : Window
 
         scriptEditor.ShowDialog();
         SetDirty(true);
+    }
+
+    /// <summary>
+    /// Genera una imagen con IA para una sala usando Stable Diffusion.
+    /// </summary>
+    private async void PropertyEditor_RequestAiImageGeneration(Room room)
+    {
+        if (room == null) return;
+
+        try
+        {
+            // Verificar que Stable Diffusion esté disponible
+            ShowPlayLoading("Verificando servidor...");
+
+            try
+            {
+                // Verificar si SD está corriendo (la API solo acepta POST, así que 405 en GET significa que está activo)
+                var healthCheck = await _sdHttpClient.GetAsync("/");
+                // 405 Method Not Allowed significa que el servidor está activo pero no acepta GET
+                if (!healthCheck.IsSuccessStatusCode && (int)healthCheck.StatusCode != 405)
+                {
+                    throw new HttpRequestException("Stable Diffusion no está disponible");
+                }
+            }
+            catch (HttpRequestException)
+            {
+                // SD no está corriendo, intentar iniciarlo
+                HidePlayLoading();
+
+                var link = new TextBlock
+                {
+                    Margin = new Thickness(0, 4, 0, 0)
+                };
+                var hyperlink = new Hyperlink
+                {
+                    NavigateUri = new Uri("https://docs.docker.com/desktop/setup/install/windows-install/")
+                };
+                hyperlink.Inlines.Add("Instala Docker Desktop");
+                hyperlink.RequestNavigate += (_, e) =>
+                {
+                    try
+                    {
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                        {
+                            FileName = e.Uri.AbsoluteUri,
+                            UseShellExecute = true
+                        });
+                        e.Handled = true;
+                    }
+                    catch { }
+                };
+                link.Inlines.Add(hyperlink);
+
+                var confirmDialog = new DarkConfirmDialog(
+                    "Iniciar Stable Diffusion",
+                    "El servidor de imágenes (Stable Diffusion) no está iniciado.\n\n" +
+                    "¿Deseas iniciarlo ahora? (La primera vez puede tardar 10-20 minutos en descargar el modelo)\n\n" +
+                    "Instala Docker Desktop si no lo has hecho ya.",
+                    this);
+                confirmDialog.SetCustomContent(link);
+
+                if (confirmDialog.ShowDialog() != true)
+                    return;
+
+                // Iniciar Docker con SD
+                var progressWindow = new DockerProgressWindow
+                {
+                    Owner = this,
+                    IncludeTts = false,
+                    IncludeStableDiffusion = true
+                };
+
+                var dockerResult = await progressWindow.RunAsync();
+                if (!dockerResult.Success)
+                {
+                    DarkErrorDialog.Show("No se pudo iniciar el servidor de imágenes.", "Error", this);
+                    return;
+                }
+            }
+
+            ShowPlayLoading("Generando imagen con IA...");
+
+            // Construir el prompt
+            var prompt = BuildImagePrompt(room);
+
+            // Llamar a la API de Stable Diffusion (gadicc/diffusers-api)
+            var requestBody = new
+            {
+                modelInputs = new
+                {
+                    prompt = prompt,
+                    negative_prompt = "text, watermark, signature, blurry, low quality, deformed, ugly, bad anatomy",
+                    width = 896,
+                    height = 256,
+                    num_inference_steps = 25,
+                    guidance_scale = 7.5
+                },
+                callInputs = new
+                {
+                    MODEL_ID = "runwayml/stable-diffusion-v1-5",
+                    PIPELINE = "StableDiffusionPipeline",
+                    SCHEDULER = "EulerAncestralDiscreteScheduler"
+                }
+            };
+
+            var json = JsonSerializer.Serialize(requestBody);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await _sdHttpClient.PostAsync("/", content);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorText = await response.Content.ReadAsStringAsync();
+                throw new InvalidOperationException($"Error de Stable Diffusion: {errorText}");
+            }
+
+            var responseText = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(responseText);
+
+            string? imageBase64 = null;
+
+            // diffusers-api retorna image_base64
+            if (doc.RootElement.TryGetProperty("image_base64", out var imageElement))
+            {
+                imageBase64 = imageElement.GetString();
+            }
+            else if (doc.RootElement.TryGetProperty("image", out var imgElement))
+            {
+                imageBase64 = imgElement.GetString();
+            }
+            else if (doc.RootElement.TryGetProperty("images", out var imagesElement) &&
+                     imagesElement.ValueKind == JsonValueKind.Array &&
+                     imagesElement.GetArrayLength() > 0)
+            {
+                imageBase64 = imagesElement[0].GetString();
+            }
+
+            if (string.IsNullOrEmpty(imageBase64))
+            {
+                throw new InvalidOperationException("La respuesta de Stable Diffusion no contiene imagen");
+            }
+
+            // Guardar la imagen en la sala
+            room.ImageId = null; // Indicar que es generada por IA
+            room.ImageBase64 = imageBase64;
+
+            // Notificar cambios
+            PropertyEditor.SetObject(room);
+            MapPanel.InvalidateVisual();
+            PushUndoSnapshot();
+            SetDirty(true);
+
+            HidePlayLoading();
+
+            // Mostrar la imagen generada en el diálogo
+            try
+            {
+                byte[]? imgBytes = null;
+                if (imageBase64.StartsWith("data:image", StringComparison.OrdinalIgnoreCase))
+                {
+                    var commaIndex = imageBase64.IndexOf(',');
+                    if (commaIndex >= 0)
+                        imgBytes = Convert.FromBase64String(imageBase64[(commaIndex + 1)..]);
+                }
+                else
+                {
+                    imgBytes = Convert.FromBase64String(imageBase64);
+                }
+
+                if (imgBytes != null)
+                {
+                    using var ms = new MemoryStream(imgBytes);
+                    var bmp = new System.Windows.Media.Imaging.BitmapImage();
+                    bmp.BeginInit();
+                    bmp.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                    bmp.StreamSource = ms;
+                    bmp.EndInit();
+                    bmp.Freeze();
+
+                    var img = new Image
+                    {
+                        Source = bmp,
+                        Width = 896,
+                        Height = 256,
+                        Stretch = Stretch.Uniform
+                    };
+
+                    var dlg = new AlertWindow("", "Generación completada")
+                    {
+                        Owner = this
+                    };
+                    dlg.SetCustomContent(img);
+                    dlg.ShowDialog();
+                }
+                else
+                {
+                    AlertWindow.Show("Imagen generada correctamente.", this);
+                }
+            }
+            catch
+            {
+                AlertWindow.Show("Imagen generada correctamente.", this);
+            }
+        }
+        catch (Exception ex)
+        {
+            HidePlayLoading();
+            DarkErrorDialog.Show("Error de generación", $"Error al generar la imagen:\n\n{ex.Message}", this);
+        }
+    }
+
+    /// <summary>
+    /// Construye el prompt para Stable Diffusion basado en la descripción de la sala y el tema del mundo.
+    /// </summary>
+    private string BuildImagePrompt(Room room)
+    {
+        var sb = new StringBuilder();
+
+        // Tema del mundo (si está definido)
+        if (!string.IsNullOrEmpty(_world.Game.Theme))
+        {
+            sb.Append($"{_world.Game.Theme} style, ");
+        }
+        else
+        {
+            sb.Append("fantasy adventure game scene, ");
+        }
+
+        sb.Append("panoramic view, ");
+
+        // Contexto de la sala
+        if (room.IsInterior)
+        {
+            sb.Append("interior, indoor, ");
+        }
+        else
+        {
+            sb.Append("exterior, outdoor, ");
+        }
+
+        if (!room.IsIlluminated)
+        {
+            sb.Append("dark, dim lighting, mysterious, ");
+        }
+
+        // Descripción de la sala (contenido principal)
+        var desc = room.Description
+            .Replace("\n", " ")
+            .Replace("\r", " ")
+            .Trim();
+
+        if (desc.Length > 300)
+        {
+            desc = desc.Substring(0, 300);
+        }
+
+        sb.Append(desc);
+
+        // Tags de calidad
+        sb.Append(", high quality, detailed, digital art, atmospheric, concept art");
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Genera una descripción con IA para una sala usando Ollama.
+    /// </summary>
+    private async void PropertyEditor_RequestAiDescriptionGeneration(Room room)
+    {
+        if (room == null) return;
+
+        try
+        {
+            // Verificar que el mundo tenga un tema definido
+            if (string.IsNullOrWhiteSpace(_world.Game.Theme))
+            {
+                AlertWindow.Show("Tema requerido",
+                    "El mundo necesita tener un tema/ambientación definido para generar descripciones coherentes.\n\n" +
+                    "Añade un tema en las propiedades del mundo (ej: 'fantasía medieval', 'ciencia ficción', 'horror gótico').",
+                    this);
+                return;
+            }
+
+            // Verificar que Ollama esté disponible
+            ShowPlayLoading("Verificando servidor de IA...");
+
+            try
+            {
+                var healthCheck = await _httpClient.GetAsync("api/tags");
+                if (!healthCheck.IsSuccessStatusCode)
+                {
+                    throw new HttpRequestException("Ollama no está disponible");
+                }
+            }
+            catch (HttpRequestException)
+            {
+                HidePlayLoading();
+
+                var link = new TextBlock
+                {
+                    Margin = new Thickness(0, 4, 0, 0)
+                };
+                var hyperlink = new Hyperlink
+                {
+                    NavigateUri = new Uri("https://docs.docker.com/desktop/setup/install/windows-install/")
+                };
+                hyperlink.Inlines.Add("Instala Docker Desktop");
+                hyperlink.RequestNavigate += (_, e) =>
+                {
+                    try
+                    {
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                        {
+                            FileName = e.Uri.AbsoluteUri,
+                            UseShellExecute = true
+                        });
+                        e.Handled = true;
+                    }
+                    catch { }
+                };
+                link.Inlines.Add(hyperlink);
+
+                var confirmDialog = new DarkConfirmDialog(
+                    "Iniciar Ollama",
+                    "El servidor de IA (Ollama) no está iniciado.\n\n" +
+                    "¿Deseas iniciarlo ahora?\n\n" +
+                    "Instala Docker Desktop si no lo has hecho ya.",
+                    this);
+                confirmDialog.SetCustomContent(link);
+
+                if (confirmDialog.ShowDialog() != true)
+                    return;
+
+                // Iniciar Docker con Ollama
+                var progressWindow = new DockerProgressWindow
+                {
+                    Owner = this,
+                    IncludeTts = false,
+                    IncludeStableDiffusion = false,
+                    IncludeOllama = true
+                };
+
+                var dockerResult = await progressWindow.RunAsync();
+                if (!dockerResult.Success)
+                {
+                    DarkErrorDialog.Show("Error", "No se pudo iniciar el servidor de IA.", this);
+                    return;
+                }
+            }
+
+            ShowPlayLoading("Generando descripción...");
+
+            // Construir contexto para la descripción
+            var contextInfo = new StringBuilder();
+            contextInfo.Append(room.IsInterior ? "Es un interior. " : "Es un exterior. ");
+            if (!room.IsIlluminated)
+                contextInfo.Append("Está poco iluminado/oscuro. ");
+
+            // Objetos en la sala
+            var roomObjects = _world.Objects.Where(o => o.RoomId == room.Id).ToList();
+            if (roomObjects.Count > 0)
+            {
+                var objNames = string.Join(", ", roomObjects.Select(o => o.Name));
+                contextInfo.Append($"Contiene: {objNames}. ");
+            }
+
+            // NPCs en la sala
+            var roomNpcs = _world.Npcs.Where(n => n.RoomId == room.Id).ToList();
+            if (roomNpcs.Count > 0)
+            {
+                var npcNames = string.Join(", ", roomNpcs.Select(n => n.Name));
+                contextInfo.Append($"NPCs presentes: {npcNames}. ");
+            }
+
+            var prompt = $@"Eres un escritor de aventuras de texto. Escribe una descripción breve y atmosférica para una sala de un juego.
+
+Tema del mundo: {_world.Game.Theme}
+Nombre de la sala: {room.Name}
+Contexto: {contextInfo}
+
+Escribe SOLO la descripción en español, 2-3 frases, sin incluir el nombre de la sala. Debe ser evocadora y ayudar al jugador a visualizar el lugar.";
+
+            var requestBody = new
+            {
+                model = "llama3",
+                prompt = prompt,
+                stream = false
+            };
+
+            var json = JsonSerializer.Serialize(requestBody);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.PostAsync("api/generate", content);
+            response.EnsureSuccessStatusCode();
+
+            var responseText = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(responseText);
+
+            string? description = null;
+            if (doc.RootElement.TryGetProperty("response", out var respElement))
+            {
+                description = respElement.GetString()?.Trim();
+            }
+
+            if (string.IsNullOrEmpty(description))
+            {
+                throw new InvalidOperationException("La respuesta de Ollama no contiene descripción");
+            }
+
+            // Guardar la descripción en la sala
+            room.Description = description;
+
+            // Notificar cambios
+            PropertyEditor.SetObject(room);
+            PushUndoSnapshot();
+            SetDirty(true);
+
+            HidePlayLoading();
+            AlertWindow.Show("Descripción generada correctamente.", this);
+        }
+        catch (Exception ex)
+        {
+            HidePlayLoading();
+            DarkErrorDialog.Show("Error de generación", $"Error al generar la descripción:\n\n{ex.Message}", this);
+        }
     }
 
     private void DeleteDoor(Door door)
@@ -2648,6 +3097,28 @@ public partial class WorldEditorWindow : Window
             // Guardar mundo con Ctrl+S
             SaveMenu_Click(this, new RoutedEventArgs());
             e.Handled = true;
+            return;
+        }
+
+        // Hotkeys sin modificador: ignorar si el foco está en un control de entrada de texto
+        var focused = Keyboard.FocusedElement;
+        if (focused is TextBox || focused is PasswordBox || focused is System.Windows.Controls.Primitives.TextBoxBase)
+            return;
+        if (focused is ComboBox combo && combo.IsEditable)
+            return;
+
+        switch (e.Key)
+        {
+            case Key.G:
+                ToggleGridButton.IsChecked = !ToggleGridButton.IsChecked;
+                MapPanel.SetGridVisibility(ToggleGridButton.IsChecked ?? false);
+                e.Handled = true;
+                break;
+            case Key.H:
+                ToggleSnapButton.IsChecked = !ToggleSnapButton.IsChecked;
+                MapPanel.SetSnapToGrid(ToggleSnapButton.IsChecked ?? false);
+                e.Handled = true;
+                break;
         }
     }
 
@@ -3337,67 +3808,6 @@ NO añadas explicaciones, solo el número, género (M/F) y número gramatical (S
         }
     }
 
-    private async void UseLlmCheckBox_Changed(object sender, RoutedEventArgs e)
-    {
-        if (_isInitializingCheckbox)
-            return;
-
-        if (UseLlmCheckBox.IsChecked == true)
-        {
-            var confirmDlg = new ConfirmWindow(
-                "Al activar la IA se iniciará Docker Desktop automáticamente.\n\n" +
-                "Si es la primera vez que la usas, se descargarán los modelos necesarios (puede tardar varios minutos dependiendo de tu conexión).\n\n" +
-                "Al guardar el mundo, la IA determinará el género gramatical (masculino/femenino) y número (singular/plural) de objetos y puertas que no hayan sido configurados manualmente.\n\n" +
-                "¿Deseas continuar?",
-                "Activar IA")
-            {
-                Owner = this
-            };
-
-            if (confirmDlg.ShowDialog() != true)
-            {
-                UseLlmCheckBox.IsChecked = false;
-                return;
-            }
-
-            var progressWindow = new DockerProgressWindow
-            {
-                Owner = this,
-                IncludeTts = false // En el editor solo necesitamos Ollama, no Coqui TTS
-            };
-
-            var result = await progressWindow.RunAsync().ConfigureAwait(true);
-
-            if (result.Canceled || !result.Success)
-            {
-                UseLlmCheckBox.IsChecked = false;
-                _useLlmForGenders = false;
-
-                if (!result.Canceled)
-                {
-                    new AlertWindow(
-                        "No se han podido iniciar los servicios de IA. Comprueba que Docker Desktop está instalado y en ejecución.",
-                        "Error")
-                    {
-                        Owner = this
-                    }.ShowDialog();
-                }
-                return;
-            }
-
-            _useLlmForGenders = true;
-            PropertyEditor.IsAiEnabled = true;
-        }
-        else
-        {
-            _useLlmForGenders = false;
-            PropertyEditor.IsAiEnabled = false;
-        }
-
-        // Refrescar el PropertyEditor para actualizar visibilidad del checkbox de género manual
-        RefreshPropertyEditor();
-    }
-
     /// <summary>
     /// Inicia Docker silenciosamente si la IA estaba activada en el mundo.
     /// Si falla, desactiva la IA y muestra un mensaje.
@@ -3407,7 +3817,8 @@ NO añadas explicaciones, solo el número, género (M/F) y número gramatical (S
         var progressWindow = new DockerProgressWindow
         {
             Owner = this,
-            IncludeTts = false // En el editor solo necesitamos Ollama, no Coqui TTS
+            IncludeTts = false,
+            IncludeStableDiffusion = true // En el editor usamos Ollama + SD
         };
 
         var result = await progressWindow.RunAsync().ConfigureAwait(true);
@@ -3415,9 +3826,6 @@ NO añadas explicaciones, solo el número, género (M/F) y número gramatical (S
         if (result.Canceled || !result.Success)
         {
             // Desactivar la IA si Docker no se pudo iniciar
-            _isInitializingCheckbox = true;
-            UseLlmCheckBox.IsChecked = false;
-            _isInitializingCheckbox = false;
             _useLlmForGenders = false;
             PropertyEditor.IsAiEnabled = false;
 
@@ -3442,21 +3850,6 @@ NO añadas explicaciones, solo el número, género (M/F) y número gramatical (S
         {
             PropertyEditor.SetObject(currentObject);
         }
-    }
-
-    private void LlmHelpIcon_Click(object sender, MouseButtonEventArgs e)
-    {
-        new AlertWindow(
-            "IA para géneros gramaticales\n\n" +
-            "Cuando está activada, al guardar el mundo la IA determinará automáticamente el género gramatical (masculino/femenino) de:\n" +
-            "• Objetos (ej: \"la espada\", \"el cofre\")\n" +
-            "• Puertas (ej: \"la puerta\", \"el portón\")\n\n" +
-            "Esto permite que los mensajes del juego usen los artículos correctos.\n\n" +
-            "IMPORTANTE: Si configuras manualmente el género de un objeto o puerta, la IA no lo sobrescribirá.",
-            "Ayuda")
-        {
-            Owner = this
-        }.ShowDialog();
     }
 
     #endregion

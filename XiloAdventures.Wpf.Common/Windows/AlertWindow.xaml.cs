@@ -103,7 +103,7 @@ public partial class AlertWindow : Window
 
     public static void Show(string title, string message, Window? owner = null)
     {
-        var w = new AlertWindow(title, message);
+        var w = new AlertWindow(message, title);
         if (owner != null)
         {
             w.Owner = owner;

@@ -2,7 +2,8 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Confirmar"
-        Width="400" Height="160"
+        Width="400"
+        SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
@@ -28,12 +29,15 @@
                        Margin="0,0,0,12"/>
 
             <!-- Message -->
-            <TextBlock x:Name="MessageText"
-                       Grid.Row="1"
-                       FontSize="14"
-                       Foreground="#CCCCCC"
-                       TextWrapping="Wrap"
-                       VerticalAlignment="Center"/>
+            <StackPanel Grid.Row="1">
+                <TextBlock x:Name="MessageText"
+                           FontSize="14"
+                           Foreground="#CCCCCC"
+                           TextWrapping="Wrap"/>
+                <ContentPresenter x:Name="CustomContentPresenter"
+                                  Margin="0,8,0,0"
+                                  Visibility="Collapsed"/>
+            </StackPanel>
 
             <!-- Buttons -->
             <StackPanel Grid.Row="2"
@@ -71,9 +75,9 @@
                         Content="Sí"
                         Width="80"
                         Height="32"
-                        Background="#C04040"
+                        Background="#444444"
                         Foreground="White"
-                        BorderBrush="#D05050"
+                        BorderBrush="#555555"
                         Click="YesButton_Click">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
@@ -87,7 +91,7 @@
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Border" Property="Background" Value="#D05050"/>
+                                    <Setter TargetName="Border" Property="Background" Value="#555555"/>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>

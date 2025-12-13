@@ -13,8 +13,9 @@ public static class DockerService
 
     private const string OllamaContainerName = "xilo-ollama";
     private const string TtsContainerName = "xilo-tts";
+    private const string StableDiffusionContainerName = "xilo-stablediffusion";
 
-    public static async Task EnsureAllAsync(IProgress<string>? progress = null, CancellationToken cancellationToken = default, bool includeTts = true)
+    public static async Task EnsureAllAsync(IProgress<string>? progress = null, CancellationToken cancellationToken = default, bool includeTts = true, bool includeStableDiffusion = false, bool includeOllama = true)
     {
         await _lock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -24,16 +25,25 @@ public static class DockerService
             progress?.Report("Comprobando Docker Desktop...");
             await EnsureDockerAvailableAsync(progress, cancellationToken).ConfigureAwait(false);
 
-            progress?.Report("Preparando contenedor de IA (Ollama)...");
-            await EnsureOllamaAsync(progress, cancellationToken).ConfigureAwait(false);
+            if (includeOllama)
+            {
+                progress?.Report("Preparando contenedor de IA (Ollama)...");
+                await EnsureOllamaAsync(progress, cancellationToken).ConfigureAwait(false);
 
-            progress?.Report("Descargando modelo llama3 (si es necesario)...");
-            await EnsureLlamaModelAsync(progress, cancellationToken).ConfigureAwait(false);
+                progress?.Report("Descargando modelo llama3 (si es necesario)...");
+                await EnsureLlamaModelAsync(progress, cancellationToken).ConfigureAwait(false);
+            }
 
             if (includeTts)
             {
                 progress?.Report("Preparando servidor de voz (Coqui TTS)...");
                 await EnsureTtsAsync(progress, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (includeStableDiffusion)
+            {
+                progress?.Report("Preparando servidor de imágenes (Stable Diffusion)...");
+                await EnsureStableDiffusionAsync(progress, cancellationToken).ConfigureAwait(false);
             }
         }
         finally
@@ -51,6 +61,7 @@ public static class DockerService
 
             await StopContainerIfExistsAsync(OllamaContainerName, cancellationToken).ConfigureAwait(false);
             await StopContainerIfExistsAsync(TtsContainerName, cancellationToken).ConfigureAwait(false);
+            await StopContainerIfExistsAsync(StableDiffusionContainerName, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -287,6 +298,141 @@ public static class DockerService
         }
 
         throw new InvalidOperationException("Coqui TTS no ha estado disponible tras 100 reintentos o 2 minutos de espera.");
+    }
+
+    /// <summary>
+    /// Detecta si hay una GPU NVIDIA disponible con soporte Docker.
+    /// </summary>
+    private static async Task<bool> HasNvidiaGpuAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Intentamos ejecutar nvidia-smi dentro de un contenedor con GPU
+            var psi = new ProcessStartInfo
+            {
+                FileName = "docker",
+                Arguments = "run --rm --gpus all nvidia/cuda:12.0-base nvidia-smi",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            using var process = new Process { StartInfo = psi };
+            if (!process.Start())
+                return false;
+
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(30)); // Timeout de 30 segundos
+
+            try
+            {
+                await process.WaitForExitAsync(cts.Token).ConfigureAwait(false);
+                return process.ExitCode == 0;
+            }
+            catch (OperationCanceledException)
+            {
+                try { process.Kill(true); } catch { }
+                return false;
+            }
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static async Task EnsureStableDiffusionAsync(IProgress<string>? progress, CancellationToken cancellationToken)
+    {
+        if (await IsContainerRunningAsync(StableDiffusionContainerName, cancellationToken).ConfigureAwait(false))
+        {
+            progress?.Report("Stable Diffusion ya está en ejecución.");
+            return;
+        }
+
+        if (await ContainerExistsAsync(StableDiffusionContainerName, cancellationToken).ConfigureAwait(false))
+        {
+            progress?.Report("Arrancando contenedor existente de Stable Diffusion...");
+            await RunDockerCheckedAsync($"start {StableDiffusionContainerName}", cancellationToken).ConfigureAwait(false);
+
+            progress?.Report("Esperando a que Stable Diffusion esté listo...");
+            await WaitForStableDiffusionReadyAsync(progress, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        // Detectar si hay GPU NVIDIA disponible
+        progress?.Report("Detectando GPU NVIDIA...");
+        bool hasGpu = await HasNvidiaGpuAsync(cancellationToken).ConfigureAwait(false);
+
+        if (hasGpu)
+        {
+            progress?.Report("GPU NVIDIA detectada. Se usará aceleración por hardware.");
+        }
+        else
+        {
+            progress?.Report("No se detectó GPU NVIDIA. Se usará CPU (más lento).");
+        }
+
+        progress?.Report("Descargando imagen de Stable Diffusion (la primera vez tarda 10-20')...");
+        await RunDockerCheckedAsync("pull gadicc/diffusers-api:latest", cancellationToken).ConfigureAwait(false);
+
+        progress?.Report("Creando contenedor de Stable Diffusion...");
+
+        // Comando diferente según si hay GPU o no
+        string runCommand = hasGpu
+            ? $"run -d --gpus all --name {StableDiffusionContainerName} -p 7860:8000 -v {StableDiffusionContainerName}_cache:/root/.cache gadicc/diffusers-api:latest"
+            : $"run -d --name {StableDiffusionContainerName} -p 7860:8000 -v {StableDiffusionContainerName}_cache:/root/.cache gadicc/diffusers-api:latest";
+
+        await RunDockerCheckedAsync(runCommand, cancellationToken).ConfigureAwait(false);
+
+        progress?.Report("Esperando a que Stable Diffusion esté listo (cargando modelo)...");
+        await WaitForStableDiffusionReadyAsync(progress, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task WaitForStableDiffusionReadyAsync(IProgress<string>? progress, CancellationToken cancellationToken)
+    {
+        const int maxAttempts = 120; // SD tarda más en arrancar por la carga del modelo
+        var maxDuration = TimeSpan.FromMinutes(5);
+        var stopwatch = Stopwatch.StartNew();
+        int attempt = 0;
+
+        while (attempt < maxAttempts && stopwatch.Elapsed < maxDuration)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            attempt++;
+            try
+            {
+                progress?.Report($"Esperando disponibilidad de Stable Diffusion... (intento {attempt}/{maxAttempts})");
+
+                using var client = new HttpClient
+                {
+                    BaseAddress = new Uri("http://localhost:7860"),
+                    Timeout = TimeSpan.FromSeconds(5)
+                };
+
+                // Intentar acceder al endpoint raíz para verificar que el servidor está listo
+                // Cualquier respuesta HTTP (incluso 405 Method Not Allowed) indica que el servidor está activo
+                var response = await client.GetAsync("/", cancellationToken).ConfigureAwait(false);
+                // Si obtenemos cualquier respuesta HTTP, el servidor está listo
+                return;
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                // Timeout interno de la petición HTTP, reintentamos.
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (HttpRequestException)
+            {
+                // El servidor aún no está listo, reintentamos.
+            }
+
+            await Task.Delay(2500, cancellationToken).ConfigureAwait(false);
+        }
+
+        throw new InvalidOperationException("Stable Diffusion no ha estado disponible tras 120 reintentos o 5 minutos de espera.");
     }
 
     private static async Task<bool> IsContainerRunningAsync(string name, CancellationToken cancellationToken)

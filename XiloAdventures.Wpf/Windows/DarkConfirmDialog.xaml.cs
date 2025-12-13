@@ -23,6 +23,14 @@ public partial class DarkConfirmDialog : Window
         return dialog.ShowDialog() == true;
     }
 
+    public void SetCustomContent(UIElement? content)
+    {
+        CustomContentPresenter.Content = content;
+        CustomContentPresenter.Visibility = content == null
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+    }
+
     private void YesButton_Click(object sender, RoutedEventArgs e)
     {
         DialogResult = true;

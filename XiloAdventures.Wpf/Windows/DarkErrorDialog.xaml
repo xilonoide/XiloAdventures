@@ -75,7 +75,7 @@
                                 </Border>
                                 <ControlTemplate.Triggers>
                                     <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="Border" Property="Background" Value="#C04040"/>
+                                        <Setter TargetName="Border" Property="Background" Value="#555555"/>
                                         <Setter Property="Foreground" Value="White"/>
                                     </Trigger>
                                 </ControlTemplate.Triggers>
@@ -89,15 +89,15 @@
             <ScrollViewer Grid.Row="1"
                           Margin="20,16"
                           VerticalScrollBarVisibility="Auto"
-                          HorizontalScrollBarVisibility="Auto">
+                          HorizontalScrollBarVisibility="Disabled">
                 <TextBox x:Name="MessageText"
                          FontSize="13"
-                         FontFamily="Consolas, Courier New, monospace"
+                         FontFamily="Segoe UI, Arial"
                          Foreground="#CCCCCC"
                          Background="Transparent"
                          BorderThickness="0"
                          IsReadOnly="True"
-                         TextWrapping="NoWrap"
+                         TextWrapping="Wrap"
                          AcceptsReturn="True"/>
             </ScrollViewer>
 
@@ -139,9 +139,9 @@
                             Content="Aceptar"
                             Width="90"
                             Height="32"
-                            Background="#C04040"
+                            Background="#444444"
                             Foreground="White"
-                            BorderBrush="#D05050"
+                            BorderBrush="#555555"
                             Click="OkButton_Click"
                             IsDefault="True">
                         <Button.Template>
@@ -156,7 +156,7 @@
                                 </Border>
                                 <ControlTemplate.Triggers>
                                     <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="Border" Property="Background" Value="#D05050"/>
+                                        <Setter TargetName="Border" Property="Background" Value="#555555"/>
                                     </Trigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>

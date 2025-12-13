@@ -36,6 +36,16 @@ public partial class PropertyEditor : UserControl
     /// </summary>
     public event Action<string>? RequestDeleteObject;
 
+    /// <summary>
+    /// Evento para solicitar la generación de imagen con IA para una sala.
+    /// </summary>
+    public event Action<Room>? RequestAiImageGeneration;
+
+    /// <summary>
+    /// Evento para solicitar la generación de descripción con IA para una sala.
+    /// </summary>
+    public event Action<Room>? RequestAiDescriptionGeneration;
+
     public PasswordBox? EncryptionPasswordBox => _encryptionPasswordBox;
 
     public Func<IEnumerable<Room>>? GetRooms { get; set; }
@@ -296,7 +306,7 @@ public partial class PropertyEditor : UserControl
         var name = prop.Name;
 
         // Identificación
-        if (name is "Id" or "Name" or "Title")
+        if (name is "Id" or "Name" or "Title" or "Theme")
             return "🔖 Identificación";
 
         // Descripción
@@ -369,6 +379,7 @@ public partial class PropertyEditor : UserControl
         {
             "Id" => 0,
             "Name" => 1,
+            "Theme" => 1,
             "Title" => 2,
             "Description" => 0,
             "TextContent" => 1,
@@ -611,6 +622,43 @@ public partial class PropertyEditor : UserControl
             };
             helpIcon.MouseLeftButtonUp += (_, _) => ShowMusicIdHelp();
             labelPanel.Children.Add(helpIcon);
+
+            containerPanel.Children.Add(labelPanel);
+        }
+        else if (obj is Room && prop.Name == "Description" && prop.PropertyType == typeof(string))
+        {
+            // Description de Room: label + botón 🤖 para generar con IA
+            var labelPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Margin = label.Margin
+            };
+            label.Margin = new Thickness(0);
+            labelPanel.Children.Add(label);
+
+            var aiDescBtn = new Button
+            {
+                Content = "🤖",
+                Width = 24,
+                Height = 20,
+                Margin = new Thickness(6, 0, 0, 0),
+                Padding = new Thickness(0),
+                VerticalAlignment = VerticalAlignment.Center,
+                ToolTip = "Generar descripción con IA"
+            };
+            aiDescBtn.Click += (_, _) =>
+            {
+                try
+                {
+                    if (_currentObject is not Room room) return;
+                    RequestAiDescriptionGeneration?.Invoke(room);
+                }
+                catch
+                {
+                    // Ignorar errores
+                }
+            };
+            labelPanel.Children.Add(aiDescBtn);
 
             containerPanel.Children.Add(labelPanel);
         }
@@ -1171,33 +1219,60 @@ public partial class PropertyEditor : UserControl
             }
 
 
-            // ImageId de Room: textbox + botón ... para imagen de sala
+            // ImageId de Room: textbox + botón 🤖 (IA) + botón ... para imagen de sala
             else if (prop.Name == "ImageId" && prop.PropertyType == typeof(string))
             {
                 var valueObj = prop.GetValue(obj);
                 string text = Convert.ToString(valueObj) ?? string.Empty;
+
+                // Detectar si es una imagen generada por IA (ImageBase64 tiene contenido pero ImageId está vacío)
+                bool isAiGenerated = false;
+                if (obj is Room roomCheck)
+                {
+                    isAiGenerated = string.IsNullOrEmpty(roomCheck.ImageId) && !string.IsNullOrEmpty(roomCheck.ImageBase64);
+                    if (isAiGenerated)
+                    {
+                        text = "[Generada por IA]";
+                    }
+                }
 
                 var panel = new Grid
                 {
                     Margin = new Thickness(0, 2, 0, 0)
                 };
                 panel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                panel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                panel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Botón IA
+                panel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Botón ...
 
                 var tb = new TextBox
                 {
                     Text = text,
-                    Margin = new Thickness(0, 0, 4, 0)
+                    Margin = new Thickness(0, 0, 4, 0),
+                    IsReadOnly = isAiGenerated,
+                    Background = isAiGenerated ? new SolidColorBrush(Color.FromRgb(0x3A, 0x3A, 0x3A)) : null,
+                    Foreground = isAiGenerated ? new SolidColorBrush(Color.FromRgb(0x88, 0xCC, 0xFF)) : Brushes.White
                 };
                 Grid.SetColumn(tb, 0);
+
+                // Botón para generar imagen con IA
+                var aiBtn = new Button
+                {
+                    Content = "🤖",
+                    Width = 28,
+                    Margin = new Thickness(0, 0, 2, 0),
+                    Padding = new Thickness(0, 0, 0, 0),
+                    ToolTip = "Generar imagen con IA"
+                };
+                Grid.SetColumn(aiBtn, 1);
 
                 var btn = new Button
                 {
                     Content = "...",
                     Width = 28,
-                    Padding = new Thickness(0, 0, 0, 0)
+                    Padding = new Thickness(0, 0, 0, 0),
+                    ToolTip = "Seleccionar imagen de archivo"
                 };
-                Grid.SetColumn(btn, 1);
+                Grid.SetColumn(btn, 2);
 
                 // Si el usuario edita manualmente el texto, solo cambiamos el nombre de archivo
                 tb.LostFocus += (_, _) =>
@@ -1214,6 +1289,34 @@ public partial class PropertyEditor : UserControl
                     }
                 };
 
+                // Botón IA: solicitar generación de imagen
+                aiBtn.Click += (_, _) =>
+                {
+                    try
+                    {
+                        if (_currentObject is not Room room) return;
+
+                        // Validar que la sala tenga descripción
+                        if (string.IsNullOrWhiteSpace(room.Description))
+                        {
+                            MessageBox.Show(
+                                "La sala debe tener una descripción para generar la imagen con IA.",
+                                "Descripción requerida",
+                                MessageBoxButton.OK,
+                                MessageBoxImage.Warning);
+                            return;
+                        }
+
+                        // Disparar evento para que WorldEditorWindow genere la imagen
+                        RequestAiImageGeneration?.Invoke(room);
+                    }
+                    catch
+                    {
+                        // Ignorar errores
+                    }
+                };
+
+                // Botón ...: seleccionar imagen de archivo
                 btn.Click += (_, _) =>
                 {
                     try
@@ -1234,6 +1337,10 @@ public partial class PropertyEditor : UserControl
                             var base64 = Convert.ToBase64String(bytes);
 
                             tb.Text = fileName;
+                            tb.IsReadOnly = false;
+                            tb.Background = null;
+                            tb.Foreground = Brushes.White;
+
                             room.ImageId = fileName;
                             room.ImageBase64 = base64;
 
@@ -1248,6 +1355,7 @@ public partial class PropertyEditor : UserControl
                 };
 
                 panel.Children.Add(tb);
+                panel.Children.Add(aiBtn);
                 panel.Children.Add(btn);
                 editor = panel;
             }
@@ -1612,6 +1720,7 @@ public partial class PropertyEditor : UserControl
         ["Name"] = "Nombre",
         ["Description"] = "Descripción",
         ["Title"] = "Título",
+        ["Theme"] = "Tema/Ambientación",
         ["MusicId"] = "Música",
         ["MusicBase64"] = "Música (Base64)",
         ["WorldMusicId"] = "Música global (id)",
@@ -1667,6 +1776,7 @@ public partial class PropertyEditor : UserControl
 
         // Juego
         ["GameInfo.Title"] = "Título",
+        ["GameInfo.Theme"] = "Temática",
         ["GameInfo.StartRoomId"] = "Sala inicial",
         ["GameInfo.MinutesPerGameHour"] = "Minutos por hora de juego",
         ["GameInfo.ParserDictionaryJson"] = "Diccionario parser (JSON)",
