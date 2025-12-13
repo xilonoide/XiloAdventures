@@ -24,7 +24,7 @@
         
         <StackPanel HorizontalAlignment="Center"
                     VerticalAlignment="Center">
-            <Image Source="/XiloAdventures.Wpf.Common;component/Assets/logo trans.png"
+            <Image Source="/XiloAdventures.Wpf.Common;component/Assets/logo.png"
                    Width="360"
                    Stretch="Uniform"
                    RenderOptions.BitmapScalingMode="HighQuality"/>
