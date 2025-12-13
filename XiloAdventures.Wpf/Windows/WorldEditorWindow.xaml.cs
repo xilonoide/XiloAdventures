@@ -3466,6 +3466,29 @@ Escribe SOLO la descripción en español, 2-3 frases, sin incluir el nombre de l
             return;
         }
 
+        // Preguntar si quiere usar un icono personalizado
+        string? customIconPath = null;
+        var iconConfirmDlg = new ConfirmWindow(
+            "¿Deseas usar un icono personalizado para el ejecutable?\n\nSi eliges 'No', se usará el icono predeterminado de XiloAdventures.",
+            "Icono personalizado")
+        {
+            Owner = this
+        };
+
+        if (iconConfirmDlg.ShowDialog() == true)
+        {
+            var iconDialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "Iconos (*.ico)|*.ico",
+                Title = "Selecciona el icono para tu aventura"
+            };
+
+            if (iconDialog.ShowDialog() == true)
+            {
+                customIconPath = iconDialog.FileName;
+            }
+        }
+
         // Seleccionar ubicación de salida
         var saveDialog = new Microsoft.Win32.SaveFileDialog
         {
@@ -3484,7 +3507,7 @@ Escribe SOLO la descripción en español, 2-3 frases, sin incluir el nombre de l
 
         try
         {
-            await System.Threading.Tasks.Task.Run(() => ExportStandaloneExecutable(_currentPath, outputPath));
+            await System.Threading.Tasks.Task.Run(() => ExportStandaloneExecutable(_currentPath, outputPath, customIconPath));
 
             HidePlayLoading();
 
@@ -3524,7 +3547,7 @@ Escribe SOLO la descripción en español, 2-3 frases, sin incluir el nombre de l
         }
     }
 
-    private void ExportStandaloneExecutable(string worldPath, string outputPath)
+    private void ExportStandaloneExecutable(string worldPath, string outputPath, string? customIconPath = null)
     {
         // Buscar el proyecto player desde la carpeta de la solución
         var baseDir = AppContext.BaseDirectory;
@@ -3560,8 +3583,27 @@ Escribe SOLO la descripción en español, 2-3 frases, sin incluir el nombre de l
         var worldDestPath = System.IO.Path.Combine(playerProjectPath, "world.xaw");
         System.IO.File.Copy(worldPath, worldDestPath, true);
 
+        // Guardar el contenido original del .csproj para restaurarlo después
+        string? originalCsprojContent = null;
+        string? customIconDestPath = null;
+
         try
         {
+            // Si hay un icono personalizado, modificar el .csproj temporalmente
+            if (!string.IsNullOrEmpty(customIconPath) && System.IO.File.Exists(customIconPath))
+            {
+                // Copiar el icono al proyecto
+                customIconDestPath = System.IO.Path.Combine(playerProjectPath, "custom_icon.ico");
+                System.IO.File.Copy(customIconPath, customIconDestPath, true);
+
+                // Leer y modificar el .csproj
+                originalCsprojContent = System.IO.File.ReadAllText(playerCsproj);
+                var modifiedCsproj = originalCsprojContent.Replace(
+                    "<ApplicationIcon>..\\XiloAdventures.Wpf.Common\\appicon.ico</ApplicationIcon>",
+                    "<ApplicationIcon>custom_icon.ico</ApplicationIcon>");
+                System.IO.File.WriteAllText(playerCsproj, modifiedCsproj);
+            }
+
             // Compilar con dotnet publish
             var publishDir = System.IO.Path.Combine(playerProjectPath, "bin", "publish");
             if (System.IO.Directory.Exists(publishDir))
@@ -3606,6 +3648,18 @@ Escribe SOLO la descripción en español, 2-3 frases, sin incluir el nombre de l
         }
         finally
         {
+            // Restaurar el .csproj original si fue modificado
+            if (originalCsprojContent != null)
+            {
+                try { System.IO.File.WriteAllText(playerCsproj, originalCsprojContent); } catch { }
+            }
+
+            // Limpiar el icono temporal
+            if (customIconDestPath != null && System.IO.File.Exists(customIconDestPath))
+            {
+                try { System.IO.File.Delete(customIconDestPath); } catch { }
+            }
+
             // Limpiar el archivo temporal del mundo
             if (System.IO.File.Exists(worldDestPath))
             {

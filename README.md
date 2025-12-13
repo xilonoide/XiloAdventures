@@ -1,167 +1,380 @@
 <p align="center">
-  <img src="XiloAdventures.Wpf.Common/Assets/logo.png" alt="XiloAdventures logo" width="360">
+  <img src="XiloAdventures.Wpf.Common/Assets/logo.png" alt="XiloAdventures logo" width="400">
 </p>
 
-![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)
-![WPF](https://img.shields.io/badge/UI-WPF-0d5a8f?logo=windows&logoColor=white)
-![C#](https://img.shields.io/badge/Language-C%23-239120?logo=csharp&logoColor=white)
-![Estado](https://img.shields.io/badge/Estado-Activo-success)
-![Tests](https://img.shields.io/badge/Tests-45%20passing-brightgreen)
+<p align="center">
+  <strong>Crea, juega y distribuye aventuras conversacionales sin escribir una sola línea de código</strong>
+</p>
 
-[![Donar](https://img.shields.io/badge/❤️_¡Se_aceptan_donaciones!-PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://www.paypal.me/xmasmusicsoft)
+<p align="center">
+  <img src="https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white" alt=".NET 8">
+  <img src="https://img.shields.io/badge/UI-WPF-0d5a8f?logo=windows&logoColor=white" alt="WPF">
+  <img src="https://img.shields.io/badge/Language-C%23-239120?logo=csharp&logoColor=white" alt="C#">
+  <img src="https://img.shields.io/badge/Estado-Activo-success" alt="Estado">
+  <img src="https://img.shields.io/badge/Tests-222%20passing-brightgreen" alt="Tests">
+</p>
 
-XiloAdventures es un ecosistema completo para crear y jugar aventuras conversacionales en C# (.NET 8) con editor visual WPF y cliente de juego. Todo el contenido (salas, objetos, música, imágenes) viaja dentro de un único archivo `.xaw` cifrado y comprimido.
-
----
-
-## Qué incluye
-
-- **Engine (`XiloAdventures.Engine`)**: modelos de mundo, guardado/carga `.xaw` (zip + cifrado), lógica de puertas/llaves, audio con NAudio (música de mundo y de sala, volúmenes master/música/efectos/voz).
-- **Editor WPF (`XiloAdventures.Wpf`)**:
-  - Mapa visual con zoom, drag, selección múltiple, iconos de puertas/llaves, tooltip de imagen de sala.
-  - Árbol de contenido (salas, salidas, puertas, llaves, objetos, NPCs, misiones).
-  - Panel de propiedades en español, con textboxes multilínea, checkboxes y radio centrados.
-  - Botón *Play* para probar el mundo; muestra overlay de progreso mientras prepara la partida.
-  - Guardado/carga de mundos `.xaw`, undo/redo, búsqueda.
-  - **"¡Crea tu aventura!"**: opción especial en la lista de mundos para empezar desde cero.
-- **Cliente de juego WPF (`MainWindow`, `StartupWindow`)**:
-  - Pantalla inicial con selector de mundos, checks de sonido/IA e overlay de progreso al cargar/iniciar.
-  - Ventana de partida con historial, inventario, estados, imagen de sala, música integrada.
-  - Al cerrar la partida pregunta si guardar y confirma la salida (pop-ups oscuros).
-  - **Autoguardado** automático después de cada comando.
-- **LLM opcional**: si el parser no entiende un comando y la opción está activa, consulta un modelo local (requiere Docker Desktop).
-  - Confirmación antes de activar la IA con información sobre Docker y descarga de modelos.
-- **TTS (voz)**: generación y precarga de voz de las descripciones de salas.
-- **Player independiente (`XiloAdventures.Wpf.Player`)**: ejecutable standalone para distribuir juegos sin el editor.
+<p align="center">
+  <a href="https://www.paypal.me/xmasmusicsoft">
+    <img src="https://img.shields.io/badge/❤️_¡Se_aceptan_donaciones!-PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white" alt="Donar">
+  </a>
+</p>
 
 ---
 
-## Wiki
+## Qué es XiloAdventures
 
-- Página principal: [General](https://github.com/xilonoide/XiloAdventures/wiki/general)
-- Editor: [Editor](https://github.com/xilonoide/XiloAdventures/wiki/editor)
-- Cliente/Player: [Player](https://github.com/xilonoide/XiloAdventures/wiki/player)
+XiloAdventures es un **ecosistema completo** para crear y jugar aventuras conversacionales (también conocidas como aventuras de texto o ficción interactiva). Incluye un potente **editor visual**, un **motor de juego** robusto y la capacidad de **exportar tus creaciones como ejecutables independientes**.
+
+Todo el contenido de tu aventura (salas, objetos, música, imágenes, diálogos, scripts) viaja empaquetado en un único archivo `.xaw` cifrado y comprimido, listo para distribuir.
 
 ---
 
-## Estructura del proyecto
+## Características Principales
+
+### Editor de Mapas Visual
+
+El corazón de XiloAdventures es su editor de mapas intuitivo y potente:
+
+| Característica | Descripción |
+|----------------|-------------|
+| **Mapa interactivo** | Visualiza y edita tu mundo en un canvas con zoom, pan y grid |
+| **Drag & Drop** | Arrastra salas para reorganizar tu mapa |
+| **Conexiones visuales** | Crea salidas entre salas arrastrando desde los puertos |
+| **Selección múltiple** | Selecciona varias salas con Ctrl+Click o rectángulo de selección |
+| **Snap to grid** | Alineación automática para mapas ordenados |
+| **Iconos informativos** | Visualiza puertas, llaves y estados de un vistazo |
+| **Tooltips con imagen** | Previsualiza las imágenes de sala al pasar el ratón |
+| **Undo/Redo completo** | Deshaz cualquier cambio con historial ilimitado |
+| **Búsqueda integrada** | Encuentra cualquier elemento de tu mundo |
+| **Copiar/Pegar** | Duplica salas con todo su contenido |
+
+### Editor de Scripts Visual (Nodos)
+
+Crea lógica compleja para tu aventura **sin programar**, usando un sistema visual de nodos:
+
+**Eventos (25 tipos)**
+- Eventos de juego: inicio, fin, cada minuto/hora
+- Eventos de sala: entrar, salir
+- Eventos de puerta: abrir, cerrar, bloquear, desbloquear, llamar
+- Eventos de NPC: hablar, atacar, muerte, ver al jugador
+- Eventos de objeto: coger, soltar, usar, examinar, abrir/cerrar contenedor
+- Eventos de misión: iniciar, completar, fallar, completar objetivo
+- Eventos de tiempo: cambio de turno, cambio de clima
+
+**Condiciones (12 tipos)**
+- Verificar inventario, sala actual, estado de misión
+- Comprobar flags y contadores
+- Verificar hora del día, estado de puertas, visibilidad de NPCs
+- Probabilidad aleatoria
+
+**Acciones (22 tipos)**
+- Mostrar mensajes, dar/quitar objetos, gestionar oro
+- Teletransportar jugador, mover NPCs
+- Abrir/cerrar/bloquear/desbloquear puertas
+- Gestionar misiones, flags y contadores
+- Reproducir sonidos, iniciar conversaciones
+
+**Control de flujo**
+- Bifurcaciones condicionales (if-else)
+- Secuencias ordenadas
+- Retardos temporizados
+- Bifurcaciones aleatorias
+
+**Nodos matemáticos y lógicos**
+- Operaciones: suma, resta, multiplicación, división, módulo
+- Comparaciones: igual, distinto, mayor, menor
+- Lógica: AND, OR, NOT, XOR
+- Funciones: mínimo, máximo, clamp, aleatorio
+
+### Sistema de Conversaciones
+
+Crea diálogos ramificados y dinámicos con el editor de conversaciones:
+
+- **Nodos de diálogo**: El NPC habla con expresiones emocionales (neutral, feliz, triste, enfadado, sorprendido)
+- **Opciones del jugador**: Hasta 4 opciones de respuesta por nodo
+- **Bifurcaciones condicionales**: Diálogos que cambian según el estado del juego
+- **Sistema de tiendas**: NPCs comerciantes con compra/venta integrada
+- **Conversaciones enlazadas**: Salta entre diferentes conversaciones
+- **Acciones en diálogo**: Ejecuta scripts durante la conversación
+
+### Sistema de Misiones
+
+Guía a tus jugadores con un sistema de misiones completo:
+
+- Definición de misiones con nombre, descripción y objetivos
+- Estados: No iniciada, En progreso, Completada, Fallada
+- Eventos para cada cambio de estado
+- Requisitos de misión para acceder a salas o salidas
+- Seguimiento de objetivos individuales
+
+### Gestión de NPCs
+
+Da vida a tu mundo con personajes no jugadores:
+
+- Estadísticas de combate: nivel, fuerza, destreza, inteligencia, salud
+- Sistema de inventario propio
+- Configuración como comerciante con inventario de tienda
+- Multiplicadores de precio para compra/venta
+- Visibilidad condicional
+- Etiquetas para organización y scripts
+
+### Sistema de Objetos Avanzado
+
+Objetos con propiedades ricas y realistas:
+
+- **Tipos**: Arma, Armadura, Comida, Bebida, Ropa, Llave, Texto, etc.
+- **Físicas**: Peso (gramos) y volumen (cm³)
+- **Contenedores**: Objetos dentro de objetos con capacidad limitada
+- **Cerraduras**: Contenedores bloqueables con llave
+- **Textos legibles**: Documentos, libros, cartas con contenido
+- **Género gramatical**: Artículos correctos en español (el/la)
+- **Precios**: Para el sistema de comercio
+
+### Sistema de Puertas y Llaves
+
+Crea puzzles de exploración:
+
+- Puertas físicas entre salas
+- Estados: abierta/cerrada, bloqueada/desbloqueada
+- Requisitos de llave específica
+- Eventos para cada interacción
+- Requisitos de misión opcionales
+
+### Sistema de Tiempo y Clima
+
+Mundos dinámicos que evolucionan:
+
+- **Hora del juego**: Sistema de 24 horas
+- **Conversión de tiempo**: Configura cuántos minutos reales equivalen a una hora de juego
+- **Fases del día**: Mañana, tarde, noche, madrugada
+- **Clima**: Despejado, lluvioso, nublado, tormenta
+- **Eventos temporales**: Scripts que se disparan cada minuto/hora o al cambiar el clima
+
+### Audio Integrado
+
+Ambienta tu aventura con audio inmersivo:
+
+- **Música global**: Banda sonora del mundo
+- **Música por sala**: Melodías específicas con transiciones suaves (fade)
+- **Efectos de sonido**: Asociados a acciones y eventos
+- **Volúmenes independientes**: Master, música, efectos, voz
+- **Precarga inteligente**: El audio de salas adyacentes se prepara para transiciones fluidas
+
+---
+
+## Ventana del Jugador
+
+Una experiencia de juego completa y pulida:
+
+| Elemento | Descripción |
+|----------|-------------|
+| **Historial de comandos** | Scroll con todo el texto de la partida |
+| **Imagen de sala** | Visualización de la localización actual |
+| **Panel de inventario** | Lista de objetos con iconos |
+| **Panel de estadísticas** | Fuerza, Constitución, Inteligencia, Destreza, Carisma, Oro |
+| **Registro de misiones** | Misiones activas con su estado |
+| **Indicadores de tiempo** | Hora del día y clima actual |
+| **Entrada de comandos** | Con historial navegable |
+| **Controles de audio** | Ajusta cada canal de sonido |
+
+### Comandos del Jugador
+
+El motor reconoce comandos en español e inglés:
+
+- **Movimiento**: norte, sur, este, oeste, arriba, abajo (y abreviaturas)
+- **Exploración**: examinar, mirar, look_in (contenedores)
+- **Inventario**: inventario, coger, soltar, coger todo
+- **Interacción**: usar, usar con, abrir, cerrar, leer, dar a
+- **NPCs**: hablar, decir, comprar, vender
+- **Puertas**: bloquear, desbloquear
+- **Sistema**: guardar, cargar, ayuda, misiones
+
+---
+
+## Inteligencia Artificial (Opcional)
+
+Potencia tu creatividad con IA local (requiere Docker):
+
+### Generador de Mundos Completos
+
+Crea aventuras enteras con un solo clic:
+
+- **Generación parametrizable**: Configura el tipo de mundo, ambientación, número de salas, objetos y NPCs
+- **Mundos coherentes**: La IA genera salas conectadas con lógica, objetos relevantes y personajes con personalidad
+- **Personalización del tema**: Define el género (fantasía, ciencia ficción, terror, medieval, etc.)
+- **Estructura automática**: Genera automáticamente misiones, puertas con llaves y puzzles
+- **Base para expandir**: Usa el mundo generado como punto de partida y personalízalo a tu gusto
+
+### LLM (Modelo de Lenguaje)
+
+- **Interpretación de comandos**: Cuando el parser no entiende, la IA intenta descifrar la intención
+- **Generación de contenido**: Crea descripciones para salas, objetos y NPCs
+- **Determinación gramatical**: Asigna género automáticamente a los objetos
+- **Generación temática**: Usa el tema/ambientación del mundo para coherencia
+
+### TTS (Texto a Voz)
+
+- **Narración de salas**: Las descripciones se convierten en audio
+- **Precarga inteligente**: Prepara la voz de salas adyacentes
+- **Control de volumen**: Canal independiente
+
+### Generación de Imágenes
+
+- **Imágenes de sala**: Genera ilustraciones con Stable Diffusion
+- **Basado en prompts**: Describe lo que quieres ver
+- **Coherencia temática**: Respeta la ambientación del mundo
+
+### Ventana de Generación IA por Lotes
+
+- Procesamiento masivo de géneros, descripciones e imágenes para mundos existentes
+- Verificación de disponibilidad de Docker
+- Monitorización de progreso en tiempo real
+
+---
+
+## Exportación y Distribución
+
+### Exportar como EXE
+
+Convierte tu aventura en un ejecutable independiente:
+
+- **Sin dependencias**: Incluye el runtime de .NET 8 embebido
+- **Mundo empaquetado**: El archivo `.xaw` va como recurso interno
+- **Icono personalizado**: Al exportar, puedes elegir un archivo `.ico` para personalizar el icono del ejecutable
+- **Configuración opcional**: Archivo `config.xac` junto al EXE para ajustes de IA
+- **Tamaño compacto**: ~80-100 MB con todo incluido
+
+### Player Independiente
+
+Distribuye juegos sin el editor:
+
+- Ejecutable standalone (`XiloAdventures.Wpf.Player`)
+- Mundo pre-embebido desde el código fuente
+- Experiencia de juego completa
+
+---
+
+## Formato de Archivos
+
+| Extensión | Descripción |
+|-----------|-------------|
+| `.xaw` | Mundo de aventura (JSON comprimido + cifrado AES-CBC) |
+| `.xas` | Partida guardada (estado del juego cifrado) |
+| `.xac` | Configuración de la aplicación |
+
+**Seguridad**: Clave de 8 caracteres para cifrado AES-CBC. Clave vacía = sin cifrar.
+
+---
+
+## Estructura del Proyecto
 
 | Proyecto | Descripción |
 |----------|-------------|
-| `XiloAdventures.Engine` | Core del motor: modelos, parser, guardado/carga, audio |
-| `XiloAdventures.Wpf` | Editor visual y pantalla de inicio |
-| `XiloAdventures.Wpf.Common` | Componentes UI compartidos (ventanas, estilos) |
+| `XiloAdventures.Engine` | Motor del juego: modelos, parser, guardado/carga, audio |
+| `XiloAdventures.Wpf` | Editor visual completo |
+| `XiloAdventures.Wpf.Common` | Componentes UI compartidos |
 | `XiloAdventures.Wpf.Player` | Player standalone para distribución |
-| `XiloAdventures.Tests` | Tests unitarios (xUnit) |
-
-### Archivos principales
-
-- `Engine/GameEngine.cs` - Motor de juego principal
-- `Engine/Parser.cs` - Parser de comandos del jugador
-- `Engine/WorldLoader.cs` - Carga/guardado de mundos `.xaw`
-- `Engine/SaveManager.cs` - Guardado/carga de partidas `.xas`
-- `Engine/DoorService.cs` - Lógica de puertas y llaves
-- `Models/Models.cs` - Modelos de datos (Room, GameObject, Npc, etc.)
-
----
-
-## Formato de archivos
-
-- **Mundos `.xaw`**: JSON comprimido en ZIP (`world.json`), Base64 y cifrado AES CBC.
-  - Clave vacía = sin cifrar; clave de 8 caracteres = cifrado.
-- **Partidas `.xas`**: estado del juego cifrado (`GameState`), incluye salas/objetos/NPCs, progreso de misiones, tiempo/clima, inventario.
-- **Carpetas de ejecución**: `worlds/` para mundos y `saves/` para partidas.
-
----
-
-## Requisitos
-
-- .NET 8 SDK
-- Windows 10/11 con soporte WPF
-- (Opcional) Docker Desktop para la IA/voz
-
----
-
-## Uso básico
-
-```bash
-# Compilar todo
-dotnet build XiloAdventures.sln
-
-# Ejecutar editor + juego
-dotnet run --project XiloAdventures.Wpf
-
-# Ejecutar tests
-dotnet test
-```
+| `XiloAdventures.Tests` | Tests unitarios y de integración (xUnit) |
 
 ---
 
 ## Tests
 
-El proyecto incluye **45 tests unitarios** cubriendo:
+El proyecto incluye **222 tests** que verifican el correcto funcionamiento de todos los componentes:
 
-| Componente | Tests |
-|------------|-------|
-| GameEngine | 18 |
-| Parser | 6 |
-| DoorService | 6 |
-| CryptoUtil | 2 |
-| SaveManager | 2 |
-| WorldLoader | 2 |
-| UiSettingsManager | 2 |
-| SoundManager | 3 |
-| AppPaths | 2 |
-| WorldEditorHelpers | 2 |
+### Tests Unitarios
+
+| Componente | Tests | Cobertura |
+|------------|-------|-----------|
+| GameEngine | 35 | Comandos, movimiento, inventario, contenedores |
+| Parser | 27 | Análisis de comandos, aliases, preposiciones |
+| DoorService | 12 | Puertas, llaves, estados |
+| NodeTypeRegistry | 57 | Tipos de nodos del editor de scripts |
+| ScriptValidator | 10 | Validación de scripts |
+| WorldLoader | 2 | Carga/guardado de mundos |
+| SaveManager | 2 | Guardado/carga de partidas |
+| CryptoUtil | 2 | Cifrado/descifrado |
+| UiSettingsManager | 2 | Configuración de UI |
+| SoundManager | 3 | Gestión de audio |
+| AppPaths | 2 | Rutas de la aplicación |
+| WorldEditorHelpers | 2 | Utilidades del editor |
+
+### Tests de Integración
+
+| Escenario | Tests |
+|-----------|-------|
+| Flujo de juego completo | 4 |
+| Puertas y cerraduras | 4 |
+| Contenedores | 6 |
+| Misiones | 3 |
+| NPCs | 3 |
+| Flags y contadores | 2 |
+| Salas oscuras | 2 |
+| Tiempo y turnos | 1 |
+| Scripts | 1 |
+| Economía | 2 |
+| Casos límite | 6 |
+| Escenarios complejos | 2 |
 
 ```bash
+# Ejecutar todos los tests
+dotnet test
+
+# Con detalle
 dotnet test --verbosity normal
 ```
 
 ---
 
-## Flujo de trabajo
+## Requisitos
 
-1. Abre `XiloAdventures.sln` (VS 2022 recomendado).
-2. En la pantalla inicial: selecciona "¡Crea tu aventura!" para un mundo nuevo o elige uno existente.
-3. Usa el editor para colocar salas, salidas, puertas, objetos, NPCs.
-4. Pulsa **Play** en el editor para probar; verás un overlay de progreso mientras se prepara.
-5. En el juego, cierra con confirmación y opción de guardar.
+- **Sistema**: Windows 10/11 con soporte WPF
+- **Framework**: .NET 8 SDK
+- **Opcional**: Docker Desktop (para funciones de IA)
 
 ---
 
-## Arquitectura y optimizaciones
+## Inicio Rápido
 
-### Componentes principales
-- **Parser optimizado**: Usa regex compilados para mejor rendimiento en análisis de comandos
-- **GameEngine**: Incluye métodos auxiliares para búsquedas case-insensitive optimizadas
-- **SoundManager**: Cálculo consolidado de volúmenes efectivos (master × música × canal)
-- **Cifrado**: Sistema AES-CBC con claves de 8 caracteres para archivos `.xaw` y `.xas`
+```bash
+# Clonar el repositorio
+git clone https://github.com/xilonoide/XiloAdventures.git
 
-### Exportación de ejecutables
-El editor permite exportar mundos como ejecutables `.exe` standalone (~80-100 MB):
-- Incluye runtime de .NET 8 embebido (no requiere instalación)
-- El mundo `.xaw` va empaquetado como recurso embebido
-- Usa `appicon.ico` como icono del ejecutable
-- Configuración de IA opcional via archivo `config.xac` junto al `.exe`
+# Compilar
+dotnet build XiloAdventures.sln
 
-### Popups y UI
-- Todos los popups usan tema oscuro consistente (#1E1E1E fondo, #F5F5F5 texto)
-- Popups de un solo botón se cierran con clic o ESC (sin botón visible)
-- Checkbox "Usar IA" centrado verticalmente con su label
-- Interrogantes de ayuda (?) en labels: Parser Dictionary, Imagen de Sala (3.5:1 @ 1400×400)
+# Ejecutar el editor
+dotnet run --project XiloAdventures.Wpf
 
-### Gestión de audio
-- Música global + música por sala con fade
-- Volúmenes independientes: Master, Música, Efectos, Voz
-- Precarga de voces de salas adyacentes para transiciones fluidas
-- TTS opcional con modelos locales (Piper via Docker)
+# Ejecutar los tests
+dotnet test
+```
+
+### Primeros Pasos
+
+1. Abre la aplicación y crea un nuevo mundo (o genera uno con IA)
+2. Usa el editor de mapas para crear salas y conectarlas
+3. Añade objetos, NPCs y misiones desde el árbol de contenido
+4. Crea scripts visuales para dar vida a tu mundo
+5. Pulsa **Play** para probar tu aventura
+6. Exporta como EXE para distribuir
+
+---
+
+## Documentación
+
+Consulta la [Wiki](https://github.com/xilonoide/XiloAdventures/wiki) para guías detalladas:
+
+- [General](https://github.com/xilonoide/XiloAdventures/wiki/general) - Visión general del proyecto
+- [Editor](https://github.com/xilonoide/XiloAdventures/wiki/editor) - Guía completa del editor
+- [Player](https://github.com/xilonoide/XiloAdventures/wiki/player) - Manual del jugador
 
 ---
 
 ## Licencia
 
-Consulta el archivo `LICENSE` para términos y condiciones.
+Consulta el archivo [LICENSE](LICENSE) para términos y condiciones.
 
 ---
 
@@ -169,4 +382,8 @@ Consulta el archivo `LICENSE` para términos y condiciones.
   <a href="https://www.paypal.me/xmasmusicsoft">
     <img src="https://img.shields.io/badge/❤️_¡Se_aceptan_donaciones!-PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white" alt="Donar">
   </a>
+</p>
+
+<p align="center">
+  <sub>Hecho con ❤️ para la comunidad de aventuras conversacionales</sub>
 </p>
