@@ -10,136 +10,62 @@
         Foreground="White"
         FontSize="18">
     <DockPanel>
-        <Menu DockPanel.Dock="Top" Background="#303030" Foreground="White">
-            <Menu.Resources>
-                <!-- Estilo para elementos de nivel superior (Archivo, Ayuda) -->
-                <Style x:Key="TopMenuItemStyle" TargetType="MenuItem">
+        <!-- Barra de herramientas con botones de acción -->
+        <Border DockPanel.Dock="Top" Background="#303030" Padding="4">
+            <Border.Resources>
+                <Style x:Key="ToolbarButtonStyle" TargetType="Button">
+                    <Setter Property="Background" Value="#444444"/>
                     <Setter Property="Foreground" Value="White"/>
-                    <Setter Property="Background" Value="#303030"/>
+                    <Setter Property="BorderThickness" Value="0"/>
+                    <Setter Property="Padding" Value="10,6"/>
+                    <Setter Property="Cursor" Value="Hand"/>
                     <Setter Property="Template">
                         <Setter.Value>
-                            <ControlTemplate TargetType="MenuItem">
-                                <Grid>
-                                    <Border x:Name="Border"
-                                            Background="{TemplateBinding Background}">
-                                        <ContentPresenter Margin="6,2"
-                                                          ContentSource="Header"
-                                                          RecognizesAccessKey="True"
-                                                          HorizontalAlignment="Center"
-                                                          VerticalAlignment="Center"/>
-                                    </Border>
-                                    <Popup x:Name="Popup"
-                                           Placement="Bottom"
-                                           IsOpen="{TemplateBinding IsSubmenuOpen}"
-                                           AllowsTransparency="True"
-                                           Focusable="False"
-                                           StaysOpen="False">
-                                        <Border Background="#303030"
-                                                BorderBrush="#303030"
-                                                BorderThickness="1">
-                                            <StackPanel IsItemsHost="True" />
-                                        </Border>
-                                    </Popup>
-                                </Grid>
-                                <ControlTemplate.Triggers>
-                                    <Trigger Property="IsHighlighted" Value="True">
-                                        <Setter TargetName="Border" Property="Background" Value="#505050"/>
-                                    </Trigger>
-                                    <Trigger Property="IsKeyboardFocused" Value="True">
-                                        <Setter TargetName="Border" Property="Background" Value="#505050"/>
-                                    </Trigger>
-                                    <Trigger Property="IsSubmenuOpen" Value="True">
-                                        <Setter TargetName="Border" Property="Background" Value="#505050"/>
-                                    </Trigger>
-                                    <Trigger Property="IsEnabled" Value="False">
-                                        <Setter Property="Foreground" Value="#888888"/>
-                                    </Trigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </Setter.Value>
-                    </Setter>
-                </Style>
-
-                <Style x:Key="SubMenuItemStyle" TargetType="MenuItem">
-                    <Setter Property="Foreground" Value="White"/>
-                    <Setter Property="Background" Value="#303030"/>
-                    <Setter Property="Padding" Value="6,2"/>
-                    <Setter Property="Template">
-                        <Setter.Value>
-                            <ControlTemplate TargetType="MenuItem">
+                            <ControlTemplate TargetType="Button">
                                 <Border x:Name="Border"
-                                        Background="{TemplateBinding Background}">
-                                    <Grid Margin="4,1">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <ContentPresenter Grid.Column="0"
-                                                          ContentSource="Icon"
-                                                          Margin="0,0,6,0"
-                                                          VerticalAlignment="Center"/>
-                                        <ContentPresenter Grid.Column="1"
-                                                          ContentSource="Header"
-                                                          VerticalAlignment="Center"
-                                                          RecognizesAccessKey="True"/>
-                                    </Grid>
+                                        Background="{TemplateBinding Background}"
+                                        CornerRadius="4"
+                                        Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
                                 <ControlTemplate.Triggers>
-                                    <Trigger Property="IsHighlighted" Value="True">
-                                        <Setter TargetName="Border" Property="Background" Value="#505050"/>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Border" Property="Background" Value="#555555"/>
                                     </Trigger>
-                                    <Trigger Property="IsEnabled" Value="False">
-                                        <Setter Property="Foreground" Value="#888888"/>
+                                    <Trigger Property="IsPressed" Value="True">
+                                        <Setter TargetName="Border" Property="Background" Value="#666666"/>
                                     </Trigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>
                         </Setter.Value>
                     </Setter>
                 </Style>
-            </Menu.Resources>
-
-                        <MenuItem Header="Archivo" Style="{StaticResource TopMenuItemStyle}">
-                <MenuItem Header="Reiniciar" Click="RestartMenu_Click" Style="{StaticResource SubMenuItemStyle}">
-                    <MenuItem.Icon>
-                        <TextBlock FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Text="&#xE72C;" FontSize="18" Margin="2"/>
-                    </MenuItem.Icon>
-                </MenuItem>
-                <Separator/>
-                <MenuItem Header="Guardar partida..." Click="SaveMenu_Click" Style="{StaticResource SubMenuItemStyle}">
-                    <MenuItem.Icon>
-                        <TextBlock FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Text="&#xE105;" FontSize="18" Margin="2"/>
-                    </MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Header="Cargar partida..." Click="LoadMenu_Click" Style="{StaticResource SubMenuItemStyle}">
-                    <MenuItem.Icon>
-                        <TextBlock FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Text="&#xE8E5;" FontSize="18" Margin="2"/>
-                    </MenuItem.Icon>
-                </MenuItem>
-                <Separator/>
-                <MenuItem Header="Opciones..." Click="OptionsMenu_Click" Style="{StaticResource SubMenuItemStyle}">
-                    <MenuItem.Icon>
-                        <TextBlock FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Text="&#xE115;" FontSize="18" Margin="2"/>
-                    </MenuItem.Icon>
-                </MenuItem>
-                <Separator/>
-                <MenuItem Header="Salir" Click="ExitMenu_Click" Style="{StaticResource SubMenuItemStyle}">
-                    <MenuItem.Icon>
-                        <TextBlock FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Text="&#xE7E8;" FontSize="18" Margin="2"/>
-                    </MenuItem.Icon>
-                </MenuItem>
-            </MenuItem>
-
-            <MenuItem Header="Ayuda" Style="{StaticResource TopMenuItemStyle}">
-                <MenuItem Header="Acerca de..." Click="AboutMenu_Click" Style="{StaticResource SubMenuItemStyle}">
-                    <MenuItem.Icon>
-                        <TextBlock FontFamily="Segoe MDL2 Assets" VerticalAlignment="Center" Text="&#xE11B;" FontSize="18" Margin="2"/>
-                    </MenuItem.Icon>
-                </MenuItem>
-            </MenuItem>
-
-            <!-- Opción de IA a la derecha -->
-            <!-- Eliminado del menú -->
-        </Menu>
+            </Border.Resources>
+            <Grid>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                    <!-- Reiniciar -->
+                    <Button Style="{StaticResource ToolbarButtonStyle}" Click="RestartMenu_Click" ToolTip="Reiniciar partida" Margin="0,0,4,0">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE72C;" FontSize="18" Foreground="#6BA3FF"/>
+                    </Button>
+                    <!-- Guardar -->
+                    <Button Style="{StaticResource ToolbarButtonStyle}" Click="SaveMenu_Click" ToolTip="Guardar partida" Margin="0,0,4,0">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE105;" FontSize="18" Foreground="#FFD700"/>
+                    </Button>
+                    <!-- Cargar -->
+                    <Button Style="{StaticResource ToolbarButtonStyle}" Click="LoadMenu_Click" ToolTip="Cargar partida" Margin="0,0,4,0">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8E5;" FontSize="18" Foreground="#FFD700"/>
+                    </Button>
+                    <!-- Opciones -->
+                    <Button Style="{StaticResource ToolbarButtonStyle}" Click="OptionsMenu_Click" ToolTip="Opciones" Margin="0,0,4,0">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE713;" FontSize="18" Foreground="#FF66FF"/>
+                    </Button>
+                    <!-- Acerca de -->
+                    <Button Style="{StaticResource ToolbarButtonStyle}" Click="AboutMenu_Click" ToolTip="Acerca de">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE946;" FontSize="18" Foreground="#66DDAA"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
 
         <Grid Margin="8">
             <Grid.RowDefinitions>

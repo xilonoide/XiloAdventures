@@ -848,13 +848,6 @@ public partial class MainWindow : Window
         }
     }
 
-
-
-    private void ExitMenu_Click(object sender, RoutedEventArgs e)
-    {
-        Close();
-    }
-
     private void RestartMenu_Click(object sender, RoutedEventArgs e)
     {
         var confirmDlg = new ConfirmWindow(

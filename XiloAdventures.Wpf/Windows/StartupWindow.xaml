@@ -85,7 +85,8 @@
                     VerticalAlignment="Center"
                     ToolTip="Refrescar lista"
                     MouseLeftButtonUp="RefreshList_Click">
-                <TextBlock Text="🔄"
+                <TextBlock Text="&#xE72C;"
+                           FontFamily="Segoe MDL2 Assets"
                            FontSize="16"
                            Foreground="#4DA6FF"
                            VerticalAlignment="Center"/>
