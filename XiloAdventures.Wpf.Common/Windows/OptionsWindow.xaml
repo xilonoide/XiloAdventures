@@ -1,0 +1,101 @@
+<Window x:Class="XiloAdventures.Wpf.Common.Windows.OptionsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Opciones"
+        Icon="/appicon.ico"
+        SizeToContent="Height"
+        Width="600"
+        WindowStartupLocation="CenterOwner"
+        Background="#222222"
+        Foreground="White">
+    <Grid Margin="10">
+
+
+        <StackPanel Grid.Row="0">
+            <GroupBox Header="Sonido" Margin="0,0,0,20" Padding="10">
+                <StackPanel>
+                    <CheckBox x:Name="SoundCheckBox"
+                              Content="Sonido activado"
+                              Margin="0,0,0,10"
+                              Foreground="White"/>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4" VerticalAlignment="Center">
+                        <TextBlock Text="Música:" Width="180" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <Slider x:Name="MusicVolumeSlider"
+                                Minimum="0" Maximum="10"
+                                Width="180"
+                                TickFrequency="1"
+                                IsSnapToTickEnabled="True"
+                                ValueChanged="MusicVolumeSlider_ValueChanged"/>
+                        <TextBlock x:Name="MusicVolumeLabel"
+                                   VerticalAlignment="Center"
+                                   Margin="8,0,0,0"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4" VerticalAlignment="Center">
+                        <TextBlock Text="Efectos:" Width="180" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <Slider x:Name="EffectsVolumeSlider"
+                                Minimum="0" Maximum="10"
+                                Width="180"
+                                TickFrequency="1"
+                                IsSnapToTickEnabled="True"
+                                ValueChanged="EffectsVolumeSlider_ValueChanged"/>
+                        <TextBlock x:Name="EffectsVolumeLabel"
+                                   VerticalAlignment="Center"
+                                   Margin="8,0,0,0"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4" VerticalAlignment="Center">
+                        <TextBlock Text="Voz:" Width="180" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <Slider x:Name="VoiceVolumeSlider"
+                                Minimum="0" Maximum="10"
+                                Width="180"
+                                TickFrequency="1"
+                                IsSnapToTickEnabled="True"
+                                ValueChanged="VoiceVolumeSlider_ValueChanged"/>
+                        <TextBlock x:Name="VoiceVolumeLabel"
+                                   VerticalAlignment="Center"
+                                   Margin="8,0,0,0"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="Master:" Width="180" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <Slider x:Name="MasterVolumeSlider"
+                                Minimum="1" Maximum="10"
+                                Width="180"
+                                TickFrequency="1"
+                                IsSnapToTickEnabled="True"
+                                ValueChanged="MasterVolumeSlider_ValueChanged"/>
+                        <TextBlock x:Name="MasterVolumeLabel"
+                                   VerticalAlignment="Center"
+                                   Margin="8,0,0,0"/>
+                    </StackPanel>
+                </StackPanel>
+            </GroupBox>
+
+
+
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,10">
+                <TextBlock Text="Tamaño de fuente:" Width="180" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <Slider x:Name="FontSizeSlider"
+                        Minimum="8" Maximum="26"
+                        Width="180"
+                        TickFrequency="1"
+                        IsSnapToTickEnabled="True"
+                        ValueChanged="FontSizeSlider_ValueChanged"/>
+                <TextBlock x:Name="FontSizeLabel"
+                           VerticalAlignment="Center"
+                           Margin="8,0,0,0"/>
+            </StackPanel>
+
+            <CheckBox x:Name="MapEnabledCheckBox"
+                      Content="Mostrar mapa de salas visitadas"
+                      Foreground="White"
+                      Margin="10,0,0,0"
+                      Checked="MapEnabledCheckBox_Changed"
+                      Unchecked="MapEnabledCheckBox_Changed"/>
+        </StackPanel>
+
+
+    </Grid>
+</Window>
