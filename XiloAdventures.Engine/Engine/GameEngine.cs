@@ -57,6 +57,7 @@ public class GameEngine
         {
             _ = StartConversationWithNpcAsync(npcId);
         };
+        _scriptEngine.OnAdventureCompleted += () => AdventureCompleted?.Invoke();
 
         // Reinicializar el motor de conversaciones
         InitializeConversationEngine();
@@ -113,6 +114,11 @@ public class GameEngine
     /// Evento cuando termina una conversación.
     /// </summary>
     public event Action? ConversationEnded;
+
+    /// <summary>
+    /// Evento cuando se completan todas las misiones principales (fin de la aventura).
+    /// </summary>
+    public event Action? AdventureCompleted;
 
     /// <summary>
     /// Indica si hay una conversación activa.
@@ -193,6 +199,7 @@ public class GameEngine
         {
             _ = StartConversationWithNpcAsync(npcId);
         };
+        _scriptEngine.OnAdventureCompleted += () => AdventureCompleted?.Invoke();
 
         // Inicializar el motor de conversaciones
         InitializeConversationEngine();

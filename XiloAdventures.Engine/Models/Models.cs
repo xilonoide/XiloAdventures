@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Text.Json.Serialization;
@@ -142,6 +142,16 @@ public class GameInfo
 
     /// <summary>Activar IA en modo pruebas del editor.</summary>
     public bool TestModeAiEnabled { get; set; } = false;
+
+    /// <summary>Texto que se muestra al finalizar la aventura (vacío = texto por defecto).</summary>
+    public string EndingText { get; set; } = "";
+
+    /// <summary>ID de la música que suena al finalizar la aventura.</summary>
+    public string? EndingMusicId { get; set; }
+
+    /// <summary>Música de finalización en Base64 (se guarda dentro del JSON del mundo).</summary>
+    [Browsable(false)]
+    public string? EndingMusicBase64 { get; set; }
 }
 
 public class Room
@@ -373,6 +383,10 @@ public class QuestDefinition
     public string Id { get; set; } = string.Empty;
     public string Name { get; set; } = "Misión sin nombre";
     public string Description { get; set; } = string.Empty;
+
+    /// <summary>Si es true, es una misión principal. Si es false, es secundaria.</summary>
+    public bool IsMainQuest { get; set; } = true;
+
     public List<string> Objectives { get; set; } = new();
 }
 

@@ -1431,6 +1431,7 @@ public partial class WorldEditorWindow : Window
             // Crear el engine (con modo debug activo para el editor)
             _testEngine = new GameEngine(_testWorld, state, _testSoundManager, isDebugMode: true);
             _testEngine.ScriptMessage += msg => Dispatcher.Invoke(() => HandleTestScriptMessage(msg));
+            _testEngine.AdventureCompleted += () => Dispatcher.Invoke(ShowEndingWindow);
 
             // Si hay sonido y voz, precargar la descripción de la sala inicial
             if (soundEnabled && uiSettings.VoiceVolume > 0 && aiEnabled)
@@ -1626,6 +1627,27 @@ public partial class WorldEditorWindow : Window
         }
     }
 
+    private void ShowEndingWindow()
+    {
+        if (_testWorld?.Game == null) return;
+
+        var endingWindow = new EndingWindow
+        {
+            EndingText = _testWorld.Game.EndingText,
+            LogoBase64 = null, // TODO: obtener logo del juego si existe
+            MusicBase64 = _testWorld.Game.EndingMusicBase64,
+            CloseApplicationOnExit = false // En modo pruebas no cerrar el editor
+        };
+
+        // Detener la música del modo pruebas
+        _testSoundManager?.StopMusic();
+
+        endingWindow.ShowDialog();
+
+        // Mostrar mensaje de que la aventura ha terminado
+        AppendTestOutput("\n[¡La aventura ha terminado!]\n");
+    }
+
     private void TestDebugToggle_Changed(object sender, RoutedEventArgs e)
     {
         if (TestDebugIcon == null) return;
@@ -1686,6 +1708,7 @@ public partial class WorldEditorWindow : Window
             var state = WorldLoader.CreateInitialState(_testWorld);
             _testEngine = new GameEngine(_testWorld, state, _testSoundManager, isDebugMode: true);
             _testEngine.ScriptMessage += msg => Dispatcher.Invoke(() => HandleTestScriptMessage(msg));
+            _testEngine.AdventureCompleted += () => Dispatcher.Invoke(ShowEndingWindow);
             TestOutputTextBox.Document.Blocks.Clear();
             _testCommandHistory.Clear();
             _testHistoryIndex = -1;
@@ -3783,6 +3806,7 @@ Escribe SOLO la descripción en español, 2-3 frases, sin incluir el nombre de l
 
             _testEngine = new GameEngine(_testWorld, state, _testSoundManager!, isDebugMode: true);
             _testEngine.ScriptMessage += msg => Dispatcher.Invoke(() => HandleTestScriptMessage(msg));
+            _testEngine.AdventureCompleted += () => Dispatcher.Invoke(ShowEndingWindow);
 
             AppendTestSystemMessage("⟳ Mundo recargado");
             UpdateTestDisplay();

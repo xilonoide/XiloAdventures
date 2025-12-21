@@ -38,6 +38,11 @@ public class ScriptEngine
     /// </summary>
     public event Action<string>? OnStartConversation;
 
+    /// <summary>
+    /// Evento disparado cuando se completan todas las misiones principales.
+    /// </summary>
+    public event Action? OnAdventureCompleted;
+
     public ScriptEngine(WorldModel world, GameState gameState, bool isDebugMode = false)
     {
         _world = world;
@@ -503,6 +508,10 @@ public class ScriptEngine
                         Status = QuestStatus.InProgress,
                         CurrentObjectiveIndex = 0
                     };
+                    var quest = ctx.World.Quests.FirstOrDefault(q =>
+                        string.Equals(q.Id, questId, StringComparison.OrdinalIgnoreCase));
+                    var questName = quest?.Name ?? questId;
+                    OnMessage?.Invoke($"[Nueva misión: {questName}]");
                 }
                 await Task.CompletedTask;
             },
@@ -513,6 +522,23 @@ public class ScriptEngine
                 if (!string.IsNullOrEmpty(questId) && ctx.GameState.Quests.TryGetValue(questId, out var state))
                 {
                     state.Status = QuestStatus.Completed;
+                    var quest = ctx.World.Quests.FirstOrDefault(q =>
+                        string.Equals(q.Id, questId, StringComparison.OrdinalIgnoreCase));
+                    var questName = quest?.Name ?? questId;
+                    OnMessage?.Invoke($"[¡Misión completada: {questName}!]");
+
+                    // Verificar si todas las misiones principales están completadas
+                    var mainQuests = ctx.World.Quests.Where(q => q.IsMainQuest).ToList();
+                    if (mainQuests.Any())
+                    {
+                        var allMainQuestsCompleted = mainQuests.All(mq =>
+                            ctx.GameState.Quests.TryGetValue(mq.Id, out var qs) &&
+                            qs.Status == QuestStatus.Completed);
+                        if (allMainQuestsCompleted)
+                        {
+                            OnAdventureCompleted?.Invoke();
+                        }
+                    }
                 }
                 await Task.CompletedTask;
             },
@@ -523,6 +549,10 @@ public class ScriptEngine
                 if (!string.IsNullOrEmpty(questId) && ctx.GameState.Quests.TryGetValue(questId, out var state))
                 {
                     state.Status = QuestStatus.Failed;
+                    var quest = ctx.World.Quests.FirstOrDefault(q =>
+                        string.Equals(q.Id, questId, StringComparison.OrdinalIgnoreCase));
+                    var questName = quest?.Name ?? questId;
+                    OnMessage?.Invoke($"[Misión fallida: {questName}]");
                 }
                 await Task.CompletedTask;
             },

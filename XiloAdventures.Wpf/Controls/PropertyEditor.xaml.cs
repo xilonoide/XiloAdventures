@@ -2263,6 +2263,8 @@ public partial class PropertyEditor : UserControl
         ["GameInfo.WorldMusicId"] = "Música global",
         ["GameInfo.WorldMusicBase64"] = "Música global (Base64)",
         ["GameInfo.EncryptionKey"] = "Clave de cifrado",
+        ["GameInfo.EndingText"] = "Texto de finalización",
+        ["GameInfo.EndingMusicId"] = "Música de finalización",
 
         // Sala
         ["Room.Name"] = "Nombre",
@@ -2335,6 +2337,7 @@ public partial class PropertyEditor : UserControl
         // Quest
         ["QuestDefinition.Name"] = "Nombre",
         ["QuestDefinition.Description"] = "Descripción",
+        ["QuestDefinition.IsMainQuest"] = "Misión principal",
         ["QuestDefinition.Objectives"] = "Objetivos",
 
         // Llave

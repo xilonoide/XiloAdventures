@@ -72,6 +72,7 @@ public partial class MainWindow : Window
         _engine.ConversationOptions += Engine_ConversationOptions;
         _engine.ConversationEnded += Engine_ConversationEnded;
         _engine.ShopOpened += Engine_ShopOpened;
+        _engine.AdventureCompleted += Engine_AdventureCompleted;
         _engine.TriggerInitialScripts(); // Disparar scripts iniciales después de suscribir eventos
 
         InitializeComponent();
@@ -747,6 +748,22 @@ public partial class MainWindow : Window
             sb.AppendLine("\nUsa 'comprar <objeto>' o 'vender <objeto>'");
             sb.AppendLine("Escribe 'salir' para cerrar la tienda.\n");
             AppendText(sb.ToString());
+        });
+    }
+
+    private void Engine_AdventureCompleted()
+    {
+        Dispatcher.Invoke(() =>
+        {
+            var endingWindow = new EndingWindow
+            {
+                EndingText = _world.Game.EndingText,
+                LogoBase64 = null,
+                MusicBase64 = _world.Game.EndingMusicBase64
+            };
+
+            _sound.StopMusic();
+            endingWindow.ShowDialog();
         });
     }
 
