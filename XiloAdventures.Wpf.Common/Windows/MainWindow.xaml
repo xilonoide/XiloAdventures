@@ -118,6 +118,7 @@
                 <Border Background="#101010">
                     <Image x:Name="RoomImage"
                            Stretch="Uniform"
+                           MaxWidth="500"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"/>
                 </Border>

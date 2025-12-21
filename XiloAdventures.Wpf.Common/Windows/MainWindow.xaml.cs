@@ -357,6 +357,12 @@ public partial class MainWindow : Window
             UpdateStatusPanel();
             UpdateRoomVisuals();
 
+            // Actualizar flechas por si se abrió/cerró una puerta
+            if (_uiSettings.MapEnabled)
+            {
+                UpdateArrows();
+            }
+
             try
             {
                 SaveManager.AutoSave(_engine.State, AppPaths.SavesFolder, _world.Game.EncryptionKey);
