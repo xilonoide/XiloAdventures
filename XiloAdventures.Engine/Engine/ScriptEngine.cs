@@ -867,8 +867,431 @@ public class ScriptEngine
             ["Variable_GetPlayerGold"] = async (node, ctx) =>
             {
                 await Task.CompletedTask;
-            }
+            },
+
+            // === VARIABLES DE ESTADOS DINÁMICOS ===
+            ["Variable_GetPlayerHealth"] = async (node, ctx) =>
+            {
+                ctx.SetOutputValue(node.Id, "Value", ctx.GameState.Player.DynamicStats.Health);
+                await Task.CompletedTask;
+            },
+            ["Variable_GetPlayerMaxHealth"] = async (node, ctx) =>
+            {
+                ctx.SetOutputValue(node.Id, "Value", ctx.GameState.Player.DynamicStats.MaxHealth);
+                await Task.CompletedTask;
+            },
+            ["Variable_GetPlayerHunger"] = async (node, ctx) =>
+            {
+                ctx.SetOutputValue(node.Id, "Value", ctx.GameState.Player.DynamicStats.Hunger);
+                await Task.CompletedTask;
+            },
+            ["Variable_GetPlayerThirst"] = async (node, ctx) =>
+            {
+                ctx.SetOutputValue(node.Id, "Value", ctx.GameState.Player.DynamicStats.Thirst);
+                await Task.CompletedTask;
+            },
+            ["Variable_GetPlayerEnergy"] = async (node, ctx) =>
+            {
+                ctx.SetOutputValue(node.Id, "Value", ctx.GameState.Player.DynamicStats.Energy);
+                await Task.CompletedTask;
+            },
+            ["Variable_GetPlayerSleep"] = async (node, ctx) =>
+            {
+                ctx.SetOutputValue(node.Id, "Value", ctx.GameState.Player.DynamicStats.Sleep);
+                await Task.CompletedTask;
+            },
+            ["Variable_GetPlayerSanity"] = async (node, ctx) =>
+            {
+                ctx.SetOutputValue(node.Id, "Value", ctx.GameState.Player.DynamicStats.Sanity);
+                await Task.CompletedTask;
+            },
+            ["Variable_GetPlayerMana"] = async (node, ctx) =>
+            {
+                ctx.SetOutputValue(node.Id, "Value", ctx.GameState.Player.DynamicStats.Mana);
+                await Task.CompletedTask;
+            },
+            ["Variable_GetPlayerMaxMana"] = async (node, ctx) =>
+            {
+                ctx.SetOutputValue(node.Id, "Value", ctx.GameState.Player.DynamicStats.MaxMana);
+                await Task.CompletedTask;
+            },
+            ["Variable_GetPlayerState"] = async (node, ctx) =>
+            {
+                var stateType = GetPropertyValue<string>(node, "StateType", "Health");
+                var value = GetPlayerStateValue(ctx.GameState, stateType ?? "Health");
+                ctx.SetOutputValue(node.Id, "Value", value);
+                await Task.CompletedTask;
+            },
+            ["Variable_GetActiveModifiersCount"] = async (node, ctx) =>
+            {
+                ctx.SetOutputValue(node.Id, "Value", ctx.GameState.ActiveModifiers.Count(m => !m.IsExpired));
+                await Task.CompletedTask;
+            },
+            ["Variable_HasModifier"] = async (node, ctx) =>
+            {
+                var name = GetPropertyValue<string>(node, "ModifierName", "");
+                var hasIt = ctx.GameState.ActiveModifiers.Any(m =>
+                    !m.IsExpired && string.Equals(m.Name, name, StringComparison.OrdinalIgnoreCase));
+                ctx.SetOutputValue(node.Id, "Value", hasIt);
+                await Task.CompletedTask;
+            },
+
+            // === CONDICIONES DE ESTADOS ===
+            ["Condition_PlayerStateAbove"] = async (node, ctx) =>
+            {
+                var stateType = GetPropertyValue<string>(node, "StateType", "Health");
+                var threshold = GetPropertyValue<int>(node, "Threshold", 50);
+                var value = GetPlayerStateValue(ctx.GameState, stateType ?? "Health");
+                ctx.NextOutputPort = value > threshold ? "True" : "False";
+                await Task.CompletedTask;
+            },
+            ["Condition_PlayerStateBelow"] = async (node, ctx) =>
+            {
+                var stateType = GetPropertyValue<string>(node, "StateType", "Health");
+                var threshold = GetPropertyValue<int>(node, "Threshold", 25);
+                var value = GetPlayerStateValue(ctx.GameState, stateType ?? "Health");
+                ctx.NextOutputPort = value < threshold ? "True" : "False";
+                await Task.CompletedTask;
+            },
+            ["Condition_PlayerStateEquals"] = async (node, ctx) =>
+            {
+                var stateType = GetPropertyValue<string>(node, "StateType", "Health");
+                var targetValue = GetPropertyValue<int>(node, "Value", 100);
+                var value = GetPlayerStateValue(ctx.GameState, stateType ?? "Health");
+                ctx.NextOutputPort = value == targetValue ? "True" : "False";
+                await Task.CompletedTask;
+            },
+            ["Condition_PlayerStateBetween"] = async (node, ctx) =>
+            {
+                var stateType = GetPropertyValue<string>(node, "StateType", "Health");
+                var minValue = GetPropertyValue<int>(node, "MinValue", 25);
+                var maxValue = GetPropertyValue<int>(node, "MaxValue", 75);
+                var value = GetPlayerStateValue(ctx.GameState, stateType ?? "Health");
+                ctx.NextOutputPort = value >= minValue && value <= maxValue ? "True" : "False";
+                await Task.CompletedTask;
+            },
+            ["Condition_HasModifier"] = async (node, ctx) =>
+            {
+                var name = GetPropertyValue<string>(node, "ModifierName", "");
+                var hasIt = ctx.GameState.ActiveModifiers.Any(m =>
+                    !m.IsExpired && string.Equals(m.Name, name, StringComparison.OrdinalIgnoreCase));
+                ctx.NextOutputPort = hasIt ? "True" : "False";
+                await Task.CompletedTask;
+            },
+            ["Condition_HasModifierForState"] = async (node, ctx) =>
+            {
+                var stateType = GetPropertyValue<string>(node, "StateType", "Health");
+                if (Enum.TryParse<PlayerStateType>(stateType, out var st))
+                {
+                    var hasIt = ctx.GameState.ActiveModifiers.Any(m => !m.IsExpired && m.StateType == st);
+                    ctx.NextOutputPort = hasIt ? "True" : "False";
+                }
+                else
+                {
+                    ctx.NextOutputPort = "False";
+                }
+                await Task.CompletedTask;
+            },
+            ["Condition_IsPlayerAlive"] = async (node, ctx) =>
+            {
+                ctx.NextOutputPort = ctx.GameState.Player.DynamicStats.Health > 0 ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
+            // === ACCIONES DE ESTADOS ===
+            ["Action_SetPlayerState"] = async (node, ctx) =>
+            {
+                var stateType = GetPropertyValue<string>(node, "StateType", "Health");
+                var value = GetPropertyValue<int>(node, "Value", 100);
+                SetPlayerStateValue(ctx.GameState, stateType ?? "Health", value);
+                await Task.CompletedTask;
+            },
+            ["Action_ModifyPlayerState"] = async (node, ctx) =>
+            {
+                var stateType = GetPropertyValue<string>(node, "StateType", "Health");
+                var amount = GetPropertyValue<int>(node, "Amount", 10);
+                var current = GetPlayerStateValue(ctx.GameState, stateType ?? "Health");
+                SetPlayerStateValue(ctx.GameState, stateType ?? "Health", current + amount);
+                await Task.CompletedTask;
+            },
+            ["Action_HealPlayer"] = async (node, ctx) =>
+            {
+                var amount = GetPropertyValue<int>(node, "Amount", 25);
+                var stats = ctx.GameState.Player.DynamicStats;
+                stats.Health = Math.Min(stats.MaxHealth, stats.Health + amount);
+                await Task.CompletedTask;
+            },
+            ["Action_DamagePlayer"] = async (node, ctx) =>
+            {
+                var amount = GetPropertyValue<int>(node, "Amount", 10);
+                var stats = ctx.GameState.Player.DynamicStats;
+                stats.Health = Math.Max(0, stats.Health - amount);
+                if (stats.Health <= 0)
+                {
+                    ctx.NextOutputPort = "PlayerDied";
+                    OnMessage?.Invoke("[¡El jugador ha muerto!]");
+                }
+                await Task.CompletedTask;
+            },
+            ["Action_RestoreMana"] = async (node, ctx) =>
+            {
+                var amount = GetPropertyValue<int>(node, "Amount", 25);
+                var stats = ctx.GameState.Player.DynamicStats;
+                stats.Mana = Math.Min(stats.MaxMana, stats.Mana + amount);
+                await Task.CompletedTask;
+            },
+            ["Action_ConsumeMana"] = async (node, ctx) =>
+            {
+                var amount = GetPropertyValue<int>(node, "Amount", 10);
+                var stats = ctx.GameState.Player.DynamicStats;
+                if (stats.Mana >= amount)
+                {
+                    stats.Mana -= amount;
+                }
+                else
+                {
+                    ctx.NextOutputPort = "NotEnough";
+                }
+                await Task.CompletedTask;
+            },
+            ["Action_FeedPlayer"] = async (node, ctx) =>
+            {
+                var amount = GetPropertyValue<int>(node, "Amount", 25);
+                var stats = ctx.GameState.Player.DynamicStats;
+                stats.Hunger = Math.Max(0, stats.Hunger - amount);
+                await Task.CompletedTask;
+            },
+            ["Action_HydratePlayer"] = async (node, ctx) =>
+            {
+                var amount = GetPropertyValue<int>(node, "Amount", 25);
+                var stats = ctx.GameState.Player.DynamicStats;
+                stats.Thirst = Math.Max(0, stats.Thirst - amount);
+                await Task.CompletedTask;
+            },
+            ["Action_RestPlayer"] = async (node, ctx) =>
+            {
+                var amount = GetPropertyValue<int>(node, "Amount", 50);
+                var stats = ctx.GameState.Player.DynamicStats;
+                stats.Energy = Math.Min(100, stats.Energy + amount);
+                await Task.CompletedTask;
+            },
+            ["Action_RestoreAllStats"] = async (node, ctx) =>
+            {
+                var stats = ctx.GameState.Player.DynamicStats;
+                stats.Health = stats.MaxHealth;
+                stats.Mana = stats.MaxMana;
+                stats.Hunger = 0;
+                stats.Thirst = 0;
+                stats.Energy = 100;
+                stats.Sanity = 100;
+                await Task.CompletedTask;
+            },
+
+            // === MODIFICADORES TEMPORALES ===
+            ["Action_ApplyModifier"] = async (node, ctx) =>
+            {
+                var name = GetPropertyValue<string>(node, "ModifierName", "");
+                var stateTypeStr = GetPropertyValue<string>(node, "StateType", "Health");
+                var amount = GetPropertyValue<int>(node, "Amount", 5);
+                var durationTypeStr = GetPropertyValue<string>(node, "DurationType", "Turns");
+                var duration = GetPropertyValue<int>(node, "Duration", 5);
+                var isRecurring = GetPropertyValue<bool>(node, "IsRecurring", true);
+
+                if (!string.IsNullOrEmpty(name) && Enum.TryParse<PlayerStateType>(stateTypeStr, out var stateType))
+                {
+                    var durationType = durationTypeStr switch
+                    {
+                        "Seconds" => ModifierDurationType.Seconds,
+                        "Permanent" => ModifierDurationType.Permanent,
+                        _ => ModifierDurationType.Turns
+                    };
+
+                    var modifier = new TemporaryModifier
+                    {
+                        Name = name,
+                        StateType = stateType,
+                        Amount = amount,
+                        DurationType = durationType,
+                        RemainingDuration = duration,
+                        IsRecurring = isRecurring,
+                        AppliedAt = DateTime.UtcNow
+                    };
+
+                    ctx.GameState.ActiveModifiers.Add(modifier);
+                    DebugMessage($"[Debug] Modificador '{name}' aplicado: {stateType} {(amount >= 0 ? "+" : "")}{amount} durante {duration} {durationTypeStr}");
+                }
+                await Task.CompletedTask;
+            },
+            ["Action_RemoveModifier"] = async (node, ctx) =>
+            {
+                var name = GetPropertyValue<string>(node, "ModifierName", "");
+                if (!string.IsNullOrEmpty(name))
+                {
+                    ctx.GameState.ActiveModifiers.RemoveAll(m =>
+                        string.Equals(m.Name, name, StringComparison.OrdinalIgnoreCase));
+                    DebugMessage($"[Debug] Modificador '{name}' eliminado");
+                }
+                await Task.CompletedTask;
+            },
+            ["Action_RemoveModifiersByState"] = async (node, ctx) =>
+            {
+                var stateTypeStr = GetPropertyValue<string>(node, "StateType", "Health");
+                if (Enum.TryParse<PlayerStateType>(stateTypeStr, out var stateType))
+                {
+                    ctx.GameState.ActiveModifiers.RemoveAll(m => m.StateType == stateType);
+                    DebugMessage($"[Debug] Modificadores de {stateType} eliminados");
+                }
+                await Task.CompletedTask;
+            },
+            ["Action_RemoveAllModifiers"] = async (node, ctx) =>
+            {
+                ctx.GameState.ActiveModifiers.Clear();
+                DebugMessage("[Debug] Todos los modificadores eliminados");
+                await Task.CompletedTask;
+            },
+            ["Action_ProcessModifiers"] = async (node, ctx) =>
+            {
+                var playerDied = false;
+                var expiredModifiers = new List<TemporaryModifier>();
+
+                foreach (var modifier in ctx.GameState.ActiveModifiers.ToList())
+                {
+                    if (modifier.IsExpired)
+                    {
+                        expiredModifiers.Add(modifier);
+                        continue;
+                    }
+
+                    // Aplicar efecto recurrente
+                    if (modifier.IsRecurring)
+                    {
+                        var current = GetPlayerStateValue(ctx.GameState, modifier.StateType.ToString());
+                        SetPlayerStateValue(ctx.GameState, modifier.StateType.ToString(), current + modifier.Amount);
+
+                        // Verificar muerte
+                        if (modifier.StateType == PlayerStateType.Health && ctx.GameState.Player.DynamicStats.Health <= 0)
+                        {
+                            playerDied = true;
+                        }
+                    }
+
+                    // Decrementar duración para modificadores por turnos
+                    if (modifier.DurationType == ModifierDurationType.Turns)
+                    {
+                        modifier.RemainingDuration--;
+                    }
+                }
+
+                // Eliminar expirados
+                foreach (var expired in expiredModifiers)
+                {
+                    ctx.GameState.ActiveModifiers.Remove(expired);
+                    DebugMessage($"[Debug] Modificador '{expired.Name}' expiró");
+                }
+
+                if (playerDied)
+                {
+                    ctx.NextOutputPort = "PlayerDied";
+                    OnMessage?.Invoke("[¡El jugador ha muerto!]");
+                }
+                await Task.CompletedTask;
+            },
+
+            // === EVENTOS DE ESTADOS (entry points) ===
+            ["Event_OnPlayerDeath"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnHealthLow"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnHealthCritical"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnHungerHigh"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnThirstHigh"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnEnergyLow"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnSleepHigh"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnSanityLow"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnManaLow"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnStateThreshold"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnModifierApplied"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnModifierExpired"] = async (node, ctx) => { await Task.CompletedTask; }
         };
+    }
+
+    /// <summary>
+    /// Obtiene el valor de un estado del jugador por nombre.
+    /// </summary>
+    private int GetPlayerStateValue(GameState gameState, string stateType)
+    {
+        return stateType switch
+        {
+            "Health" => gameState.Player.DynamicStats.Health,
+            "MaxHealth" => gameState.Player.DynamicStats.MaxHealth,
+            "Hunger" => gameState.Player.DynamicStats.Hunger,
+            "Thirst" => gameState.Player.DynamicStats.Thirst,
+            "Energy" => gameState.Player.DynamicStats.Energy,
+            "Sleep" => gameState.Player.DynamicStats.Sleep,
+            "Sanity" => gameState.Player.DynamicStats.Sanity,
+            "Mana" => gameState.Player.DynamicStats.Mana,
+            "MaxMana" => gameState.Player.DynamicStats.MaxMana,
+            "Strength" => gameState.Player.Strength,
+            "Constitution" => gameState.Player.Constitution,
+            "Intelligence" => gameState.Player.Intelligence,
+            "Dexterity" => gameState.Player.Dexterity,
+            "Charisma" => gameState.Player.Charisma,
+            "Gold" => gameState.Player.Gold,
+            _ => 0
+        };
+    }
+
+    /// <summary>
+    /// Establece el valor de un estado del jugador por nombre.
+    /// </summary>
+    private void SetPlayerStateValue(GameState gameState, string stateType, int value)
+    {
+        switch (stateType)
+        {
+            case "Health":
+                gameState.Player.DynamicStats.Health = Math.Clamp(value, 0, gameState.Player.DynamicStats.MaxHealth);
+                break;
+            case "MaxHealth":
+                gameState.Player.DynamicStats.MaxHealth = Math.Max(1, value);
+                break;
+            case "Hunger":
+                gameState.Player.DynamicStats.Hunger = Math.Clamp(value, 0, 100);
+                break;
+            case "Thirst":
+                gameState.Player.DynamicStats.Thirst = Math.Clamp(value, 0, 100);
+                break;
+            case "Energy":
+                gameState.Player.DynamicStats.Energy = Math.Clamp(value, 0, 100);
+                break;
+            case "Sleep":
+                gameState.Player.DynamicStats.Sleep = Math.Clamp(value, 0, 100);
+                break;
+            case "Sanity":
+                gameState.Player.DynamicStats.Sanity = Math.Clamp(value, 0, 100);
+                break;
+            case "Mana":
+                gameState.Player.DynamicStats.Mana = Math.Clamp(value, 0, gameState.Player.DynamicStats.MaxMana);
+                break;
+            case "MaxMana":
+                gameState.Player.DynamicStats.MaxMana = Math.Max(0, value);
+                break;
+            case "Strength":
+                gameState.Player.Strength = Math.Max(0, value);
+                break;
+            case "Constitution":
+                gameState.Player.Constitution = Math.Max(0, value);
+                break;
+            case "Intelligence":
+                gameState.Player.Intelligence = Math.Max(0, value);
+                break;
+            case "Dexterity":
+                gameState.Player.Dexterity = Math.Max(0, value);
+                break;
+            case "Charisma":
+                gameState.Player.Charisma = Math.Max(0, value);
+                break;
+            case "Gold":
+                gameState.Player.Gold = Math.Max(0, value);
+                break;
+        }
     }
 }
 

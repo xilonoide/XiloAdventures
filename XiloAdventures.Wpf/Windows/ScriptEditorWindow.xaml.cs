@@ -95,7 +95,7 @@ public partial class ScriptEditorWindow : Window
         ScriptNameTextBox.Text = _script.Name;
         ScriptNameTextBox.TextChanged += ScriptNameTextBox_TextChanged;
 
-        NodePalette.SetOwnerType(ownerType);
+        NodePalette.SetOwnerType(ownerType, _world.Game);
 
         ScriptPanel.SetScript(_script, ownerType);
         ScriptPanel.NodeSelected += ScriptPanel_NodeSelected;
@@ -1130,7 +1130,7 @@ public partial class ScriptEditorWindow : Window
         _selectedEntityId = entityId;
 
         // Actualizar la paleta de nodos según el tipo de entidad
-        NodePalette.SetOwnerType(entityType);
+        NodePalette.SetOwnerType(entityType, _world.Game);
 
         // Buscar o crear el primer script de esta entidad
         var entityScript = _world.Scripts.FirstOrDefault(s =>
@@ -1515,7 +1515,7 @@ public partial class ScriptEditorWindow : Window
         }
 
         // Actualizar paleta de nodos para el nuevo tipo de propietario
-        NodePalette.SetOwnerType(_script.OwnerType);
+        NodePalette.SetOwnerType(_script.OwnerType, _world.Game);
 
         // Cargar el script en el panel
         ScriptPanel.SetScript(_script, _script.OwnerType);

@@ -1588,6 +1588,20 @@ public partial class WorldEditorWindow : Window
                 .Select(o => $"• {o!.Name}");
             TestInventoryLabel.Text = string.Join("\n", items);
         }
+
+        // Necesidades básicas (solo visibles si están activas y en modo debug)
+        if (_testWorld.Game.BasicNeedsEnabled && TestDebugToggle.IsChecked == true)
+        {
+            TestBasicNeedsPanel.Visibility = Visibility.Visible;
+            var dynamicStats = state.Player.DynamicStats;
+            TestHungerBar.Value = dynamicStats.Hunger;
+            TestThirstBar.Value = dynamicStats.Thirst;
+            TestSleepBar.Value = dynamicStats.Sleep;
+        }
+        else
+        {
+            TestBasicNeedsPanel.Visibility = Visibility.Collapsed;
+        }
     }
 
     private void AppendTestOutput(string text, bool isCommand = false)

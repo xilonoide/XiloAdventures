@@ -125,6 +125,9 @@ public class NodeTypeDefinition
 
     /// <summary>Propiedades editables del nodo</summary>
     public NodePropertyDefinition[] Properties { get; set; } = Array.Empty<NodePropertyDefinition>();
+
+    /// <summary>Característica requerida para que este nodo esté disponible ("PlayerStates", "BasicNeeds", null = siempre)</summary>
+    public string? RequiredFeature { get; set; }
 }
 
 /// <summary>

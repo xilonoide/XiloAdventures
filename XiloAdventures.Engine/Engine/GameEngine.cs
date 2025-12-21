@@ -121,6 +121,12 @@ public class GameEngine
     public event Action? AdventureCompleted;
 
     /// <summary>
+    /// Evento cuando el jugador muere por necesidades básicas (hambre, sed, sueño).
+    /// El string contiene el tipo de muerte: "Hunger", "Thirst" o "Sleep".
+    /// </summary>
+    public event Action<string>? PlayerDiedFromNeeds;
+
+    /// <summary>
     /// Indica si hay una conversación activa.
     /// </summary>
     public bool IsConversationActive => _conversationEngine?.IsConversationActive == true;
@@ -571,6 +577,13 @@ public class GameEngine
 
         // Actualizar patrullas de NPCs después de cada comando del jugador
         UpdateNpcPatrols();
+
+        // Procesar necesidades básicas
+        var needsMessage = ProcessBasicNeeds();
+        if (!string.IsNullOrEmpty(needsMessage))
+        {
+            result = result.AppendMessage(needsMessage);
+        }
 
         return result;
     }
@@ -2775,6 +2788,77 @@ public class GameEngine
             ScriptMessage -= messageHandler;
         }
     }
+
+    #endregion
+
+    #region Basic Needs
+
+    /// <summary>
+    /// Procesa las necesidades básicas del jugador al final de cada turno.
+    /// Retorna un mensaje para mostrar al jugador si corresponde, o null.
+    /// </summary>
+    private string? ProcessBasicNeeds()
+    {
+        if (!_world.Game.BasicNeedsEnabled) return null;
+
+        var stats = _state.Player.DynamicStats;
+        var messages = new List<string>();
+
+        // Incrementar necesidades (tasas base: hambre=1.3, sed=1.0, sueño=0.7)
+        var hungerInc = (int)Math.Ceiling(1.3 * GetNeedRateModifier(_world.Game.HungerRate));
+        var thirstInc = (int)Math.Ceiling(1.0 * GetNeedRateModifier(_world.Game.ThirstRate));
+        var sleepInc = (int)Math.Ceiling(0.7 * GetNeedRateModifier(_world.Game.SleepRate));
+
+        var oldHunger = stats.Hunger;
+        var oldThirst = stats.Thirst;
+        var oldSleep = stats.Sleep;
+
+        stats.Hunger = Math.Min(100, stats.Hunger + hungerInc);
+        stats.Thirst = Math.Min(100, stats.Thirst + thirstInc);
+        stats.Sleep = Math.Min(100, stats.Sleep + sleepInc);
+
+        // Verificar muerte (100)
+        if (stats.Hunger >= 100)
+        {
+            PlayerDiedFromNeeds?.Invoke("Hunger");
+            return null;
+        }
+        if (stats.Thirst >= 100)
+        {
+            PlayerDiedFromNeeds?.Invoke("Thirst");
+            return null;
+        }
+        if (stats.Sleep >= 100)
+        {
+            PlayerDiedFromNeeds?.Invoke("Sleep");
+            return null;
+        }
+
+        // Mensajes de advertencia (solo al cruzar umbral)
+        CheckNeedThreshold(oldHunger, stats.Hunger, "hambre", messages);
+        CheckNeedThreshold(oldThirst, stats.Thirst, "sed", messages);
+        CheckNeedThreshold(oldSleep, stats.Sleep, "sueño", messages);
+
+        return messages.Count > 0 ? string.Join("\n", messages) : null;
+    }
+
+    private void CheckNeedThreshold(int oldValue, int newValue, string needName, List<string> messages)
+    {
+        if (oldValue < 70 && newValue >= 70)
+            messages.Add($"[Sientes algo de {needName}.]");
+        else if (oldValue < 80 && newValue >= 80)
+            messages.Add($"[Tu {needName} se hace más intensa.]");
+        else if (oldValue < 90 && newValue >= 90)
+            messages.Add($"[¡Tu {needName} es crítica! Necesitas hacer algo pronto.]");
+    }
+
+    private static double GetNeedRateModifier(NeedRate rate) => rate switch
+    {
+        NeedRate.Low => 0.5,
+        NeedRate.Normal => 1.0,
+        NeedRate.High => 1.5,
+        _ => 1.0
+    };
 
     #endregion
 }

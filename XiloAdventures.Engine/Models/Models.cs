@@ -98,6 +98,17 @@ public enum MovementMode
     Time
 }
 
+/// <summary>Velocidad de incremento de necesidades básicas.</summary>
+public enum NeedRate
+{
+    /// <summary>Incremento lento (modificador 0.5).</summary>
+    Low,
+    /// <summary>Incremento normal (modificador 1.0).</summary>
+    Normal,
+    /// <summary>Incremento rápido (modificador 1.5).</summary>
+    High
+}
+
 public class GameInfo
 {
     public string Id { get; set; } = string.Empty;
@@ -141,6 +152,34 @@ public class GameInfo
 
     /// <summary>ID de la música que suena al finalizar la aventura.</summary>
     public string? EndingMusicId { get; set; }
+
+    // === ESTADOS DEL JUGADOR ===
+
+    /// <summary>Activa el sistema de estados del jugador (salud, mana, energía, cordura).</summary>
+    public bool PlayerStatesEnabled { get; set; } = false;
+
+    // === NECESIDADES BÁSICAS ===
+
+    /// <summary>Activa el sistema de necesidades básicas (hambre, sed, sueño).</summary>
+    public bool BasicNeedsEnabled { get; set; } = false;
+
+    /// <summary>Velocidad de incremento del hambre por turno.</summary>
+    public NeedRate HungerRate { get; set; } = NeedRate.Normal;
+
+    /// <summary>Velocidad de incremento de la sed por turno.</summary>
+    public NeedRate ThirstRate { get; set; } = NeedRate.Normal;
+
+    /// <summary>Velocidad de incremento del sueño por turno.</summary>
+    public NeedRate SleepRate { get; set; } = NeedRate.Normal;
+
+    /// <summary>Texto de muerte por hambre.</summary>
+    public string HungerDeathText { get; set; } = "Has muerto de hambre. Tu cuerpo no pudo resistir más sin alimento.";
+
+    /// <summary>Texto de muerte por sed.</summary>
+    public string ThirstDeathText { get; set; } = "Has muerto de sed. La deshidratación ha acabado contigo.";
+
+    /// <summary>Texto de muerte por agotamiento.</summary>
+    public string SleepDeathText { get; set; } = "Has muerto de agotamiento. Tu cuerpo colapsó por falta de sueño.";
 }
 
 public class Room
@@ -440,6 +479,124 @@ public class PlayerStats
 
     /// <summary>Dinero del jugador en monedas.</summary>
     public int Gold { get; set; } = 0;
+
+    /// <summary>Estados dinámicos del jugador (salud, hambre, sed, energía, cordura).</summary>
+    public PlayerDynamicStats DynamicStats { get; set; } = new();
+}
+
+/// <summary>
+/// Estados dinámicos del jugador que varían durante el juego.
+/// Todos los valores van de 0 a 100 (porcentaje).
+/// </summary>
+public class PlayerDynamicStats
+{
+    /// <summary>Salud actual del jugador (0 = muerto, 100 = salud perfecta).</summary>
+    public int Health { get; set; } = 100;
+
+    /// <summary>Salud máxima del jugador.</summary>
+    public int MaxHealth { get; set; } = 100;
+
+    /// <summary>Nivel de hambre (0 = lleno, 100 = muriendo de hambre).</summary>
+    public int Hunger { get; set; } = 0;
+
+    /// <summary>Nivel de sed (0 = hidratado, 100 = deshidratado).</summary>
+    public int Thirst { get; set; } = 0;
+
+    /// <summary>Nivel de energía (0 = exhausto, 100 = lleno de energía).</summary>
+    public int Energy { get; set; } = 100;
+
+    /// <summary>Nivel de sueño/cansancio (0 = descansado, 100 = agotamiento extremo).</summary>
+    public int Sleep { get; set; } = 0;
+
+    /// <summary>Nivel de cordura/salud mental (0 = locura, 100 = mente sana).</summary>
+    public int Sanity { get; set; } = 100;
+
+    /// <summary>Nivel de mana/poder mágico (0 = sin magia, 100 = máximo poder).</summary>
+    public int Mana { get; set; } = 100;
+
+    /// <summary>Mana máximo del jugador.</summary>
+    public int MaxMana { get; set; } = 100;
+}
+
+/// <summary>
+/// Modo de duración para los modificadores temporales.
+/// </summary>
+public enum ModifierDurationType
+{
+    /// <summary>El modificador dura un número de turnos.</summary>
+    Turns,
+    /// <summary>El modificador dura un número de segundos (tiempo real).</summary>
+    Seconds,
+    /// <summary>El modificador no caduca (permanente hasta que se elimine).</summary>
+    Permanent
+}
+
+/// <summary>
+/// Tipo de estado del jugador que se puede modificar.
+/// </summary>
+public enum PlayerStateType
+{
+    Health,
+    MaxHealth,
+    Hunger,
+    Thirst,
+    Energy,
+    Sleep,
+    Sanity,
+    Mana,
+    MaxMana,
+    Strength,
+    Constitution,
+    Intelligence,
+    Dexterity,
+    Charisma,
+    Gold
+}
+
+/// <summary>
+/// Modificador temporal aplicado a un estado del jugador.
+/// </summary>
+public class TemporaryModifier
+{
+    /// <summary>Identificador único del modificador.</summary>
+    public string Id { get; set; } = Guid.NewGuid().ToString();
+
+    /// <summary>Nombre descriptivo del modificador (ej: "Veneno", "Bendición").</summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>Estado del jugador que modifica.</summary>
+    public PlayerStateType StateType { get; set; }
+
+    /// <summary>Cantidad a modificar (positivo o negativo).</summary>
+    public int Amount { get; set; }
+
+    /// <summary>Tipo de duración del modificador.</summary>
+    public ModifierDurationType DurationType { get; set; }
+
+    /// <summary>Duración restante (turnos o segundos según DurationType).</summary>
+    public int RemainingDuration { get; set; }
+
+    /// <summary>Momento en que se aplicó el modificador (para modo Seconds).</summary>
+    public DateTime AppliedAt { get; set; } = DateTime.UtcNow;
+
+    /// <summary>Si es true, el modificador se aplica cada turno/segundo. Si es false, es un bonus/penalty estático.</summary>
+    public bool IsRecurring { get; set; }
+
+    /// <summary>Indica si el modificador ya expiró.</summary>
+    [Browsable(false)]
+    public bool IsExpired
+    {
+        get
+        {
+            if (DurationType == ModifierDurationType.Permanent)
+                return false;
+            if (DurationType == ModifierDurationType.Turns)
+                return RemainingDuration <= 0;
+            // Para Seconds, calculamos basado en tiempo transcurrido
+            var elapsed = (DateTime.UtcNow - AppliedAt).TotalSeconds;
+            return elapsed >= RemainingDuration;
+        }
+    }
 }
 
 /// <summary>
@@ -520,6 +677,9 @@ public class GameState
     public int TurnCounter { get; set; }
     public string TimeOfDay { get; set; } = "día";
     public WeatherType Weather { get; set; } = WeatherType.Despejado;
+
+    /// <summary>Lista de modificadores temporales activos en el jugador.</summary>
+    public List<TemporaryModifier> ActiveModifiers { get; set; } = new();
 }
 
 public class MapPosition

@@ -209,6 +209,47 @@
                     <TextBlock x:Name="TimeLabel"
                                TextWrapping="Wrap"
                                Margin="0,0,0,8"/>
+
+                    <!-- Necesidades básicas -->
+                    <StackPanel x:Name="BasicNeedsPanel" Visibility="Collapsed" Margin="0,0,0,8">
+                        <TextBlock Text="Necesidades"
+                                   FontWeight="Bold"
+                                   Margin="0,0,0,4"/>
+                        <!-- Hambre (verde) -->
+                        <Grid Margin="0,0,0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="60"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Hambre" FontSize="12" VerticalAlignment="Center"/>
+                            <ProgressBar x:Name="HungerBar" Grid.Column="1" Height="14"
+                                         Minimum="0" Maximum="100" Value="0"
+                                         Foreground="#4CAF50" Background="#333"/>
+                        </Grid>
+                        <!-- Sed (azul) -->
+                        <Grid Margin="0,0,0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="60"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Sed" FontSize="12" VerticalAlignment="Center"/>
+                            <ProgressBar x:Name="ThirstBar" Grid.Column="1" Height="14"
+                                         Minimum="0" Maximum="100" Value="0"
+                                         Foreground="#2196F3" Background="#333"/>
+                        </Grid>
+                        <!-- Sueño (marrón) -->
+                        <Grid Margin="0,0,0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="60"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Sueño" FontSize="12" VerticalAlignment="Center"/>
+                            <ProgressBar x:Name="SleepBar" Grid.Column="1" Height="14"
+                                         Minimum="0" Maximum="100" Value="0"
+                                         Foreground="#8B4513" Background="#333"/>
+                        </Grid>
+                    </StackPanel>
+
                     <TextBlock Text="Inventario"
                                FontWeight="Bold"
                                Margin="0,0,0,4"/>

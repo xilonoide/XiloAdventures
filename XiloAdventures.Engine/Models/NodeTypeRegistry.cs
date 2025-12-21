@@ -43,6 +43,32 @@ public static class NodeTypeRegistry
         return _types.Values.Where(n => n.Category == category);
     }
 
+    /// <summary>
+    /// Obtiene nodos filtrados por tipo de propietario y características habilitadas.
+    /// </summary>
+    public static IEnumerable<NodeTypeDefinition> GetNodesForOwnerType(string ownerType, GameInfo gameInfo)
+    {
+        return _types.Values.Where(n =>
+            (n.OwnerTypes.Contains("*") || n.OwnerTypes.Contains(ownerType)) &&
+            IsFeatureEnabled(n.RequiredFeature, gameInfo));
+    }
+
+    /// <summary>
+    /// Verifica si una característica requerida está habilitada.
+    /// </summary>
+    private static bool IsFeatureEnabled(string? requiredFeature, GameInfo? gameInfo)
+    {
+        if (string.IsNullOrEmpty(requiredFeature) || gameInfo == null)
+            return true;
+
+        return requiredFeature switch
+        {
+            "PlayerStates" => gameInfo.PlayerStatesEnabled,
+            "BasicNeeds" => gameInfo.BasicNeedsEnabled,
+            _ => true
+        };
+    }
+
     private static void Register(NodeTypeDefinition def)
     {
         _types[def.TypeId] = def;
@@ -343,6 +369,227 @@ public static class NodeTypeRegistry
                 new NodePort { Name = "ObjectiveIndex", PortType = PortType.Data, DataType = "int", Label = "Indice" }
             }
         });
+
+        // === EVENTOS DE ESTADOS DEL JUGADOR ===
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Event_OnPlayerDeath",
+            DisplayName = "Al Morir Jugador",
+            Description = "Se ejecuta cuando el jugador muere (salud llega a 0)",
+            Category = NodeCategory.Event,
+            OwnerTypes = new[] { "Game", "*" },
+            RequiredFeature = "PlayerStates",
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Event_OnHealthLow",
+            DisplayName = "Al Bajar Salud",
+            Description = "Se ejecuta cuando la salud baja de un umbral",
+            Category = NodeCategory.Event,
+            OwnerTypes = new[] { "Game", "*" },
+            RequiredFeature = "PlayerStates",
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
+                new NodePort { Name = "CurrentHealth", PortType = PortType.Data, DataType = "int", Label = "Salud" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "Threshold", DisplayName = "Umbral", DataType = "int", DefaultValue = 25 }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Event_OnHealthCritical",
+            DisplayName = "Al Salud Crítica",
+            Description = "Se ejecuta cuando la salud llega a un nivel crítico (por defecto 10%)",
+            Category = NodeCategory.Event,
+            OwnerTypes = new[] { "Game", "*" },
+            RequiredFeature = "PlayerStates",
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
+                new NodePort { Name = "CurrentHealth", PortType = PortType.Data, DataType = "int", Label = "Salud" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "Threshold", DisplayName = "Umbral Crítico", DataType = "int", DefaultValue = 10 }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Event_OnHungerHigh",
+            DisplayName = "Al Tener Hambre",
+            Description = "Se ejecuta cuando el hambre supera un umbral",
+            Category = NodeCategory.Event,
+            OwnerTypes = new[] { "Game", "*" },
+            RequiredFeature = "BasicNeeds",
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
+                new NodePort { Name = "CurrentHunger", PortType = PortType.Data, DataType = "int", Label = "Hambre" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "Threshold", DisplayName = "Umbral", DataType = "int", DefaultValue = 75 }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Event_OnThirstHigh",
+            DisplayName = "Al Tener Sed",
+            Description = "Se ejecuta cuando la sed supera un umbral",
+            Category = NodeCategory.Event,
+            OwnerTypes = new[] { "Game", "*" },
+            RequiredFeature = "BasicNeeds",
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
+                new NodePort { Name = "CurrentThirst", PortType = PortType.Data, DataType = "int", Label = "Sed" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "Threshold", DisplayName = "Umbral", DataType = "int", DefaultValue = 75 }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Event_OnEnergyLow",
+            DisplayName = "Al Estar Cansado",
+            Description = "Se ejecuta cuando la energía baja de un umbral",
+            Category = NodeCategory.Event,
+            OwnerTypes = new[] { "Game", "*" },
+            RequiredFeature = "PlayerStates",
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
+                new NodePort { Name = "CurrentEnergy", PortType = PortType.Data, DataType = "int", Label = "Energía" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "Threshold", DisplayName = "Umbral", DataType = "int", DefaultValue = 25 }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Event_OnSleepHigh",
+            DisplayName = "Al Necesitar Dormir",
+            Description = "Se ejecuta cuando el nivel de sueño/cansancio supera un umbral",
+            Category = NodeCategory.Event,
+            OwnerTypes = new[] { "Game", "*" },
+            RequiredFeature = "BasicNeeds",
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
+                new NodePort { Name = "CurrentSleep", PortType = PortType.Data, DataType = "int", Label = "Sueño" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "Threshold", DisplayName = "Umbral", DataType = "int", DefaultValue = 75 }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Event_OnSanityLow",
+            DisplayName = "Al Perder Cordura",
+            Description = "Se ejecuta cuando la cordura baja de un umbral",
+            Category = NodeCategory.Event,
+            OwnerTypes = new[] { "Game", "*" },
+            RequiredFeature = "PlayerStates",
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
+                new NodePort { Name = "CurrentSanity", PortType = PortType.Data, DataType = "int", Label = "Cordura" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "Threshold", DisplayName = "Umbral", DataType = "int", DefaultValue = 25 }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Event_OnManaLow",
+            DisplayName = "Al Quedar Sin Mana",
+            Description = "Se ejecuta cuando el mana baja de un umbral",
+            Category = NodeCategory.Event,
+            OwnerTypes = new[] { "Game", "*" },
+            RequiredFeature = "PlayerStates",
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
+                new NodePort { Name = "CurrentMana", PortType = PortType.Data, DataType = "int", Label = "Mana" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "Threshold", DisplayName = "Umbral", DataType = "int", DefaultValue = 10 }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Event_OnStateThreshold",
+            DisplayName = "Al Cruzar Umbral de Estado",
+            Description = "Se ejecuta cuando cualquier estado cruza un umbral (genérico)",
+            Category = NodeCategory.Event,
+            OwnerTypes = new[] { "Game", "*" },
+            RequiredFeature = "PlayerStates",
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
+                new NodePort { Name = "CurrentValue", PortType = PortType.Data, DataType = "int", Label = "Valor" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "StateType", DisplayName = "Tipo de Estado", DataType = "select",
+                    Options = new[] { "Health", "MaxHealth", "Hunger", "Thirst", "Energy", "Sanity", "Mana", "MaxMana",
+                                      "Strength", "Constitution", "Intelligence", "Dexterity", "Charisma", "Gold" } },
+                new NodePropertyDefinition { Name = "Threshold", DisplayName = "Umbral", DataType = "int", DefaultValue = 50 },
+                new NodePropertyDefinition { Name = "Direction", DisplayName = "Dirección", DataType = "select",
+                    Options = new[] { "Below", "Above" } }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Event_OnModifierApplied",
+            DisplayName = "Al Aplicar Modificador",
+            Description = "Se ejecuta cuando se aplica un modificador al jugador",
+            Category = NodeCategory.Event,
+            OwnerTypes = new[] { "Game", "*" },
+            RequiredFeature = "PlayerStates",
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
+                new NodePort { Name = "ModifierName", PortType = PortType.Data, DataType = "string", Label = "Nombre" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Event_OnModifierExpired",
+            DisplayName = "Al Expirar Modificador",
+            Description = "Se ejecuta cuando un modificador expira",
+            Category = NodeCategory.Event,
+            OwnerTypes = new[] { "Game", "*" },
+            RequiredFeature = "PlayerStates",
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
+                new NodePort { Name = "ModifierName", PortType = PortType.Data, DataType = "string", Label = "Nombre" }
+            }
+        });
     }
 
     #endregion
@@ -595,6 +842,178 @@ public static class NodeTypeRegistry
             Properties = new[]
             {
                 new NodePropertyDefinition { Name = "Probability", DisplayName = "Probabilidad (%)", DataType = "int", DefaultValue = 50 }
+            }
+        });
+
+        // === SUBGRUPO: ESTADOS DEL JUGADOR ===
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Condition_PlayerStateAbove",
+            DisplayName = "Estado: Mayor Que",
+            Description = "Verifica si un estado del jugador está por encima de un umbral",
+            Category = NodeCategory.Condition,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "PlayerStates",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "True", PortType = PortType.Execution, Label = "Si" },
+                new NodePort { Name = "False", PortType = PortType.Execution, Label = "No" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "StateType", DisplayName = "Tipo de Estado", DataType = "select",
+                    Options = new[] { "Health", "MaxHealth", "Hunger", "Thirst", "Energy", "Sanity", "Mana", "MaxMana",
+                                      "Strength", "Constitution", "Intelligence", "Dexterity", "Charisma", "Gold" } },
+                new NodePropertyDefinition { Name = "Threshold", DisplayName = "Umbral", DataType = "int", DefaultValue = 50 }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Condition_PlayerStateBelow",
+            DisplayName = "Estado: Menor Que",
+            Description = "Verifica si un estado del jugador está por debajo de un umbral",
+            Category = NodeCategory.Condition,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "PlayerStates",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "True", PortType = PortType.Execution, Label = "Si" },
+                new NodePort { Name = "False", PortType = PortType.Execution, Label = "No" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "StateType", DisplayName = "Tipo de Estado", DataType = "select",
+                    Options = new[] { "Health", "MaxHealth", "Hunger", "Thirst", "Energy", "Sanity", "Mana", "MaxMana",
+                                      "Strength", "Constitution", "Intelligence", "Dexterity", "Charisma", "Gold" } },
+                new NodePropertyDefinition { Name = "Threshold", DisplayName = "Umbral", DataType = "int", DefaultValue = 25 }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Condition_PlayerStateEquals",
+            DisplayName = "Estado: Igual A",
+            Description = "Verifica si un estado del jugador es igual a un valor",
+            Category = NodeCategory.Condition,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "PlayerStates",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "True", PortType = PortType.Execution, Label = "Si" },
+                new NodePort { Name = "False", PortType = PortType.Execution, Label = "No" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "StateType", DisplayName = "Tipo de Estado", DataType = "select",
+                    Options = new[] { "Health", "MaxHealth", "Hunger", "Thirst", "Energy", "Sanity", "Mana", "MaxMana",
+                                      "Strength", "Constitution", "Intelligence", "Dexterity", "Charisma", "Gold" } },
+                new NodePropertyDefinition { Name = "Value", DisplayName = "Valor", DataType = "int", DefaultValue = 100 }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Condition_PlayerStateBetween",
+            DisplayName = "Estado: Entre Valores",
+            Description = "Verifica si un estado del jugador está entre dos valores",
+            Category = NodeCategory.Condition,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "PlayerStates",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "True", PortType = PortType.Execution, Label = "Si" },
+                new NodePort { Name = "False", PortType = PortType.Execution, Label = "No" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "StateType", DisplayName = "Tipo de Estado", DataType = "select",
+                    Options = new[] { "Health", "MaxHealth", "Hunger", "Thirst", "Energy", "Sanity", "Mana", "MaxMana",
+                                      "Strength", "Constitution", "Intelligence", "Dexterity", "Charisma", "Gold" } },
+                new NodePropertyDefinition { Name = "MinValue", DisplayName = "Mínimo", DataType = "int", DefaultValue = 25 },
+                new NodePropertyDefinition { Name = "MaxValue", DisplayName = "Máximo", DataType = "int", DefaultValue = 75 }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Condition_HasModifier",
+            DisplayName = "Estado: Tiene Modificador",
+            Description = "Verifica si el jugador tiene un modificador activo por nombre",
+            Category = NodeCategory.Condition,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "PlayerStates",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "True", PortType = PortType.Execution, Label = "Si" },
+                new NodePort { Name = "False", PortType = PortType.Execution, Label = "No" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "ModifierName", DisplayName = "Nombre del Modificador", DataType = "string", IsRequired = true }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Condition_HasModifierForState",
+            DisplayName = "Estado: Tiene Modificador de Tipo",
+            Description = "Verifica si el jugador tiene un modificador activo que afecte a un estado específico",
+            Category = NodeCategory.Condition,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "PlayerStates",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "True", PortType = PortType.Execution, Label = "Si" },
+                new NodePort { Name = "False", PortType = PortType.Execution, Label = "No" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "StateType", DisplayName = "Tipo de Estado", DataType = "select",
+                    Options = new[] { "Health", "MaxHealth", "Hunger", "Thirst", "Energy", "Sanity", "Mana", "MaxMana",
+                                      "Strength", "Constitution", "Intelligence", "Dexterity", "Charisma", "Gold" } }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Condition_IsPlayerAlive",
+            DisplayName = "Estado: Jugador Vivo",
+            Description = "Verifica si el jugador está vivo (salud > 0)",
+            Category = NodeCategory.Condition,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "True", PortType = PortType.Execution, Label = "Vivo" },
+                new NodePort { Name = "False", PortType = PortType.Execution, Label = "Muerto" }
             }
         });
     }
@@ -1186,6 +1605,363 @@ public static class NodeTypeRegistry
                 new NodePropertyDefinition { Name = "TimeInterval", DisplayName = "Intervalo (segundos)", DataType = "float", DefaultValue = 3.0f }
             }
         });
+
+        // === ESTADOS DEL JUGADOR ===
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_SetPlayerState",
+            DisplayName = "Estado: Establecer Valor",
+            Description = "Establece el valor de un estado del jugador",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "StateType", DisplayName = "Tipo de Estado", DataType = "select",
+                    Options = new[] { "Health", "MaxHealth", "Hunger", "Thirst", "Energy", "Sanity", "Mana", "MaxMana",
+                                      "Strength", "Constitution", "Intelligence", "Dexterity", "Charisma", "Gold" } },
+                new NodePropertyDefinition { Name = "Value", DisplayName = "Valor", DataType = "int", DefaultValue = 100 }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_ModifyPlayerState",
+            DisplayName = "Estado: Modificar Valor",
+            Description = "Añade o resta al valor de un estado del jugador",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "StateType", DisplayName = "Tipo de Estado", DataType = "select",
+                    Options = new[] { "Health", "MaxHealth", "Hunger", "Thirst", "Energy", "Sanity", "Mana", "MaxMana",
+                                      "Strength", "Constitution", "Intelligence", "Dexterity", "Charisma", "Gold" } },
+                new NodePropertyDefinition { Name = "Amount", DisplayName = "Cantidad", DataType = "int", DefaultValue = 10 }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_HealPlayer",
+            DisplayName = "Estado: Curar Jugador",
+            Description = "Restaura salud al jugador (sin exceder el máximo)",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "PlayerStates",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "Amount", DisplayName = "Cantidad", DataType = "int", DefaultValue = 25 }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_DamagePlayer",
+            DisplayName = "Estado: Dañar Jugador",
+            Description = "Inflige daño al jugador (reduce salud)",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "PlayerStates",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
+                new NodePort { Name = "PlayerDied", PortType = PortType.Execution, Label = "Murió" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "Amount", DisplayName = "Daño", DataType = "int", DefaultValue = 10 }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_RestoreMana",
+            DisplayName = "Estado: Restaurar Mana",
+            Description = "Restaura mana al jugador (sin exceder el máximo)",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "PlayerStates",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "Amount", DisplayName = "Cantidad", DataType = "int", DefaultValue = 25 }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_ConsumeMana",
+            DisplayName = "Estado: Consumir Mana",
+            Description = "Consume mana del jugador",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "PlayerStates",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
+                new NodePort { Name = "NotEnough", PortType = PortType.Execution, Label = "Insuficiente" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "Amount", DisplayName = "Cantidad", DataType = "int", DefaultValue = 10 }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_FeedPlayer",
+            DisplayName = "Estado: Alimentar Jugador",
+            Description = "Reduce el hambre del jugador",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "BasicNeeds",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "Amount", DisplayName = "Reducción Hambre", DataType = "int", DefaultValue = 25 }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_HydratePlayer",
+            DisplayName = "Estado: Hidratar Jugador",
+            Description = "Reduce la sed del jugador",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "BasicNeeds",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "Amount", DisplayName = "Reducción Sed", DataType = "int", DefaultValue = 25 }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_RestPlayer",
+            DisplayName = "Estado: Descansar Jugador",
+            Description = "Reduce el cansancio del jugador",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "BasicNeeds",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "Amount", DisplayName = "Energía Restaurada", DataType = "int", DefaultValue = 50 }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_RestoreAllStats",
+            DisplayName = "Estado: Restaurar Todo",
+            Description = "Restaura todos los estados del jugador a sus valores máximos/óptimos",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            }
+        });
+
+        // === MODIFICADORES TEMPORALES ===
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_ApplyModifier",
+            DisplayName = "Modificador: Aplicar",
+            Description = "Aplica un modificador temporal a un estado del jugador",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "PlayerStates",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "ModifierName", DisplayName = "Nombre", DataType = "string", IsRequired = true },
+                new NodePropertyDefinition { Name = "StateType", DisplayName = "Estado a Modificar", DataType = "select",
+                    Options = new[] { "Health", "MaxHealth", "Hunger", "Thirst", "Energy", "Sanity", "Mana", "MaxMana",
+                                      "Strength", "Constitution", "Intelligence", "Dexterity", "Charisma", "Gold" } },
+                new NodePropertyDefinition { Name = "Amount", DisplayName = "Cantidad", DataType = "int", DefaultValue = 5 },
+                new NodePropertyDefinition { Name = "DurationType", DisplayName = "Tipo Duración", DataType = "select",
+                    Options = new[] { "Turns", "Seconds", "Permanent" } },
+                new NodePropertyDefinition { Name = "Duration", DisplayName = "Duración", DataType = "int", DefaultValue = 5 },
+                new NodePropertyDefinition { Name = "IsRecurring", DisplayName = "Se Aplica Cada Turno/Segundo", DataType = "bool", DefaultValue = true }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_RemoveModifier",
+            DisplayName = "Modificador: Eliminar por Nombre",
+            Description = "Elimina un modificador temporal específico por nombre",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "PlayerStates",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "ModifierName", DisplayName = "Nombre del Modificador", DataType = "string", IsRequired = true }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_RemoveModifiersByState",
+            DisplayName = "Modificador: Eliminar por Estado",
+            Description = "Elimina todos los modificadores que afectan a un estado específico",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "PlayerStates",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "StateType", DisplayName = "Tipo de Estado", DataType = "select",
+                    Options = new[] { "Health", "MaxHealth", "Hunger", "Thirst", "Energy", "Sanity", "Mana", "MaxMana",
+                                      "Strength", "Constitution", "Intelligence", "Dexterity", "Charisma", "Gold" } }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_RemoveAllModifiers",
+            DisplayName = "Modificador: Eliminar Todos",
+            Description = "Elimina todos los modificadores temporales activos",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "PlayerStates",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_ProcessModifiers",
+            DisplayName = "Modificador: Procesar Tick",
+            Description = "Procesa todos los modificadores activos (aplica efectos recurrentes y elimina expirados)",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "PlayerStates",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
+                new NodePort { Name = "PlayerDied", PortType = PortType.Execution, Label = "Murió" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_StartConversation",
+            DisplayName = "Iniciar Conversación",
+            Description = "Inicia la conversación con un NPC",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "NpcId", DisplayName = "NPC", DataType = "string", EntityType = "Npc" }
+            }
+        });
     }
 
     #endregion
@@ -1533,6 +2309,195 @@ public static class NodeTypeRegistry
             Properties = new[]
             {
                 new NodePropertyDefinition { Name = "Value", DisplayName = "Valor", DataType = "bool", DefaultValue = false }
+            }
+        });
+
+        // === SUBGRUPO: ESTADOS DINÁMICOS DEL JUGADOR ===
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Variable_GetPlayerHealth",
+            DisplayName = "Estado: Salud",
+            Description = "Obtiene la salud actual del jugador (0-100)",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "PlayerStates",
+            InputPorts = Array.Empty<NodePort>(),
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "int", Label = "Salud" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Variable_GetPlayerMaxHealth",
+            DisplayName = "Estado: Salud Máxima",
+            Description = "Obtiene la salud máxima del jugador",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "PlayerStates",
+            InputPorts = Array.Empty<NodePort>(),
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "int", Label = "Salud Máx" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Variable_GetPlayerHunger",
+            DisplayName = "Estado: Hambre",
+            Description = "Obtiene el nivel de hambre del jugador (0=lleno, 100=muriendo)",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "BasicNeeds",
+            InputPorts = Array.Empty<NodePort>(),
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "int", Label = "Hambre" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Variable_GetPlayerThirst",
+            DisplayName = "Estado: Sed",
+            Description = "Obtiene el nivel de sed del jugador (0=hidratado, 100=deshidratado)",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "BasicNeeds",
+            InputPorts = Array.Empty<NodePort>(),
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "int", Label = "Sed" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Variable_GetPlayerEnergy",
+            DisplayName = "Estado: Energía",
+            Description = "Obtiene el nivel de energía del jugador (0=exhausto, 100=descansado)",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "PlayerStates",
+            InputPorts = Array.Empty<NodePort>(),
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "int", Label = "Energía" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Variable_GetPlayerSleep",
+            DisplayName = "Estado: Sueño",
+            Description = "Obtiene el nivel de sueño/cansancio del jugador (0=descansado, 100=agotado)",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "BasicNeeds",
+            InputPorts = Array.Empty<NodePort>(),
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "int", Label = "Sueño" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Variable_GetPlayerSanity",
+            DisplayName = "Estado: Cordura",
+            Description = "Obtiene el nivel de cordura del jugador (0=locura, 100=cuerdo)",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "PlayerStates",
+            InputPorts = Array.Empty<NodePort>(),
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "int", Label = "Cordura" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Variable_GetPlayerMana",
+            DisplayName = "Estado: Mana",
+            Description = "Obtiene el nivel de mana del jugador (0-100)",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "PlayerStates",
+            InputPorts = Array.Empty<NodePort>(),
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "int", Label = "Mana" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Variable_GetPlayerMaxMana",
+            DisplayName = "Estado: Mana Máximo",
+            Description = "Obtiene el mana máximo del jugador",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "PlayerStates",
+            InputPorts = Array.Empty<NodePort>(),
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "int", Label = "Mana Máx" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Variable_GetPlayerState",
+            DisplayName = "Estado: Obtener Estado (Genérico)",
+            Description = "Obtiene el valor de cualquier estado del jugador",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "PlayerStates",
+            InputPorts = Array.Empty<NodePort>(),
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "int", Label = "Valor" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "StateType", DisplayName = "Tipo de Estado", DataType = "select",
+                    Options = new[] { "Health", "MaxHealth", "Hunger", "Thirst", "Energy", "Sanity", "Mana", "MaxMana",
+                                      "Strength", "Constitution", "Intelligence", "Dexterity", "Charisma", "Gold" } }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Variable_GetActiveModifiersCount",
+            DisplayName = "Estado: Número de Modificadores",
+            Description = "Obtiene el número de modificadores temporales activos",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            InputPorts = Array.Empty<NodePort>(),
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "int", Label = "Cantidad" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Variable_HasModifier",
+            DisplayName = "Estado: Tiene Modificador",
+            Description = "Verifica si el jugador tiene un modificador activo por nombre",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            InputPorts = Array.Empty<NodePort>(),
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "bool", Label = "Tiene" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "ModifierName", DisplayName = "Nombre del Modificador", DataType = "string", IsRequired = true }
             }
         });
     }

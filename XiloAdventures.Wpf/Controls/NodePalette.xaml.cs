@@ -13,19 +13,23 @@ public partial class NodePalette : UserControl
 {
     private string _ownerType = string.Empty;
     private List<NodeTypeDefinition> _allNodes = new();
+    private GameInfo? _gameInfo;
 
     public NodePalette()
     {
         InitializeComponent();
     }
 
-    public void SetOwnerType(string ownerType)
+    public void SetOwnerType(string ownerType, GameInfo? gameInfo = null)
     {
         _ownerType = ownerType;
+        _gameInfo = gameInfo;
         SearchTextBox.Text = string.Empty;
 
-        // Obtener nodos disponibles para este tipo de entidad
-        _allNodes = NodeTypeRegistry.GetNodesForOwnerType(ownerType).ToList();
+        // Obtener nodos disponibles para este tipo de entidad, filtrados por características activas
+        _allNodes = gameInfo != null
+            ? NodeTypeRegistry.GetNodesForOwnerType(ownerType, gameInfo).ToList()
+            : NodeTypeRegistry.GetNodesForOwnerType(ownerType).ToList();
 
         RefreshNodeList();
     }

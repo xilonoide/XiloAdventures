@@ -21,9 +21,8 @@ public partial class App : Application
         AppDomain.CurrentDomain.UnhandledException += (sender, args) =>
         {
             var ex = args.ExceptionObject as Exception;
-            LogError($"Excepción no manejada en AppDomain: {ex}");
             MessageBox.Show(
-                $"Error crítico no manejado:\n{ex?.Message}\n\nStack:\n{ex?.StackTrace}\n\nVer log en el escritorio.",
+                $"Error crítico no manejado:\n{ex?.Message}\n\nStack:\n{ex?.StackTrace}",
                 "Error crítico",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
@@ -31,9 +30,8 @@ public partial class App : Application
 
         DispatcherUnhandledException += (sender, args) =>
         {
-            LogError($"Excepción no manejada en Dispatcher: {args.Exception}");
             MessageBox.Show(
-                $"Error en la interfaz:\n{args.Exception.Message}\n\nStack:\n{args.Exception.StackTrace}\n\nVer log en el escritorio.",
+                $"Error en la interfaz:\n{args.Exception.Message}\n\nStack:\n{args.Exception.StackTrace}",
                 "Error en UI",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
@@ -42,7 +40,6 @@ public partial class App : Application
 
         TaskScheduler.UnobservedTaskException += (sender, args) =>
         {
-            LogError($"Excepción no observada en Task: {args.Exception}");
             args.SetObserved();
         };
 
@@ -63,7 +60,6 @@ public partial class App : Application
 
             if (world == null)
             {
-                LogError("El mundo es null después de LoadEmbeddedWorld");
                 splash.Close();
                 MessageBox.Show(
                     "No se pudo cargar el mundo del juego.",
@@ -86,29 +82,21 @@ public partial class App : Application
 
                 if (File.Exists(autosavePath))
                 {
-                    LogError($"Autoguardado encontrado: {autosavePath}");
                     state = SaveManager.LoadFromPath(autosavePath, world);
 
                     // Validar que el autoguardado pertenece al mundo actual
                     if (!string.Equals(state.WorldId, world.Game.Id, StringComparison.OrdinalIgnoreCase))
                     {
-                        LogError($"Autoguardado incompatible: WorldId={state.WorldId}, esperado={world.Game.Id}. Creando estado inicial.");
                         state = WorldLoader.CreateInitialState(world);
-                    }
-                    else
-                    {
-                        LogError("Autoguardado cargado exitosamente");
                     }
                 }
                 else
                 {
-                    LogError("No se encontró autoguardado, creando estado inicial");
                     state = WorldLoader.CreateInitialState(world);
                 }
             }
-            catch (Exception ex)
+            catch
             {
-                LogError($"Error al cargar autoguardado: {ex.Message}, creando estado inicial");
                 state = WorldLoader.CreateInitialState(world);
             }
 
@@ -158,33 +146,16 @@ public partial class App : Application
             // Cerrar splash y mostrar ventana principal
             splash.Close();
             window.Show();
-            LogError("Ventana mostrada exitosamente");
         }
         catch (Exception ex)
         {
-            LogError($"Error en OnStartup: {ex}");
             splash.Close();
             MessageBox.Show(
-                $"Error al iniciar el juego: {ex.Message}\n\nStack Trace:\n{ex.StackTrace}\n\nSe ha guardado un log en el escritorio.",
+                $"Error al iniciar el juego: {ex.Message}\n\nStack Trace:\n{ex.StackTrace}",
                 "Error",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
             Shutdown();
-        }
-    }
-
-    private void LogError(string message)
-    {
-        try
-        {
-            var logPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
-                "XiloAdventures_Error.log");
-            File.AppendAllText(logPath, $"{DateTime.Now}: {message}\n\n");
-        }
-        catch
-        {
-            // Si no se puede escribir el log, ignorar
         }
     }
 
@@ -219,36 +190,24 @@ public partial class App : Application
             var assembly = Assembly.GetExecutingAssembly();
             var resourceName = "XiloAdventures.Wpf.Player.world.xaw";
 
-            LogError($"Buscando recurso: {resourceName}");
-            LogError($"Recursos disponibles: {string.Join(", ", assembly.GetManifestResourceNames())}");
-
             using var stream = assembly.GetManifestResourceStream(resourceName);
             if (stream == null)
             {
-                LogError("Stream del recurso es null");
                 return null;
             }
 
-            LogError($"Recurso encontrado, tamaño del stream: {stream.Length}");
-
             // Extraer el recurso a un archivo temporal para poder usar WorldLoader
             var tempPath = Path.Combine(Path.GetTempPath(), "temp_world.xaw");
-            LogError($"Extrayendo a: {tempPath}");
 
             using (var fileStream = File.Create(tempPath))
             {
                 stream.CopyTo(fileStream);
             }
 
-            LogError($"Archivo temporal creado, tamaño: {new FileInfo(tempPath).Length}");
-
             try
             {
                 // Usar WorldLoader para cargar correctamente el archivo (maneja Base64/ZIP)
-                LogError("Llamando a WorldLoader.LoadWorldModel...");
-                var world = WorldLoader.LoadWorldModel(tempPath);
-                LogError($"Mundo cargado exitosamente. Título: {world?.Game?.Title}");
-                return world;
+                return WorldLoader.LoadWorldModel(tempPath);
             }
             finally
             {
@@ -256,9 +215,8 @@ public partial class App : Application
                 try { File.Delete(tempPath); } catch { }
             }
         }
-        catch (Exception ex)
+        catch
         {
-            LogError($"Error en LoadEmbeddedWorld: {ex}");
             return null;
         }
     }

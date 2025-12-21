@@ -73,6 +73,7 @@ public partial class MainWindow : Window
         _engine.ConversationEnded += Engine_ConversationEnded;
         _engine.ShopOpened += Engine_ShopOpened;
         _engine.AdventureCompleted += Engine_AdventureCompleted;
+        _engine.PlayerDiedFromNeeds += Engine_PlayerDiedFromNeeds;
         _engine.TriggerInitialScripts(); // Disparar scripts iniciales después de suscribir eventos
 
         InitializeComponent();
@@ -639,6 +640,20 @@ public partial class MainWindow : Window
         {
             TimeLabel.Text = string.Empty;
         }
+
+        // Actualizar necesidades básicas
+        if (_world.Game.BasicNeedsEnabled)
+        {
+            BasicNeedsPanel.Visibility = Visibility.Visible;
+            var stats = _engine.State.Player.DynamicStats;
+            HungerBar.Value = stats.Hunger;
+            ThirstBar.Value = stats.Thirst;
+            SleepBar.Value = stats.Sleep;
+        }
+        else
+        {
+            BasicNeedsPanel.Visibility = Visibility.Collapsed;
+        }
     }
 
     private void Engine_RoomChanged(Room obj)
@@ -774,11 +789,58 @@ public partial class MainWindow : Window
             {
                 EndingText = _world.Game.EndingText,
                 LogoBase64 = null,
-                MusicBase64 = endingMusicBase64
+                MusicBase64 = endingMusicBase64,
+                CloseApplicationOnExit = false // No cerrar la app desde aquí
             };
 
             _sound.StopMusic();
             endingWindow.ShowDialog();
+
+            // Cerrar MainWindow si no estamos en modo editor
+            if (!_isRunningFromEditor)
+            {
+                Close();
+            }
+        });
+    }
+
+    private void Engine_PlayerDiedFromNeeds(string deathType)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            var deathText = deathType switch
+            {
+                "Hunger" => _world.Game.HungerDeathText,
+                "Thirst" => _world.Game.ThirstDeathText,
+                "Sleep" => _world.Game.SleepDeathText,
+                _ => "Has muerto."
+            };
+
+            var endingWindow = new EndingWindow
+            {
+                EndingText = deathText,
+                LogoBase64 = null,
+                MusicBase64 = null,
+                CloseApplicationOnExit = false // No cerrar la app desde aquí, lo haremos después
+            };
+
+            _sound.StopMusic();
+            endingWindow.ShowDialog();
+
+            // Si se ejecuta desde el editor, reiniciar el juego
+            if (_isRunningFromEditor)
+            {
+                var newState = WorldLoader.CreateInitialState(_world);
+                _engine.LoadState(newState);
+                UpdateStatusPanel();
+                UpdateRoomVisuals();
+                AppendSystemMessage("⟳ Has muerto. Reiniciando partida...");
+            }
+            else
+            {
+                // Cerrar MainWindow, lo que devolverá control a StartupWindow
+                Close();
+            }
         });
     }
 

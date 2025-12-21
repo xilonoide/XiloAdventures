@@ -52,4 +52,15 @@ public class CommandResult
 
         return new CommandResult(string.Join("\n", messages), !anyError);
     }
+
+    /// <summary>Añade un mensaje adicional al resultado.</summary>
+    public CommandResult AppendMessage(string additionalMessage)
+    {
+        if (string.IsNullOrWhiteSpace(additionalMessage))
+            return this;
+        var newMessage = string.IsNullOrWhiteSpace(Message)
+            ? additionalMessage
+            : $"{Message.TrimEnd()}\n{additionalMessage}";
+        return new CommandResult(newMessage, IsSuccess) { ClearScreenBefore = ClearScreenBefore };
+    }
 }
