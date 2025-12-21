@@ -63,7 +63,7 @@ public static class NodeTypeRegistry
 
         return requiredFeature switch
         {
-            "PlayerStates" => gameInfo.PlayerStatesEnabled,
+            "Combat" => gameInfo.CombatEnabled,
             "BasicNeeds" => gameInfo.BasicNeedsEnabled,
             _ => true
         };
@@ -378,7 +378,7 @@ public static class NodeTypeRegistry
             Description = "Se ejecuta cuando el jugador muere (salud llega a 0)",
             Category = NodeCategory.Event,
             OwnerTypes = new[] { "Game", "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             OutputPorts = new[]
             {
                 new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
@@ -392,7 +392,7 @@ public static class NodeTypeRegistry
             Description = "Se ejecuta cuando la salud baja de un umbral",
             Category = NodeCategory.Event,
             OwnerTypes = new[] { "Game", "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             OutputPorts = new[]
             {
                 new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
@@ -411,7 +411,7 @@ public static class NodeTypeRegistry
             Description = "Se ejecuta cuando la salud llega a un nivel crítico (por defecto 10%)",
             Category = NodeCategory.Event,
             OwnerTypes = new[] { "Game", "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             OutputPorts = new[]
             {
                 new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
@@ -468,7 +468,7 @@ public static class NodeTypeRegistry
             Description = "Se ejecuta cuando la energía baja de un umbral",
             Category = NodeCategory.Event,
             OwnerTypes = new[] { "Game", "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             OutputPorts = new[]
             {
                 new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
@@ -506,7 +506,7 @@ public static class NodeTypeRegistry
             Description = "Se ejecuta cuando la cordura baja de un umbral",
             Category = NodeCategory.Event,
             OwnerTypes = new[] { "Game", "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             OutputPorts = new[]
             {
                 new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
@@ -525,7 +525,7 @@ public static class NodeTypeRegistry
             Description = "Se ejecuta cuando el mana baja de un umbral",
             Category = NodeCategory.Event,
             OwnerTypes = new[] { "Game", "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             OutputPorts = new[]
             {
                 new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
@@ -544,7 +544,7 @@ public static class NodeTypeRegistry
             Description = "Se ejecuta cuando cualquier estado cruza un umbral (genérico)",
             Category = NodeCategory.Event,
             OwnerTypes = new[] { "Game", "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             OutputPorts = new[]
             {
                 new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
@@ -568,7 +568,7 @@ public static class NodeTypeRegistry
             Description = "Se ejecuta cuando se aplica un modificador al jugador",
             Category = NodeCategory.Event,
             OwnerTypes = new[] { "Game", "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             OutputPorts = new[]
             {
                 new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
@@ -583,7 +583,7 @@ public static class NodeTypeRegistry
             Description = "Se ejecuta cuando un modificador expira",
             Category = NodeCategory.Event,
             OwnerTypes = new[] { "Game", "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             OutputPorts = new[]
             {
                 new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
@@ -853,7 +853,7 @@ public static class NodeTypeRegistry
             Description = "Verifica si un estado del jugador está por encima de un umbral",
             Category = NodeCategory.Condition,
             OwnerTypes = new[] { "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             InputPorts = new[]
             {
                 new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
@@ -879,7 +879,7 @@ public static class NodeTypeRegistry
             Description = "Verifica si un estado del jugador está por debajo de un umbral",
             Category = NodeCategory.Condition,
             OwnerTypes = new[] { "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             InputPorts = new[]
             {
                 new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
@@ -905,7 +905,7 @@ public static class NodeTypeRegistry
             Description = "Verifica si un estado del jugador es igual a un valor",
             Category = NodeCategory.Condition,
             OwnerTypes = new[] { "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             InputPorts = new[]
             {
                 new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
@@ -931,7 +931,7 @@ public static class NodeTypeRegistry
             Description = "Verifica si un estado del jugador está entre dos valores",
             Category = NodeCategory.Condition,
             OwnerTypes = new[] { "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             InputPorts = new[]
             {
                 new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
@@ -958,7 +958,7 @@ public static class NodeTypeRegistry
             Description = "Verifica si el jugador tiene un modificador activo por nombre",
             Category = NodeCategory.Condition,
             OwnerTypes = new[] { "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             InputPorts = new[]
             {
                 new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
@@ -981,7 +981,7 @@ public static class NodeTypeRegistry
             Description = "Verifica si el jugador tiene un modificador activo que afecte a un estado específico",
             Category = NodeCategory.Condition,
             OwnerTypes = new[] { "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             InputPorts = new[]
             {
                 new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
@@ -1662,7 +1662,7 @@ public static class NodeTypeRegistry
             Description = "Restaura salud al jugador (sin exceder el máximo)",
             Category = NodeCategory.Action,
             OwnerTypes = new[] { "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             InputPorts = new[]
             {
                 new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
@@ -1684,7 +1684,7 @@ public static class NodeTypeRegistry
             Description = "Inflige daño al jugador (reduce salud)",
             Category = NodeCategory.Action,
             OwnerTypes = new[] { "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             InputPorts = new[]
             {
                 new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
@@ -1707,7 +1707,7 @@ public static class NodeTypeRegistry
             Description = "Restaura mana al jugador (sin exceder el máximo)",
             Category = NodeCategory.Action,
             OwnerTypes = new[] { "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             InputPorts = new[]
             {
                 new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
@@ -1729,7 +1729,7 @@ public static class NodeTypeRegistry
             Description = "Consume mana del jugador",
             Category = NodeCategory.Action,
             OwnerTypes = new[] { "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             InputPorts = new[]
             {
                 new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
@@ -1811,6 +1811,32 @@ public static class NodeTypeRegistry
             }
         });
 
+        // === VELOCIDAD DE NECESIDADES ===
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_SetNeedRate",
+            DisplayName = "Necesidades: Cambiar Velocidad",
+            Description = "Cambia la velocidad de incremento de una necesidad (hambre, sed o sueño)",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "BasicNeeds",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "NeedType", DisplayName = "Necesidad", DataType = "select",
+                    Options = new[] { "Hunger", "Thirst", "Sleep" } },
+                new NodePropertyDefinition { Name = "Rate", DisplayName = "Velocidad", DataType = "select",
+                    Options = new[] { "Low", "Normal", "High" } }
+            }
+        });
+
         Register(new NodeTypeDefinition
         {
             TypeId = "Action_RestoreAllStats",
@@ -1836,7 +1862,7 @@ public static class NodeTypeRegistry
             Description = "Aplica un modificador temporal a un estado del jugador",
             Category = NodeCategory.Action,
             OwnerTypes = new[] { "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             InputPorts = new[]
             {
                 new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
@@ -1866,7 +1892,7 @@ public static class NodeTypeRegistry
             Description = "Elimina un modificador temporal específico por nombre",
             Category = NodeCategory.Action,
             OwnerTypes = new[] { "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             InputPorts = new[]
             {
                 new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
@@ -1888,7 +1914,7 @@ public static class NodeTypeRegistry
             Description = "Elimina todos los modificadores que afectan a un estado específico",
             Category = NodeCategory.Action,
             OwnerTypes = new[] { "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             InputPorts = new[]
             {
                 new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
@@ -1912,7 +1938,7 @@ public static class NodeTypeRegistry
             Description = "Elimina todos los modificadores temporales activos",
             Category = NodeCategory.Action,
             OwnerTypes = new[] { "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             InputPorts = new[]
             {
                 new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
@@ -1930,7 +1956,7 @@ public static class NodeTypeRegistry
             Description = "Procesa todos los modificadores activos (aplica efectos recurrentes y elimina expirados)",
             Category = NodeCategory.Action,
             OwnerTypes = new[] { "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             InputPorts = new[]
             {
                 new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
@@ -2320,7 +2346,7 @@ public static class NodeTypeRegistry
             Description = "Obtiene la salud actual del jugador (0-100)",
             Category = NodeCategory.Variable,
             OwnerTypes = new[] { "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             InputPorts = Array.Empty<NodePort>(),
             OutputPorts = new[]
             {
@@ -2335,7 +2361,7 @@ public static class NodeTypeRegistry
             Description = "Obtiene la salud máxima del jugador",
             Category = NodeCategory.Variable,
             OwnerTypes = new[] { "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             InputPorts = Array.Empty<NodePort>(),
             OutputPorts = new[]
             {
@@ -2380,7 +2406,7 @@ public static class NodeTypeRegistry
             Description = "Obtiene el nivel de energía del jugador (0=exhausto, 100=descansado)",
             Category = NodeCategory.Variable,
             OwnerTypes = new[] { "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             InputPorts = Array.Empty<NodePort>(),
             OutputPorts = new[]
             {
@@ -2403,6 +2429,27 @@ public static class NodeTypeRegistry
             }
         });
 
+        // === VELOCIDAD DE NECESIDADES ===
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Variable_GetNeedRate",
+            DisplayName = "Necesidades: Obtener Velocidad",
+            Description = "Obtiene la velocidad de incremento de una necesidad (0=Lento, 1=Normal, 2=Rápido)",
+            Category = NodeCategory.Variable,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "BasicNeeds",
+            InputPorts = Array.Empty<NodePort>(),
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Value", PortType = PortType.Data, DataType = "int", Label = "Velocidad" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "NeedType", DisplayName = "Necesidad", DataType = "select",
+                    Options = new[] { "Hunger", "Thirst", "Sleep" } }
+            }
+        });
+
         Register(new NodeTypeDefinition
         {
             TypeId = "Variable_GetPlayerSanity",
@@ -2410,7 +2457,7 @@ public static class NodeTypeRegistry
             Description = "Obtiene el nivel de cordura del jugador (0=locura, 100=cuerdo)",
             Category = NodeCategory.Variable,
             OwnerTypes = new[] { "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             InputPorts = Array.Empty<NodePort>(),
             OutputPorts = new[]
             {
@@ -2425,7 +2472,7 @@ public static class NodeTypeRegistry
             Description = "Obtiene el nivel de mana del jugador (0-100)",
             Category = NodeCategory.Variable,
             OwnerTypes = new[] { "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             InputPorts = Array.Empty<NodePort>(),
             OutputPorts = new[]
             {
@@ -2440,7 +2487,7 @@ public static class NodeTypeRegistry
             Description = "Obtiene el mana máximo del jugador",
             Category = NodeCategory.Variable,
             OwnerTypes = new[] { "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             InputPorts = Array.Empty<NodePort>(),
             OutputPorts = new[]
             {
@@ -2455,7 +2502,7 @@ public static class NodeTypeRegistry
             Description = "Obtiene el valor de cualquier estado del jugador",
             Category = NodeCategory.Variable,
             OwnerTypes = new[] { "*" },
-            RequiredFeature = "PlayerStates",
+            RequiredFeature = "Combat",
             InputPorts = Array.Empty<NodePort>(),
             OutputPorts = new[]
             {

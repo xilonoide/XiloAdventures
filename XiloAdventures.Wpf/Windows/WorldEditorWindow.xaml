@@ -721,6 +721,55 @@
                                            Foreground="#AAAAAA"
                                            Margin="0,0,0,8"/>
 
+                                <!-- Estados de combate (solo visible en debug si están activos) -->
+                                <StackPanel x:Name="TestCombatPanel" Visibility="Collapsed" Margin="0,0,0,8">
+                                    <TextBlock Text="Combate"
+                                               FontWeight="Bold"
+                                               FontSize="14"
+                                               Foreground="White"
+                                               Margin="0,0,0,4"/>
+                                    <Grid Margin="0,0,0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="55"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Salud" FontSize="11" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                        <ProgressBar x:Name="TestHealthBar" Grid.Column="1" Height="12"
+                                                     Minimum="0" Maximum="100" Value="100"
+                                                     Foreground="#E53935" Background="#333"/>
+                                    </Grid>
+                                    <Grid Margin="0,0,0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="55"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Maná" FontSize="11" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                        <ProgressBar x:Name="TestManaBar" Grid.Column="1" Height="12"
+                                                     Minimum="0" Maximum="100" Value="100"
+                                                     Foreground="#42A5F5" Background="#333"/>
+                                    </Grid>
+                                    <Grid Margin="0,0,0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="55"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Energía" FontSize="11" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                        <ProgressBar x:Name="TestEnergyBar" Grid.Column="1" Height="12"
+                                                     Minimum="0" Maximum="100" Value="100"
+                                                     Foreground="#FDD835" Background="#333"/>
+                                    </Grid>
+                                    <Grid Margin="0,0,0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="55"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Cordura" FontSize="11" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                        <ProgressBar x:Name="TestSanityBar" Grid.Column="1" Height="12"
+                                                     Minimum="0" Maximum="100" Value="100"
+                                                     Foreground="#AB47BC" Background="#333"/>
+                                    </Grid>
+                                </StackPanel>
+
                                 <!-- Necesidades básicas (solo visible en debug si están activas) -->
                                 <StackPanel x:Name="TestBasicNeedsPanel" Visibility="Collapsed" Margin="0,0,0,8">
                                     <TextBlock Text="Necesidades"

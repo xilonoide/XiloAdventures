@@ -641,6 +641,23 @@ public partial class MainWindow : Window
             TimeLabel.Text = string.Empty;
         }
 
+        // Actualizar estados de combate
+        if (_world.Game.CombatEnabled)
+        {
+            CombatPanel.Visibility = Visibility.Visible;
+            var stats = _engine.State.Player.DynamicStats;
+            HealthBar.Value = stats.Health;
+            HealthBar.Maximum = stats.MaxHealth;
+            ManaBar.Value = stats.Mana;
+            ManaBar.Maximum = stats.MaxMana;
+            EnergyBar.Value = stats.Energy;
+            SanityBar.Value = stats.Sanity;
+        }
+        else
+        {
+            CombatPanel.Visibility = Visibility.Collapsed;
+        }
+
         // Actualizar necesidades básicas
         if (_world.Game.BasicNeedsEnabled)
         {

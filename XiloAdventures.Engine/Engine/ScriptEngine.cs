@@ -1209,7 +1209,45 @@ public class ScriptEngine
             ["Event_OnManaLow"] = async (node, ctx) => { await Task.CompletedTask; },
             ["Event_OnStateThreshold"] = async (node, ctx) => { await Task.CompletedTask; },
             ["Event_OnModifierApplied"] = async (node, ctx) => { await Task.CompletedTask; },
-            ["Event_OnModifierExpired"] = async (node, ctx) => { await Task.CompletedTask; }
+            ["Event_OnModifierExpired"] = async (node, ctx) => { await Task.CompletedTask; },
+
+            // === VELOCIDAD DE NECESIDADES ===
+            ["Action_SetNeedRate"] = async (node, ctx) =>
+            {
+                var needType = GetPropertyValue<string>(node, "NeedType", "Hunger");
+                var rateStr = GetPropertyValue<string>(node, "Rate", "Normal");
+
+                if (Enum.TryParse<NeedRate>(rateStr, out var rate))
+                {
+                    switch (needType)
+                    {
+                        case "Hunger":
+                            ctx.World.Game.HungerRate = rate;
+                            break;
+                        case "Thirst":
+                            ctx.World.Game.ThirstRate = rate;
+                            break;
+                        case "Sleep":
+                            ctx.World.Game.SleepRate = rate;
+                            break;
+                    }
+                    DebugMessage($"[Debug] Velocidad de {needType} cambiada a {rateStr}");
+                }
+                await Task.CompletedTask;
+            },
+            ["Variable_GetNeedRate"] = async (node, ctx) =>
+            {
+                var needType = GetPropertyValue<string>(node, "NeedType", "Hunger");
+                var rate = needType switch
+                {
+                    "Hunger" => ctx.World.Game.HungerRate,
+                    "Thirst" => ctx.World.Game.ThirstRate,
+                    "Sleep" => ctx.World.Game.SleepRate,
+                    _ => NeedRate.Normal
+                };
+                ctx.SetOutputValue(node.Id, "Value", (int)rate);
+                await Task.CompletedTask;
+            }
         };
     }
 

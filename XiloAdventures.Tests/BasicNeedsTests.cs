@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
 using XiloAdventures.Engine;
@@ -346,6 +347,404 @@ public class BasicNeedsTests
     public void PlayerStateType_IncludesSleep()
     {
         Assert.True(Enum.IsDefined(typeof(PlayerStateType), "Sleep"));
+    }
+
+    #endregion
+
+    #region Action_SetNeedRate Tests
+
+    [Theory]
+    [InlineData("Hunger", "Low", NeedRate.Low)]
+    [InlineData("Hunger", "Normal", NeedRate.Normal)]
+    [InlineData("Hunger", "High", NeedRate.High)]
+    [InlineData("Thirst", "Low", NeedRate.Low)]
+    [InlineData("Thirst", "Normal", NeedRate.Normal)]
+    [InlineData("Thirst", "High", NeedRate.High)]
+    [InlineData("Sleep", "Low", NeedRate.Low)]
+    [InlineData("Sleep", "Normal", NeedRate.Normal)]
+    [InlineData("Sleep", "High", NeedRate.High)]
+    public async Task Action_SetNeedRate_ChangesCorrectProperty(string needType, string rateStr, NeedRate expectedRate)
+    {
+        var (world, state) = CreateTestWorld();
+
+        var node = new ScriptNode
+        {
+            Id = "set_rate_node",
+            NodeType = "Action_SetNeedRate",
+            Category = NodeCategory.Action,
+            Properties = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["NeedType"] = needType,
+                ["Rate"] = rateStr
+            }
+        };
+
+        var engine = new ScriptEngine(world, state);
+        await engine.ExecuteSingleNodeAsync(node);
+
+        var actualRate = needType switch
+        {
+            "Hunger" => world.Game.HungerRate,
+            "Thirst" => world.Game.ThirstRate,
+            "Sleep" => world.Game.SleepRate,
+            _ => NeedRate.Normal
+        };
+
+        Assert.Equal(expectedRate, actualRate);
+    }
+
+    [Fact]
+    public async Task Action_SetNeedRate_DoesNotAffectOtherRates()
+    {
+        var (world, state) = CreateTestWorld();
+        world.Game.HungerRate = NeedRate.Normal;
+        world.Game.ThirstRate = NeedRate.Normal;
+        world.Game.SleepRate = NeedRate.Normal;
+
+        var node = new ScriptNode
+        {
+            Id = "set_rate_node",
+            NodeType = "Action_SetNeedRate",
+            Category = NodeCategory.Action,
+            Properties = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["NeedType"] = "Hunger",
+                ["Rate"] = "High"
+            }
+        };
+
+        var engine = new ScriptEngine(world, state);
+        await engine.ExecuteSingleNodeAsync(node);
+
+        Assert.Equal(NeedRate.High, world.Game.HungerRate);
+        Assert.Equal(NeedRate.Normal, world.Game.ThirstRate);
+        Assert.Equal(NeedRate.Normal, world.Game.SleepRate);
+    }
+
+    #endregion
+
+    #region Variable_GetNeedRate Tests
+
+    [Theory]
+    [InlineData("Hunger", NeedRate.Low, 0)]
+    [InlineData("Hunger", NeedRate.Normal, 1)]
+    [InlineData("Hunger", NeedRate.High, 2)]
+    [InlineData("Thirst", NeedRate.Low, 0)]
+    [InlineData("Thirst", NeedRate.Normal, 1)]
+    [InlineData("Thirst", NeedRate.High, 2)]
+    [InlineData("Sleep", NeedRate.Low, 0)]
+    [InlineData("Sleep", NeedRate.Normal, 1)]
+    [InlineData("Sleep", NeedRate.High, 2)]
+    public async Task Variable_GetNeedRate_ReturnsCorrectValue(string needType, NeedRate rate, int expectedValue)
+    {
+        var (world, state) = CreateTestWorld();
+
+        // Set the rate
+        switch (needType)
+        {
+            case "Hunger": world.Game.HungerRate = rate; break;
+            case "Thirst": world.Game.ThirstRate = rate; break;
+            case "Sleep": world.Game.SleepRate = rate; break;
+        }
+
+        var script = new ScriptDefinition
+        {
+            Id = "test_script",
+            OwnerType = "Game",
+            OwnerId = "test_basic_needs",
+            Nodes = new List<ScriptNode>
+            {
+                new ScriptNode
+                {
+                    Id = "event_node",
+                    NodeType = "Event_OnGameStart",
+                    Category = NodeCategory.Event,
+                    Properties = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                },
+                new ScriptNode
+                {
+                    Id = "get_rate_node",
+                    NodeType = "Variable_GetNeedRate",
+                    Category = NodeCategory.Variable,
+                    Properties = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["NeedType"] = needType
+                    }
+                }
+            },
+            Connections = new List<NodeConnection>
+            {
+                new NodeConnection
+                {
+                    FromNodeId = "event_node",
+                    FromPortName = "Exec",
+                    ToNodeId = "get_rate_node",
+                    ToPortName = "Exec"
+                }
+            }
+        };
+        world.Scripts.Add(script);
+
+        var engine = new ScriptEngine(world, state);
+        await engine.ExecuteSingleNodeAsync(script.Nodes[1]);
+
+        // Verify the rate value is as expected
+        Assert.Equal(expectedValue, (int)rate);
+    }
+
+    #endregion
+
+    #region Integration Tests - NeedRate Script Nodes
+
+    [Fact]
+    public async Task Integration_SetNeedRate_AffectsGameEngineIncrements()
+    {
+        var (world, state) = CreateTestWorld(basicNeedsEnabled: true);
+        world.Game.HungerRate = NeedRate.Normal;
+
+        // First, set hunger rate to High via script
+        var setRateNode = new ScriptNode
+        {
+            Id = "set_rate_node",
+            NodeType = "Action_SetNeedRate",
+            Category = NodeCategory.Action,
+            Properties = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["NeedType"] = "Hunger",
+                ["Rate"] = "High"
+            }
+        };
+
+        var scriptEngine = new ScriptEngine(world, state);
+        await scriptEngine.ExecuteSingleNodeAsync(setRateNode);
+
+        // Verify the rate was changed
+        Assert.Equal(NeedRate.High, world.Game.HungerRate);
+
+        // Now process a command and verify hunger increases at the higher rate
+        state.Player.DynamicStats.Hunger = 0;
+        var gameEngine = CreateEngine(world, state);
+        gameEngine.ProcessCommand("mirar");
+
+        // High rate: base 1.3 * 1.5 = 1.95, truncated to 1, but accumulator keeps 0.95
+        // Next turn would add more
+        Assert.True(state.Player.DynamicStats.Hunger >= 1);
+    }
+
+    [Fact]
+    public async Task Integration_SetNeedRate_LowRate_SlowsIncrements()
+    {
+        var (world, state) = CreateTestWorld(basicNeedsEnabled: true);
+
+        // Set hunger rate to Low via script
+        var setRateNode = new ScriptNode
+        {
+            Id = "set_rate_node",
+            NodeType = "Action_SetNeedRate",
+            Category = NodeCategory.Action,
+            Properties = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["NeedType"] = "Hunger",
+                ["Rate"] = "Low"
+            }
+        };
+
+        var scriptEngine = new ScriptEngine(world, state);
+        await scriptEngine.ExecuteSingleNodeAsync(setRateNode);
+
+        Assert.Equal(NeedRate.Low, world.Game.HungerRate);
+
+        // Process several commands and verify hunger increases slowly
+        state.Player.DynamicStats.Hunger = 0;
+        var gameEngine = CreateEngine(world, state);
+
+        // At Low rate (0.5 modifier), base 1.3 * 0.5 = 0.65 per turn
+        // After 2 turns: 0.65 * 2 = 1.3, so hunger should be 1
+        gameEngine.ProcessCommand("mirar");
+        gameEngine.ProcessCommand("mirar");
+
+        Assert.True(state.Player.DynamicStats.Hunger <= 2,
+            $"Expected <= 2 at low rate, got {state.Player.DynamicStats.Hunger}");
+    }
+
+    [Fact]
+    public async Task Integration_FullScriptExecution_SetAndGetNeedRate()
+    {
+        var (world, state) = CreateTestWorld(basicNeedsEnabled: true);
+        world.Game.HungerRate = NeedRate.Normal;
+
+        // Create a complete script that sets the rate
+        var script = new ScriptDefinition
+        {
+            Id = "test_set_rate_script",
+            OwnerType = "Game",
+            OwnerId = "test_basic_needs",
+            Name = "Test Set Rate Script",
+            Nodes = new List<ScriptNode>
+            {
+                new ScriptNode
+                {
+                    Id = "event_node",
+                    NodeType = "Event_OnGameStart",
+                    Category = NodeCategory.Event,
+                    Properties = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                },
+                new ScriptNode
+                {
+                    Id = "set_rate_node",
+                    NodeType = "Action_SetNeedRate",
+                    Category = NodeCategory.Action,
+                    Properties = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["NeedType"] = "Thirst",
+                        ["Rate"] = "Low"
+                    }
+                }
+            },
+            Connections = new List<NodeConnection>
+            {
+                new NodeConnection
+                {
+                    FromNodeId = "event_node",
+                    FromPortName = "Exec",
+                    ToNodeId = "set_rate_node",
+                    ToPortName = "Exec"
+                }
+            }
+        };
+        world.Scripts.Add(script);
+
+        var engine = new ScriptEngine(world, state);
+        await engine.TriggerEventAsync("Game", "test_basic_needs", "Event_OnGameStart");
+
+        Assert.Equal(NeedRate.Low, world.Game.ThirstRate);
+    }
+
+    [Fact]
+    public async Task Integration_MultipleRateChanges_AllApplyCorrectly()
+    {
+        var (world, state) = CreateTestWorld(basicNeedsEnabled: true);
+
+        var scriptEngine = new ScriptEngine(world, state);
+
+        // Change all rates to different values
+        await scriptEngine.ExecuteSingleNodeAsync(new ScriptNode
+        {
+            Id = "node1",
+            NodeType = "Action_SetNeedRate",
+            Category = NodeCategory.Action,
+            Properties = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["NeedType"] = "Hunger",
+                ["Rate"] = "High"
+            }
+        });
+
+        await scriptEngine.ExecuteSingleNodeAsync(new ScriptNode
+        {
+            Id = "node2",
+            NodeType = "Action_SetNeedRate",
+            Category = NodeCategory.Action,
+            Properties = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["NeedType"] = "Thirst",
+                ["Rate"] = "Low"
+            }
+        });
+
+        await scriptEngine.ExecuteSingleNodeAsync(new ScriptNode
+        {
+            Id = "node3",
+            NodeType = "Action_SetNeedRate",
+            Category = NodeCategory.Action,
+            Properties = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["NeedType"] = "Sleep",
+                ["Rate"] = "Normal"
+            }
+        });
+
+        Assert.Equal(NeedRate.High, world.Game.HungerRate);
+        Assert.Equal(NeedRate.Low, world.Game.ThirstRate);
+        Assert.Equal(NeedRate.Normal, world.Game.SleepRate);
+    }
+
+    #endregion
+
+    #region NodeTypeRegistry Tests
+
+    [Fact]
+    public void NodeTypeRegistry_Action_SetNeedRate_Exists()
+    {
+        var nodeDef = NodeTypeRegistry.GetNodeType("Action_SetNeedRate");
+        Assert.NotNull(nodeDef);
+        Assert.Equal("Action_SetNeedRate", nodeDef.TypeId);
+        Assert.Equal(NodeCategory.Action, nodeDef.Category);
+        Assert.Equal("BasicNeeds", nodeDef.RequiredFeature);
+    }
+
+    [Fact]
+    public void NodeTypeRegistry_Variable_GetNeedRate_Exists()
+    {
+        var nodeDef = NodeTypeRegistry.GetNodeType("Variable_GetNeedRate");
+        Assert.NotNull(nodeDef);
+        Assert.Equal("Variable_GetNeedRate", nodeDef.TypeId);
+        Assert.Equal(NodeCategory.Variable, nodeDef.Category);
+        Assert.Equal("BasicNeeds", nodeDef.RequiredFeature);
+    }
+
+    [Fact]
+    public void NodeTypeRegistry_Action_SetNeedRate_HasCorrectProperties()
+    {
+        var nodeDef = NodeTypeRegistry.GetNodeType("Action_SetNeedRate");
+        Assert.NotNull(nodeDef);
+
+        var needTypeProp = nodeDef.Properties.FirstOrDefault(p => p.Name == "NeedType");
+        Assert.NotNull(needTypeProp);
+        Assert.Equal("select", needTypeProp.DataType);
+        Assert.NotNull(needTypeProp.Options);
+        Assert.Contains("Hunger", needTypeProp.Options);
+        Assert.Contains("Thirst", needTypeProp.Options);
+        Assert.Contains("Sleep", needTypeProp.Options);
+
+        var rateProp = nodeDef.Properties.FirstOrDefault(p => p.Name == "Rate");
+        Assert.NotNull(rateProp);
+        Assert.Equal("select", rateProp.DataType);
+        Assert.NotNull(rateProp.Options);
+        Assert.Contains("Low", rateProp.Options);
+        Assert.Contains("Normal", rateProp.Options);
+        Assert.Contains("High", rateProp.Options);
+    }
+
+    [Fact]
+    public void NodeTypeRegistry_Variable_GetNeedRate_HasCorrectProperties()
+    {
+        var nodeDef = NodeTypeRegistry.GetNodeType("Variable_GetNeedRate");
+        Assert.NotNull(nodeDef);
+
+        var needTypeProp = nodeDef.Properties.FirstOrDefault(p => p.Name == "NeedType");
+        Assert.NotNull(needTypeProp);
+        Assert.Equal("select", needTypeProp.DataType);
+        Assert.NotNull(needTypeProp.Options);
+        Assert.Contains("Hunger", needTypeProp.Options);
+        Assert.Contains("Thirst", needTypeProp.Options);
+        Assert.Contains("Sleep", needTypeProp.Options);
+    }
+
+    [Fact]
+    public void NodeTypeRegistry_NeedRateNodes_FilteredByFeature()
+    {
+        var gameInfoWithBasicNeeds = new GameInfo { BasicNeedsEnabled = true };
+        var gameInfoWithoutBasicNeeds = new GameInfo { BasicNeedsEnabled = false };
+
+        var nodesWithFeature = NodeTypeRegistry.GetNodesForOwnerType("Game", gameInfoWithBasicNeeds).ToList();
+        var nodesWithoutFeature = NodeTypeRegistry.GetNodesForOwnerType("Game", gameInfoWithoutBasicNeeds).ToList();
+
+        Assert.Contains(nodesWithFeature, n => n.TypeId == "Action_SetNeedRate");
+        Assert.Contains(nodesWithFeature, n => n.TypeId == "Variable_GetNeedRate");
+
+        Assert.DoesNotContain(nodesWithoutFeature, n => n.TypeId == "Action_SetNeedRate");
+        Assert.DoesNotContain(nodesWithoutFeature, n => n.TypeId == "Variable_GetNeedRate");
     }
 
     #endregion

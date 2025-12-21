@@ -153,10 +153,10 @@ public class GameInfo
     /// <summary>ID de la música que suena al finalizar la aventura.</summary>
     public string? EndingMusicId { get; set; }
 
-    // === ESTADOS DEL JUGADOR ===
+    // === COMBATE ===
 
-    /// <summary>Activa el sistema de estados del jugador (salud, mana, energía, cordura).</summary>
-    public bool PlayerStatesEnabled { get; set; } = false;
+    /// <summary>Activa el sistema de combate (salud, maná, energía, cordura).</summary>
+    public bool CombatEnabled { get; set; } = false;
 
     // === NECESIDADES BÁSICAS ===
 
@@ -516,6 +516,11 @@ public class PlayerDynamicStats
 
     /// <summary>Mana máximo del jugador.</summary>
     public int MaxMana { get; set; } = 100;
+
+    // Acumuladores internos para incrementos fraccionarios de necesidades
+    internal double HungerAccumulator { get; set; } = 0;
+    internal double ThirstAccumulator { get; set; } = 0;
+    internal double SleepAccumulator { get; set; } = 0;
 }
 
 /// <summary>

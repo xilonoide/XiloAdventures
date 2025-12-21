@@ -555,6 +555,10 @@ public partial class NodePalette : UserControl
             "Select_Bool" => "Seleccionar entre 'amigo' o 'enemigo' según flag de reputación.",
             "Select_Int" => "Seleccionar entre precio normal o con descuento.",
 
+            // === VELOCIDAD DE NECESIDADES ===
+            "Action_SetNeedRate" => "Cambiar velocidad del hambre a 'Rápido' cuando entre en el desierto.",
+            "Variable_GetNeedRate" => "Obtener velocidad actual del hambre para mostrar en UI.",
+
             _ => ""
         };
     }

@@ -197,6 +197,55 @@
                     <TextBlock x:Name="StatsLabel"
                                TextWrapping="Wrap"
                                Margin="0,0,0,4"/>
+
+                    <!-- Estados de combate -->
+                    <StackPanel x:Name="CombatPanel" Visibility="Collapsed" Margin="0,0,0,8">
+                        <!-- Salud (rojo) -->
+                        <Grid Margin="0,0,0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="70"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Salud" VerticalAlignment="Center"/>
+                            <ProgressBar x:Name="HealthBar" Grid.Column="1" Height="12"
+                                         Minimum="0" Maximum="100" Value="100"
+                                         Foreground="#E53935" Background="#333"/>
+                        </Grid>
+                        <!-- Maná (azul claro) -->
+                        <Grid Margin="0,0,0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="70"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Maná" VerticalAlignment="Center"/>
+                            <ProgressBar x:Name="ManaBar" Grid.Column="1" Height="12"
+                                         Minimum="0" Maximum="100" Value="100"
+                                         Foreground="#42A5F5" Background="#333"/>
+                        </Grid>
+                        <!-- Energía (amarillo) -->
+                        <Grid Margin="0,0,0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="70"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Energía" VerticalAlignment="Center"/>
+                            <ProgressBar x:Name="EnergyBar" Grid.Column="1" Height="12"
+                                         Minimum="0" Maximum="100" Value="100"
+                                         Foreground="#FDD835" Background="#333"/>
+                        </Grid>
+                        <!-- Cordura (púrpura) -->
+                        <Grid Margin="0,0,0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="70"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Cordura" VerticalAlignment="Center"/>
+                            <ProgressBar x:Name="SanityBar" Grid.Column="1" Height="12"
+                                         Minimum="0" Maximum="100" Value="100"
+                                         Foreground="#AB47BC" Background="#333"/>
+                        </Grid>
+                    </StackPanel>
+
                     <TextBlock Text="Dinero"
                                FontWeight="Bold"
                                Margin="0,4,0,0"/>
@@ -218,33 +267,33 @@
                         <!-- Hambre (verde) -->
                         <Grid Margin="0,0,0,2">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="60"/>
+                                <ColumnDefinition Width="70"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="Hambre" FontSize="12" VerticalAlignment="Center"/>
-                            <ProgressBar x:Name="HungerBar" Grid.Column="1" Height="14"
+                            <TextBlock Text="Hambre" VerticalAlignment="Center"/>
+                            <ProgressBar x:Name="HungerBar" Grid.Column="1" Height="12"
                                          Minimum="0" Maximum="100" Value="0"
                                          Foreground="#4CAF50" Background="#333"/>
                         </Grid>
                         <!-- Sed (azul) -->
                         <Grid Margin="0,0,0,2">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="60"/>
+                                <ColumnDefinition Width="70"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="Sed" FontSize="12" VerticalAlignment="Center"/>
-                            <ProgressBar x:Name="ThirstBar" Grid.Column="1" Height="14"
+                            <TextBlock Text="Sed" VerticalAlignment="Center"/>
+                            <ProgressBar x:Name="ThirstBar" Grid.Column="1" Height="12"
                                          Minimum="0" Maximum="100" Value="0"
                                          Foreground="#2196F3" Background="#333"/>
                         </Grid>
                         <!-- Sueño (marrón) -->
                         <Grid Margin="0,0,0,2">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="60"/>
+                                <ColumnDefinition Width="70"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="Sueño" FontSize="12" VerticalAlignment="Center"/>
-                            <ProgressBar x:Name="SleepBar" Grid.Column="1" Height="14"
+                            <TextBlock Text="Sueño" VerticalAlignment="Center"/>
+                            <ProgressBar x:Name="SleepBar" Grid.Column="1" Height="12"
                                          Minimum="0" Maximum="100" Value="0"
                                          Foreground="#8B4513" Background="#333"/>
                         </Grid>

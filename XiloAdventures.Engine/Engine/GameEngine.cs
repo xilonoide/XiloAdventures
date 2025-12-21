@@ -2804,10 +2804,20 @@ public class GameEngine
         var stats = _state.Player.DynamicStats;
         var messages = new List<string>();
 
-        // Incrementar necesidades (tasas base: hambre=1.3, sed=1.0, sueño=0.7)
-        var hungerInc = (int)Math.Ceiling(1.3 * GetNeedRateModifier(_world.Game.HungerRate));
-        var thirstInc = (int)Math.Ceiling(1.0 * GetNeedRateModifier(_world.Game.ThirstRate));
-        var sleepInc = (int)Math.Ceiling(0.7 * GetNeedRateModifier(_world.Game.SleepRate));
+        // Acumular incrementos fraccionarios (tasas base: hambre=1.3, sed=1.0, sueño=0.7)
+        stats.HungerAccumulator += 1.3 * GetNeedRateModifier(_world.Game.HungerRate);
+        stats.ThirstAccumulator += 1.0 * GetNeedRateModifier(_world.Game.ThirstRate);
+        stats.SleepAccumulator += 0.7 * GetNeedRateModifier(_world.Game.SleepRate);
+
+        // Convertir acumuladores a incrementos enteros
+        var hungerInc = (int)stats.HungerAccumulator;
+        var thirstInc = (int)stats.ThirstAccumulator;
+        var sleepInc = (int)stats.SleepAccumulator;
+
+        // Restar la parte entera del acumulador
+        stats.HungerAccumulator -= hungerInc;
+        stats.ThirstAccumulator -= thirstInc;
+        stats.SleepAccumulator -= sleepInc;
 
         var oldHunger = stats.Hunger;
         var oldThirst = stats.Thirst;

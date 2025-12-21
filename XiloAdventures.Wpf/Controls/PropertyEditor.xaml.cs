@@ -615,6 +615,7 @@ public partial class PropertyEditor : UserControl
         {
             ["🔖 Identificación"] = new(),
             ["📝 Descripción"] = new(),
+            ["🎮 Sistemas"] = new(),
             ["🎵 Multimedia"] = new(),
             ["⚙️ Comportamiento"] = new(),
             ["📊 Estadísticas"] = new(),
@@ -647,6 +648,7 @@ public partial class PropertyEditor : UserControl
         {
             "🔖 Identificación",
             "📝 Descripción",
+            "🎮 Sistemas",
             "🎵 Multimedia",
             "⚙️ Comportamiento",
             "📊 Estadísticas",
@@ -673,6 +675,12 @@ public partial class PropertyEditor : UserControl
         if (name is "Description" or "Dialogue" or "TextContent")
             return "📝 Descripción";
 
+        // Sistemas (Combate y Necesidades básicas)
+        if (name is "CombatEnabled" or "BasicNeedsEnabled"
+            or "HungerRate" or "ThirstRate" or "SleepRate"
+            or "HungerDeathText" or "ThirstDeathText" or "SleepDeathText")
+            return "🎮 Sistemas";
+
         // Multimedia
         if (name.Contains("Image") || name.Contains("Music"))
             return "🎵 Multimedia";
@@ -685,7 +693,7 @@ public partial class PropertyEditor : UserControl
         if (name is "Visible" or "CanTake" or "Type" or "Gender" or "IsPlural" or "IsContainer" or "IsOpenable" or "IsOpen"
             or "IsLocked" or "ContentsVisible" or "IsIlluminated"
             or "IsInterior" or "StartHour" or "StartWeather" or "MinutesPerGameHour"
-            or "RequiredQuestId" or "RequiredQuestStatus" or "OpenFromSide")
+            or "RequiredQuestId" or "RequiredQuestStatus" or "OpenFromSide" or "EndingText")
             return "⚙️ Comportamiento";
 
         // Propiedades de llave de Door
@@ -723,12 +731,12 @@ public partial class PropertyEditor : UserControl
         if (name is "EncryptionKey")
             return "🔒 Seguridad";
 
-        // Parser Dictionary es especial
-        if (name is "ParserDictionaryJson")
-            return "⚙️ Comportamiento";
-
         // Tags
         if (name is "Tags")
+            return "🏷️ Otros";
+
+        // Parser Dictionary al final de Otros
+        if (name is "ParserDictionaryJson")
             return "🏷️ Otros";
 
         return "🏷️ Otros";
@@ -757,6 +765,22 @@ public partial class PropertyEditor : UserControl
             "RoomIdB" => 103,
             "Direction" => 104,
             "TargetRoomId" => 105,
+
+            // Texto de finalización al final de Comportamiento
+            "EndingText" => 200,
+
+            // Sistemas (Combate y Necesidades básicas)
+            "CombatEnabled" => 0,
+            "BasicNeedsEnabled" => 10,
+            "HungerRate" => 11,
+            "ThirstRate" => 12,
+            "SleepRate" => 13,
+            "HungerDeathText" => 14,
+            "ThirstDeathText" => 15,
+            "SleepDeathText" => 16,
+
+            // Parser Dictionary al final de Otros
+            "ParserDictionaryJson" => 999,
 
             // Orden para propiedades de contenedor (GameObject)
             "Type" => 10,
@@ -1299,6 +1323,85 @@ public partial class PropertyEditor : UserControl
 
                     editor = genderPanel;
                 }
+                // Caso especial para NeedRate: mostrar radio buttons en español
+                else if (prop.PropertyType == typeof(NeedRate))
+                {
+                    var currentRate = (NeedRate)(prop.GetValue(obj) ?? NeedRate.Normal);
+
+                    var radioPanel = new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal,
+                        Margin = new Thickness(0, 2, 0, 0)
+                    };
+
+                    var rbLow = new RadioButton
+                    {
+                        Content = "Lento",
+                        GroupName = $"NeedRate_{prop.Name}_{obj.GetHashCode()}",
+                        IsChecked = currentRate == NeedRate.Low,
+                        Margin = new Thickness(0, 0, 12, 0),
+                        VerticalContentAlignment = VerticalAlignment.Center,
+                        Foreground = Brushes.White
+                    };
+
+                    var rbNormal = new RadioButton
+                    {
+                        Content = "Normal",
+                        GroupName = $"NeedRate_{prop.Name}_{obj.GetHashCode()}",
+                        IsChecked = currentRate == NeedRate.Normal,
+                        Margin = new Thickness(0, 0, 12, 0),
+                        VerticalContentAlignment = VerticalAlignment.Center,
+                        Foreground = Brushes.White
+                    };
+
+                    var rbHigh = new RadioButton
+                    {
+                        Content = "Rápido",
+                        GroupName = $"NeedRate_{prop.Name}_{obj.GetHashCode()}",
+                        IsChecked = currentRate == NeedRate.High,
+                        VerticalContentAlignment = VerticalAlignment.Center,
+                        Foreground = Brushes.White
+                    };
+
+                    rbLow.Checked += (_, _) =>
+                    {
+                        try
+                        {
+                            if (_currentObject is not { } target) return;
+                            prop.SetValue(target, NeedRate.Low);
+                            PropertyEdited?.Invoke(target, prop.Name);
+                        }
+                        catch { }
+                    };
+
+                    rbNormal.Checked += (_, _) =>
+                    {
+                        try
+                        {
+                            if (_currentObject is not { } target) return;
+                            prop.SetValue(target, NeedRate.Normal);
+                            PropertyEdited?.Invoke(target, prop.Name);
+                        }
+                        catch { }
+                    };
+
+                    rbHigh.Checked += (_, _) =>
+                    {
+                        try
+                        {
+                            if (_currentObject is not { } target) return;
+                            prop.SetValue(target, NeedRate.High);
+                            PropertyEdited?.Invoke(target, prop.Name);
+                        }
+                        catch { }
+                    };
+
+                    radioPanel.Children.Add(rbLow);
+                    radioPanel.Children.Add(rbNormal);
+                    radioPanel.Children.Add(rbHigh);
+
+                    editor = radioPanel;
+                }
                 else
                 {
                     // Enum normal
@@ -1635,7 +1738,7 @@ public partial class PropertyEditor : UserControl
 
                 var editButton = new Button
                 {
-                    Content = hasContent ? "📖 Editar diccionario..." : "📖 Crear diccionario...",
+                    Content = "📖 Editar diccionario...",
                     Padding = new Thickness(12, 6, 12, 6),
                     Background = new SolidColorBrush(Color.FromRgb(0x3A, 0x3A, 0x3A)),
                     Foreground = Brushes.White,
@@ -1666,9 +1769,8 @@ public partial class PropertyEditor : UserControl
                         prop.SetValue(gameInfoForParser, editorWindow.ResultJson);
                         PropertyEdited?.Invoke(gameInfoForParser, prop.Name);
 
-                        // Update button text and status
+                        // Update status
                         var newHasContent = !string.IsNullOrWhiteSpace(editorWindow.ResultJson);
-                        editButton.Content = newHasContent ? "📖 Editar diccionario..." : "📖 Crear diccionario...";
                         statusText.Text = newHasContent ? " ✓ Configurado" : "";
                     }
                 };
@@ -2292,6 +2394,16 @@ public partial class PropertyEditor : UserControl
         ["GameInfo.EncryptionKey"] = "Clave de cifrado",
         ["GameInfo.EndingText"] = "Texto de finalización",
         ["GameInfo.EndingMusicId"] = "Música de finalización",
+        ["GameInfo.TestModeAiEnabled"] = "IA en modo pruebas",
+        ["GameInfo.TestModeSoundEnabled"] = "Sonido en modo pruebas",
+        ["GameInfo.CombatEnabled"] = "Combate activo",
+        ["GameInfo.BasicNeedsEnabled"] = "Necesidades básicas activas",
+        ["GameInfo.HungerRate"] = "Velocidad de hambre",
+        ["GameInfo.ThirstRate"] = "Velocidad de sed",
+        ["GameInfo.SleepRate"] = "Velocidad de sueño",
+        ["GameInfo.HungerDeathText"] = "Texto de muerte por hambre",
+        ["GameInfo.ThirstDeathText"] = "Texto de muerte por sed",
+        ["GameInfo.SleepDeathText"] = "Texto de muerte por agotamiento",
 
         // Sala
         ["Room.Name"] = "Nombre",
@@ -2548,6 +2660,14 @@ public partial class PropertyEditor : UserControl
                 return true;
         }
 
+        // Propiedades de necesidades básicas (subpropiedades de BasicNeedsEnabled)
+        if (obj is GameInfo)
+        {
+            if (name is "HungerRate" or "ThirstRate" or "SleepRate"
+                or "HungerDeathText" or "ThirstDeathText" or "SleepDeathText")
+                return true;
+        }
+
         return false;
     }
 
@@ -2575,6 +2695,20 @@ public partial class PropertyEditor : UserControl
                 // Propiedades de contenedor solo visibles si IsContainer = true
                 "IsOpenable" or "IsLocked" or "ContentsVisible" or "MaxCapacity" or "ContainedObjectIds"
                     => () => gameObject.IsContainer,
+
+                _ => null
+            };
+        }
+
+        // Condiciones para GameInfo
+        if (obj is GameInfo gameInfo)
+        {
+            return name switch
+            {
+                // Propiedades de necesidades básicas solo visibles si BasicNeedsEnabled = true
+                "HungerRate" or "ThirstRate" or "SleepRate"
+                or "HungerDeathText" or "ThirstDeathText" or "SleepDeathText"
+                    => () => gameInfo.BasicNeedsEnabled,
 
                 _ => null
             };

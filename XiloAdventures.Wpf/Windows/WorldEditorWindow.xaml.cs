@@ -1589,8 +1589,25 @@ public partial class WorldEditorWindow : Window
             TestInventoryLabel.Text = string.Join("\n", items);
         }
 
-        // Necesidades básicas (solo visibles si están activas y en modo debug)
-        if (_testWorld.Game.BasicNeedsEnabled && TestDebugToggle.IsChecked == true)
+        // Estados de combate (visibles si están activos)
+        if (_testWorld.Game.CombatEnabled)
+        {
+            TestCombatPanel.Visibility = Visibility.Visible;
+            var dynamicStats = state.Player.DynamicStats;
+            TestHealthBar.Value = dynamicStats.Health;
+            TestHealthBar.Maximum = dynamicStats.MaxHealth;
+            TestManaBar.Value = dynamicStats.Mana;
+            TestManaBar.Maximum = dynamicStats.MaxMana;
+            TestEnergyBar.Value = dynamicStats.Energy;
+            TestSanityBar.Value = dynamicStats.Sanity;
+        }
+        else
+        {
+            TestCombatPanel.Visibility = Visibility.Collapsed;
+        }
+
+        // Necesidades básicas (visibles si están activas)
+        if (_testWorld.Game.BasicNeedsEnabled)
         {
             TestBasicNeedsPanel.Visibility = Visibility.Visible;
             var dynamicStats = state.Player.DynamicStats;
