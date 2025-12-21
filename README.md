@@ -399,7 +399,7 @@ dotnet test
 
 Consulta la [Wiki](https://github.com/xilonoide/XiloAdventures/wiki) para guías detalladas:
 
-- [General](https://github.com/xilonoide/XiloAdventures/wiki/general) - Visión general del proyecto
+- [Home](https://github.com/xilonoide/XiloAdventures/wiki) - Visión general del proyecto
 - [Editor](https://github.com/xilonoide/XiloAdventures/wiki/editor) - Guía completa del editor
 - [Player](https://github.com/xilonoide/XiloAdventures/wiki/player) - Manual del jugador
 
