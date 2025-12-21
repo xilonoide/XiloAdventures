@@ -65,7 +65,7 @@ public partial class MainWindow : Window
         _sound = soundManager;
         _uiSettings = uiSettings;
         _isRunningFromEditor = isRunningFromEditor;
-        _engine = new GameEngine(world, state, _sound);
+        _engine = new GameEngine(world, state, _sound, _isRunningFromEditor);
         _engine.RoomChanged += Engine_RoomChanged;
         _engine.ScriptMessage += Engine_ScriptMessage;
         _engine.ConversationDialogue += Engine_ConversationDialogue;

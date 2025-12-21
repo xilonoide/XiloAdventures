@@ -15,10 +15,11 @@ public partial class PromptGeneratorWindow : Window
 {
   ""Game"": {
     ""Id"": ""game"",
-    ""Title"": ""Nombre del juego"",
+    ""Title"": ""Título acorde a la temática {THEME}"",
     ""StartRoomId"": ""id_sala_inicial"",
     ""StartHour"": 9,
     ""StartWeather"": ""Despejado"",
+    ""MinutesPerGameHour"": 6,
     ""ParserDictionaryJson"": null
   },
   ""Player"": {
@@ -38,6 +39,8 @@ public partial class PromptGeneratorWindow : Window
       ""Id"": ""room_id"",
       ""Name"": ""Nombre visible"",
       ""Description"": ""Descripción de la sala"",
+      ""IsInterior"": false,
+      ""IsIlluminated"": true,
       ""Exits"": [
         { ""TargetRoomId"": ""otra_sala"", ""Direction"": ""norte"", ""DoorId"": ""door_id o null"" }
       ]
@@ -52,8 +55,14 @@ public partial class PromptGeneratorWindow : Window
       ""TextContent"": ""Contenido legible (solo para Type=texto)"",
       ""Gender"": ""Masculine|Feminine"",
       ""RoomId"": ""room_id o null si está en inventario/contenedor"",
+      ""Visible"": true,
       ""CanTake"": true,
       ""IsContainer"": false,
+      ""IsOpenable"": false,
+      ""IsOpen"": true,
+      ""IsLocked"": false,
+      ""KeyId"": ""obj_llave_id si IsLocked=true, sino null"",
+      ""ContentsVisible"": true,
       ""ContainedObjectIds"": [],
       ""MaxCapacity"": 50000,
       ""Volume"": 10,
@@ -67,64 +76,114 @@ public partial class PromptGeneratorWindow : Window
       ""Name"": ""Nombre"",
       ""Description"": ""Descripción del NPC y su personalidad"",
       ""RoomId"": ""room_id"",
+      ""Visible"": true,
+      ""ConversationId"": ""conversation_id o null"",
       ""InventoryObjectIds"": [],
       ""IsShopkeeper"": false,
       ""ShopInventory"": [],
       ""BuyPriceMultiplier"": 0.5,
       ""SellPriceMultiplier"": 1.0,
-      ""PatrolRoute"": [""room_id_1"", ""room_id_2"", ""room_id_3""],
+      ""PatrolRoute"": [],
+      ""IsPatrolling"": false,
+      ""PatrolMovementMode"": ""Turns"",
       ""PatrolSpeed"": 1,
+      ""PatrolTimeInterval"": 3.0,
       ""IsFollowingPlayer"": false,
-      ""FollowSpeed"": 100
+      ""FollowMovementMode"": ""Turns"",
+      ""FollowSpeed"": 1,
+      ""FollowTimeInterval"": 3.0,
+      ""Stats"": {
+        ""Level"": 1,
+        ""Strength"": 5,
+        ""Dexterity"": 5,
+        ""Intelligence"": 5,
+        ""MaxHealth"": 10,
+        ""CurrentHealth"": 10,
+        ""Gold"": 0
+      }
     }
   ],
   ""Doors"": [
     {
       ""Id"": ""door_id"",
       ""Name"": ""Nombre de la puerta"",
+      ""Description"": ""Descripción opcional"",
       ""Gender"": ""Feminine"",
       ""RoomIdA"": ""sala_1"",
       ""RoomIdB"": ""sala_2"",
       ""IsOpen"": false,
       ""IsLocked"": true,
-      ""KeyObjectId"": ""obj_llave o null""
+      ""KeyObjectId"": ""obj_llave o null"",
+      ""OpenFromSide"": ""Both""
     }
   ],
   ""Quests"": [
     {
       ""Id"": ""quest_id"",
       ""Name"": ""Nombre misión"",
-      ""Description"": ""Descripción""
+      ""Description"": ""Descripción"",
+      ""Objectives"": [""Objetivo 1"", ""Objetivo 2""]
+    }
+  ],
+  ""Conversations"": [
+    {
+      ""Id"": ""conversation_id"",
+      ""Name"": ""Nombre de la conversación"",
+      ""Nodes"": [
+        { ""Id"": ""conv_start_1"", ""NodeType"": ""Conversation_Start"", ""X"": 100, ""Y"": 100, ""Properties"": {} },
+        { ""Id"": ""conv_say_1"", ""NodeType"": ""Conversation_NpcSay"", ""X"": 300, ""Y"": 100, ""Properties"": { ""Text"": ""¡Hola viajero!"", ""SpeakerName"": """", ""Emotion"": ""Neutral"" } },
+        { ""Id"": ""conv_end_1"", ""NodeType"": ""Conversation_End"", ""X"": 500, ""Y"": 100, ""Properties"": {} }
+      ],
+      ""Connections"": [
+        { ""FromNodeId"": ""conv_start_1"", ""FromPortName"": ""Exec"", ""ToNodeId"": ""conv_say_1"", ""ToPortName"": ""Exec"" },
+        { ""FromNodeId"": ""conv_say_1"", ""FromPortName"": ""Exec"", ""ToNodeId"": ""conv_end_1"", ""ToPortName"": ""Exec"" }
+      ],
+      ""StartNodeId"": ""conv_start_1""
     }
   ],
   ""Scripts"": [
     {
-      ""Id"": ""script_id"",
-      ""Name"": ""Nombre descriptivo"",
-      ""OwnerType"": ""Room|GameObject|Npc|Door|Quest|Game"",
-      ""OwnerId"": ""id_del_dueño"",
+      ""Id"": ""script_game_start"",
+      ""Name"": ""Inicio del juego"",
+      ""OwnerType"": ""Game"",
+      ""OwnerId"": ""game"",
       ""Nodes"": [
-        {
-          ""Id"": ""node_uuid"",
-          ""NodeType"": ""tipo_de_nodo"",
-          ""X"": 100,
-          ""Y"": 100,
-          ""Properties"": { ""propiedad"": ""valor"" }
-        }
+        { ""Id"": ""node_event_1"", ""NodeType"": ""Event_OnGameStart"", ""X"": 100, ""Y"": 100, ""Properties"": {} },
+        { ""Id"": ""node_quest_1"", ""NodeType"": ""Action_StartQuest"", ""X"": 300, ""Y"": 100, ""Properties"": { ""QuestId"": ""quest_principal"" } },
+        { ""Id"": ""node_msg_1"", ""NodeType"": ""Action_ShowMessage"", ""X"": 500, ""Y"": 100, ""Properties"": { ""Message"": ""¡Bienvenido a la aventura!"" } }
       ],
       ""Connections"": [
-        {
-          ""FromNodeId"": ""node_id"",
-          ""FromPortName"": ""Exec"",
-          ""ToNodeId"": ""otro_node_id"",
-          ""ToPortName"": ""Exec""
-        }
+        { ""FromNodeId"": ""node_event_1"", ""FromPortName"": ""Exec"", ""ToNodeId"": ""node_quest_1"", ""ToPortName"": ""Exec"" },
+        { ""FromNodeId"": ""node_quest_1"", ""FromPortName"": ""Exec"", ""ToNodeId"": ""node_msg_1"", ""ToPortName"": ""Exec"" }
+      ]
+    },
+    {
+      ""Id"": ""script_npc_give_item"",
+      ""Name"": ""NPC da objeto oculto (EJEMPLO CORRECTO)"",
+      ""OwnerType"": ""Npc"",
+      ""OwnerId"": ""npc_ejemplo"",
+      ""Nodes"": [
+        { ""Id"": ""n1"", ""NodeType"": ""Event_OnTalk"", ""X"": 100, ""Y"": 100, ""Properties"": {} },
+        { ""Id"": ""n2"", ""NodeType"": ""Condition_HasFlag"", ""X"": 300, ""Y"": 100, ""Properties"": { ""FlagName"": ""obj_entregado"" } },
+        { ""Id"": ""n3"", ""NodeType"": ""Action_ShowMessage"", ""X"": 500, ""Y"": 50, ""Properties"": { ""Message"": ""Ya te lo di."" } },
+        { ""Id"": ""n4"", ""NodeType"": ""Action_SetObjectVisible"", ""X"": 500, ""Y"": 150, ""Properties"": { ""ObjectId"": ""obj_oculto"", ""Visible"": true } },
+        { ""Id"": ""n5"", ""NodeType"": ""Action_GiveItem"", ""X"": 700, ""Y"": 150, ""Properties"": { ""ObjectId"": ""obj_oculto"" } },
+        { ""Id"": ""n6"", ""NodeType"": ""Action_SetFlag"", ""X"": 900, ""Y"": 150, ""Properties"": { ""FlagName"": ""obj_entregado"", ""Value"": true } },
+        { ""Id"": ""n7"", ""NodeType"": ""Action_ShowMessage"", ""X"": 1100, ""Y"": 150, ""Properties"": { ""Message"": ""Toma, te doy esto."" } }
+      ],
+      ""Connections"": [
+        { ""FromNodeId"": ""n1"", ""FromPortName"": ""Exec"", ""ToNodeId"": ""n2"", ""ToPortName"": ""Exec"" },
+        { ""FromNodeId"": ""n2"", ""FromPortName"": ""True"", ""ToNodeId"": ""n3"", ""ToPortName"": ""Exec"" },
+        { ""FromNodeId"": ""n2"", ""FromPortName"": ""False"", ""ToNodeId"": ""n4"", ""ToPortName"": ""Exec"" },
+        { ""FromNodeId"": ""n4"", ""FromPortName"": ""Exec"", ""ToNodeId"": ""n5"", ""ToPortName"": ""Exec"" },
+        { ""FromNodeId"": ""n5"", ""FromPortName"": ""Exec"", ""ToNodeId"": ""n6"", ""ToPortName"": ""Exec"" },
+        { ""FromNodeId"": ""n6"", ""FromPortName"": ""Exec"", ""ToNodeId"": ""n7"", ""ToPortName"": ""Exec"" }
       ]
     }
   ],
   ""RoomPositions"": {
-    ""room_id"": { ""X"": 0, ""Y"": 0 },
-    ""otra_sala"": { ""X"": 0, ""Y"": -150 }
+    ""room_id"": { ""X"": 80, ""Y"": 45 },
+    ""otra_sala"": { ""X"": 80, ""Y"": -135 }
   }
 }
 ```
@@ -138,7 +197,6 @@ public partial class PromptGeneratorWindow : Window
 - `Event_OnGameEnd` - Al finalizar el juego (OwnerType: Game)
 - `Event_EveryMinute` - Cada minuto de juego (OwnerType: Game)
 - `Event_EveryHour` - Cada hora de juego (OwnerType: Game)
-- `Event_OnTurnStart` - Al inicio de cada turno (OwnerType: Game)
 - `Event_OnWeatherChange` - Al cambiar el clima (OwnerType: Game)
 - `Event_OnEnter` - Al entrar a la sala (OwnerType: Room)
 - `Event_OnExit` - Al salir de la sala (OwnerType: Room)
@@ -160,23 +218,24 @@ public partial class PromptGeneratorWindow : Window
 - `Event_OnQuestStart` - Al iniciar misión (OwnerType: Quest)
 - `Event_OnQuestComplete` - Al completar misión (OwnerType: Quest)
 - `Event_OnQuestFail` - Al fallar misión (OwnerType: Quest)
+- `Event_OnObjectiveComplete` - Al completar un objetivo de misión (OwnerType: Quest)
 
 ### Condiciones (puerto entrada ""Exec"", puertos salida ""True""/""False""):
 - `Condition_HasFlag` - Properties: { ""FlagName"": ""nombre"" }
 - `Condition_HasItem` - Properties: { ""ObjectId"": ""obj_id"" }
 - `Condition_IsDoorOpen` - Properties: { ""DoorId"": ""door_id"" }
-- `Condition_CompareCounter` - Properties: { ""CounterName"": ""nombre"", ""Operator"": "">="", ""Value"": 5 }
+- `Condition_CompareCounter` - Properties: { ""CounterName"": ""nombre"", ""Operator"": "">="", ""Value"": 5 } (Operators: ==, !=, <, <=, >, >=)
 - `Condition_IsInRoom` - Properties: { ""RoomId"": ""room_id"" }
-- `Condition_IsQuestStatus` - Properties: { ""QuestId"": ""quest_id"", ""Status"": ""InProgress"" }
-- `Condition_IsTimeOfDay` - Properties: { ""TimeOfDay"": ""Dia"" } (valores: Dia, Noche, Amanecer, Atardecer)
+- `Condition_IsQuestStatus` - Properties: { ""QuestId"": ""quest_id"", ""Status"": ""InProgress"" } (Status: NotStarted, InProgress, Completed, Failed)
+- `Condition_IsTimeOfDay` - Properties: { ""TimeRange"": ""Manana"" } (valores: Manana, Tarde, Noche, Madrugada)
 - `Condition_IsNpcVisible` - Properties: { ""NpcId"": ""npc_id"" }
 - `Condition_IsPatrolling` - Comprueba si NPC está patrullando. Properties: { ""NpcId"": ""npc_id"" }
 - `Condition_IsFollowingPlayer` - Comprueba si NPC sigue al jugador. Properties: { ""NpcId"": ""npc_id"" }
-- `Condition_Random` - Properties: { ""Probability"": 50 }
+- `Condition_Random` - Properties: { ""Probability"": 50 } (0-100)
 
 ### Acciones (puerto entrada ""Exec"", puerto salida ""Exec""):
 - `Action_ShowMessage` - Properties: { ""Message"": ""texto"" }
-- `Action_GiveItem` - Properties: { ""ObjectId"": ""obj_id"" }
+- `Action_GiveItem` - Da un objeto al jugador. Properties: { ""ObjectId"": ""obj_id"" } **IMPORTANTE: El objeto NO debe estar en InventoryObjectIds de ningún NPC**
 - `Action_RemoveItem` - Properties: { ""ObjectId"": ""obj_id"" }
 - `Action_OpenDoor` - Properties: { ""DoorId"": ""door_id"" }
 - `Action_CloseDoor` - Properties: { ""DoorId"": ""door_id"" }
@@ -189,8 +248,11 @@ public partial class PromptGeneratorWindow : Window
 - `Action_MoveNpc` - Properties: { ""NpcId"": ""npc_id"", ""RoomId"": ""room_id"" }
 - `Action_StartPatrol` - Inicia patrulla del NPC. Properties: { ""NpcId"": ""npc_id"" }
 - `Action_StopPatrol` - Detiene patrulla del NPC. Properties: { ""NpcId"": ""npc_id"" }
-- `Action_FollowPlayer` - NPC empieza a seguir al jugador. Properties: { ""NpcId"": ""npc_id"", ""Speed"": 100 } (Speed: 100=cada turno, 50=cada 2, 25=cada 4)
+- `Action_PatrolStep` - Mueve manualmente el NPC al siguiente punto de su ruta. Properties: { ""NpcId"": ""npc_id"" }
+- `Action_SetPatrolMode` - Configura modo de patrulla. Properties: { ""NpcId"": ""npc_id"", ""Mode"": ""Turns"", ""TurnSpeed"": 1, ""TimeInterval"": 3.0 } (Mode: Turns/Time)
+- `Action_FollowPlayer` - NPC empieza a seguir al jugador. Properties: { ""NpcId"": ""npc_id"", ""Speed"": 1 }
 - `Action_StopFollowing` - NPC deja de seguir al jugador. Properties: { ""NpcId"": ""npc_id"" }
+- `Action_SetFollowMode` - Configura modo de seguimiento. Properties: { ""NpcId"": ""npc_id"", ""Mode"": ""Turns"", ""TurnSpeed"": 1, ""TimeInterval"": 3.0 } (Mode: Turns/Time)
 - `Action_StartQuest` - Properties: { ""QuestId"": ""quest_id"" }
 - `Action_CompleteQuest` - Properties: { ""QuestId"": ""quest_id"" }
 - `Action_FailQuest` - Properties: { ""QuestId"": ""quest_id"" }
@@ -198,21 +260,51 @@ public partial class PromptGeneratorWindow : Window
 - `Action_SetObjectVisible` - Properties: { ""ObjectId"": ""obj_id"", ""Visible"": true }
 - `Action_AddGold` - Properties: { ""Amount"": 10 }
 - `Action_RemoveGold` - Properties: { ""Amount"": 10 }
-- `Action_SetGold` - Properties: { ""Amount"": 100 }
 - `Action_PlaySound` - Properties: { ""SoundId"": ""fx_id"" }
+- `Action_StartConversation` - Inicia una conversación con un NPC. Properties: { ""NpcId"": ""npc_id"" }
 
 ### Control de flujo:
-- `Flow_Sequence` - Ejecuta múltiples salidas en orden (salidas: ""Then0"", ""Then1"", ""Then2"")
+- `Flow_Sequence` - Ejecuta múltiples ramas simultáneamente (salidas: ""Then0"", ""Then1"", ""Then2""). **NOTA: Prefiere encadenar acciones secuencialmente (A→B→C) en lugar de usar Flow_Sequence. Úsalo solo cuando necesites ejecutar ramas paralelas independientes.**
 - `Flow_Branch` - Bifurca según booleano (entrada ""Condition"", salidas ""True""/""False"")
 - `Flow_RandomBranch` - Elige salida aleatoria (salidas: ""Out0"", ""Out1"", ""Out2"")
-- `Flow_Delay` - Espera antes de continuar. Properties: { ""DelayMinutes"": 5 }
+- `Flow_Delay` - Espera antes de continuar. Properties: { ""Seconds"": 5.0 }
+
+### Nodos de conversación (para el array Conversations, NO para Scripts):
+- `Conversation_Start` - Inicio de conversación (sin propiedades, solo puerto salida ""Exec"")
+- `Conversation_NpcSay` - NPC dice algo. Properties: { ""Text"": ""Hola aventurero"", ""SpeakerName"": ""NPC"", ""Emotion"": ""Neutral"" } (Emotion: Neutral, Feliz, Triste, Enfadado, Sorprendido)
+- `Conversation_PlayerChoice` - Opciones del jugador. Properties: { ""Text1"": ""Opción 1"", ""Text2"": ""Opción 2"", ""Text3"": """", ""Text4"": """" } (salidas: Option1, Option2, Option3, Option4)
+- `Conversation_Branch` - Bifurcación condicional (salidas: True, False). Properties según ConditionType:
+  - HasFlag: { ""ConditionType"": ""HasFlag"", ""FlagName"": ""nombre_flag"" }
+  - HasItem: { ""ConditionType"": ""HasItem"", ""ItemId"": ""obj_id"" }
+  - HasGold: { ""ConditionType"": ""HasGold"", ""GoldAmount"": 50 }
+  - QuestStatus: { ""ConditionType"": ""QuestStatus"", ""QuestId"": ""quest_id"", ""QuestStatus"": ""InProgress"" }
+  - VisitedNode: { ""ConditionType"": ""VisitedNode"" } (verifica si ya se visitó este nodo en la conversación)
+- `Conversation_End` - Fin de conversación (sin propiedades, solo puerto entrada ""Exec"")
+- `Conversation_Action` - Ejecuta acción dentro de conversación. Properties según ActionType:
+  - GiveItem: { ""ActionType"": ""GiveItem"", ""ObjectId"": ""obj_id"" }
+  - RemoveItem: { ""ActionType"": ""RemoveItem"", ""ObjectId"": ""obj_id"" }
+  - AddGold: { ""ActionType"": ""AddGold"", ""Amount"": 10 }
+  - RemoveGold: { ""ActionType"": ""RemoveGold"", ""Amount"": 10 }
+  - SetFlag: { ""ActionType"": ""SetFlag"", ""FlagName"": ""nombre_flag"" }
+  - StartQuest: { ""ActionType"": ""StartQuest"", ""QuestId"": ""quest_id"" }
+  - CompleteQuest: { ""ActionType"": ""CompleteQuest"", ""QuestId"": ""quest_id"" }
+  - ShowMessage: { ""ActionType"": ""ShowMessage"", ""Message"": ""texto"" }
+- `Conversation_Shop` - Abre la tienda del NPC. Properties: { ""ShopTitle"": ""Mi Tienda"", ""WelcomeMessage"": ""¡Bienvenido!"" } (salidas: OnClose, OnBuy, OnSell)
+- `Conversation_BuyItem` - Comprar objeto específico. Properties: { ""ObjectId"": ""obj_id"", ""Price"": 10, ""ConfirmText"": ""¿Comprar por {precio} monedas?"" } (salidas: Success, NotEnoughGold, Cancelled)
+- `Conversation_SellItem` - Vender objeto específico. Properties: { ""ObjectId"": ""obj_id"", ""Price"": 5 } (salidas: Success, NoItem, Cancelled)
 
 ## REQUISITOS DEL MUNDO
 
 Genera un mundo con temática ""{THEME}"" que contenga:
 1. **Aproximadamente {ROOM_COUNT} salas** conectadas lógicamente formando un mapa coherente
+   - Usa IsInterior=true para interiores (cuevas, edificios) y false para exteriores
+   - Usa IsIlluminated=false para salas oscuras que requieren luz (antorcha, linterna)
 2. **{DOOR_COUNT} puertas** - al menos una cerrada con llave si hay llaves disponibles
+   - OpenFromSide: ""Both"" (ambos lados), ""FromAOnly"" (solo desde sala A), ""FromBOnly"" (solo desde sala B)
 3. **{CONTAINER_COUNT} contenedores** (cofres, cajas, armarios...) con objetos dentro
+   - IsOpenable=true para contenedores que se abren/cierran
+   - IsLocked=true + KeyId para contenedores con cerradura
+   - ContentsVisible=false para ocultar contenido hasta abrir
 4. **{TOTAL_OBJECTS} objetos** distribuidos así:
    - {WEAPON_COUNT} armas (Type=""arma"") - espadas, dagas, arcos...
    - {ARMOR_COUNT} armaduras (Type=""armadura"") - escudos, cascos, corazas...
@@ -222,21 +314,37 @@ Genera un mundo con temática ""{THEME}"" que contenga:
    - {KEY_COUNT} llaves (Type=""llave"") - para abrir puertas/contenedores
    - {TEXT_COUNT} documentos legibles (Type=""texto"") - cartas, diarios, pergaminos... con TextContent
    - {OTHER_COUNT} objetos genéricos (Type=""ninguno"") - gemas, monedas, herramientas, objetos de puzzle...
+   - Usa Visible=false para objetos ocultos que aparecen mediante scripts
 5. **{NPC_COUNT} NPCs** con personalidad acorde a la temática:
    - Si es comerciante: IsShopkeeper=true y añade IDs de objetos a ShopInventory
    - Si lleva objetos (que puede dar/intercambiar): añade IDs a InventoryObjectIds
-   - **Patrulla**: PatrolRoute con lista de IDs de salas conectadas. El NPC se mueve ida y vuelta automáticamente. PatrolSpeed=1 (cada turno), 2 (lento), 3 (muy lento). RoomId debe ser el primer ID de PatrolRoute. Usa `Action_StartPatrol`/`Action_StopPatrol` en scripts.
-   - **Seguimiento**: FollowSpeed indica velocidad de seguir al jugador (100=cada turno, 50=cada 2 turnos, 25=cada 4). Actívalo con `Action_FollowPlayer` en scripts. Cuando un NPC entra a la sala del jugador, se muestra mensaje automático.
+   - Si tiene diálogo: crea una Conversation y asigna ConversationId
+   - **Stats de combate**: Level, Strength, Dexterity, Intelligence, MaxHealth, CurrentHealth, Gold
+   - **Patrulla por turnos**: PatrolRoute con lista de IDs de salas conectadas. PatrolMovementMode=""Turns"", PatrolSpeed=1 (cada turno), 2 (lento), 3 (muy lento). IsPatrolling=true para empezar patrullando.
+   - **Patrulla por tiempo**: PatrolMovementMode=""Time"", PatrolTimeInterval=3.0 (segundos entre movimientos)
+   - **Seguimiento por turnos**: FollowMovementMode=""Turns"", FollowSpeed=1/2/3. Actívalo con `Action_FollowPlayer`.
+   - **Seguimiento por tiempo**: FollowMovementMode=""Time"", FollowTimeInterval=3.0 (segundos)
+   - Usa Visible=false para NPCs ocultos que aparecen mediante scripts
    - **Al menos 1 NPC con ruta de patrulla definida** (guardia, explorador, etc.)
-6. **{QUEST_COUNT} misiones**
+6. **{QUEST_COUNT} misiones** con objetivos definidos en el array Objectives
 7. **Scripts variados** que demuestren (usa los TypeId EXACTOS de la lista anterior):
+   - **OBLIGATORIO: Un script en Game con `Event_OnGameStart`** que inicie la misión principal (`Action_StartQuest`) y muestre mensaje introductorio
    - Un objeto que al examinarlo (`Event_OnExamine`) muestra mensaje (`Action_ShowMessage`)
    - Un NPC que da un objeto (`Action_GiveItem`) si tienes cierto item (`Condition_HasItem`)
    - Un contenedor que al abrirlo (`Event_OnContainerOpen`) muestra mensaje
    - Un evento al entrar a cierta sala (`Event_OnEnter` en Room)
    - Un puzzle con contador (`Action_IncrementCounter` + `Condition_CompareCounter`)
    - Uso de flags para recordar acciones (`Action_SetFlag` + `Condition_HasFlag`)
-   - Un NPC patrullero que inicia su patrulla al empezar (`Event_OnGameStart` → `Action_StartPatrol`)
+   - Un NPC patrullero con IsPatrolling=true desde el inicio
+   - Un script que haga que un NPC siga al jugador (`Action_FollowPlayer`) cuando se cumpla alguna condición (ej: hablar con él, darle un objeto)
+   - **Al menos un script que complete la misión** (`Action_CompleteQuest`) cuando se cumpla un objetivo final
+8. **Conversaciones opcionales** para NPCs importantes:
+   - Crea conversaciones con nodos Conversation_Start → Conversation_NpcSay → Conversation_End
+   - Usa Conversation_PlayerChoice para diálogos con opciones
+   - Asigna el ConversationId al NPC correspondiente
+   - **Estructura de Conversations**: Cada conversación tiene su propio array Nodes y Connections (igual que Scripts, pero con nodos Conversation_*)
+   - **StartNodeId** (solo Conversations): DEBE apuntar al Id del nodo Conversation_Start de esa conversación
+   - **Connections entre nodos de conversación**: Usa los nombres de puerto correctos (Exec, Option1, Option2, True, False, OnClose, etc.)
 
 ## NOTAS IMPORTANTES
 - Los IDs deben ser snake_case únicos
@@ -245,17 +353,40 @@ Genera un mundo con temática ""{THEME}"" que contenga:
 
 ### Coordenadas en RoomPositions para visualización del mapa
 **IMPORTANTE**: Las posiciones van en `RoomPositions` (NO dentro de cada Room).
-- La sala inicial debe estar en **(0, 0)**
-- Usa incrementos de **220 en X** y **150 en Y** para cada dirección:
-  - **Norte**: Y - 150
-  - **Sur**: Y + 150
-  - **Este**: X + 220
-  - **Oeste**: X - 220
-- Ejemplo para 5 salas en cruz: sala central (0,0), norte (0,-150), sur (0,150), este (220,0), oeste (-220,0)
+- Las celdas del grid miden **160x90 píxeles**. Las posiciones deben ser **centros de celdas**.
+- Usa **incrementos de 320 en X y 180 en Y** para dejar espacio entre salas para las conexiones.
+- La sala inicial debe estar en **(80, 45)** (centro de la primera celda).
+- Para cada dirección desde una sala en (X, Y):
+  - **Norte**: (X, Y - 180)
+  - **Sur**: (X, Y + 180)
+  - **Este**: (X + 320, Y)
+  - **Oeste**: (X - 320, Y)
+  - **Arriba**: (X, Y - 180) — para subir pisos/escaleras, usa misma posición visual que norte
+  - **Abajo**: (X, Y + 180) — para bajar pisos/sótanos, usa misma posición visual que sur
+- Ejemplo para 5 salas en cruz: central (80,45), norte (80,-135), sur (80,225), este (400,45), oeste (-240,45)
 - **Type de objetos SOLO puede ser uno de estos valores exactos**: ninguno, arma, armadura, comida, bebida, ropa, llave, texto
 - **Los objetos que son llaves DEBEN tener Type=""llave""**
 - **Los objetos de tipo ""texto"" DEBEN tener TextContent** con el texto legible (carta, diario, pergamino, libro, nota...). El jugador usará el comando ""leer"" para ver este contenido.
-- **Si una puerta tiene IsLocked=true, DEBE tener KeyObjectId con el Id de un objeto llave existente** (no puede haber puertas bloqueadas sin llave asignada)
+- **Puerta cerrada con llave**: `IsLocked=true` + `KeyObjectId` con el Id de un objeto llave existente
+- **Puerta que se abre con puzzle/script**: `IsLocked=false` + `IsOpen=false`. Usa `Action_OpenDoor` en el script cuando se resuelva el puzzle. **NO uses IsLocked=true sin KeyObjectId** - el motor no lo permite
+- **Si un contenedor tiene IsLocked=true, DEBE tener KeyId con el Id de un objeto llave existente** (contenedor bloqueado requiere llave)
+- **Varía las llaves**: No uses la misma llave para abrir muchas cosas. Crea llaves específicas para cada cerradura importante
+
+### ⚠️ Objetos dentro de contenedores (MUY IMPORTANTE)
+- **Si un objeto está en ContainedObjectIds de un contenedor, DEBE tener RoomId=null**
+- El motor usa RoomId para determinar si el objeto está suelto en una sala. Si tiene RoomId, aparecerá en la sala aunque esté ""dentro"" del contenedor
+- Ejemplo correcto: cofre en sala_1 con llave dentro → cofre.RoomId=""sala_1"", llave.RoomId=null, cofre.ContainedObjectIds=[""llave""]
+
+### ⚠️ Objetos que un NPC ""da"" al jugador (MUY IMPORTANTE)
+- Si un NPC debe dar un objeto mediante script (Action_GiveItem), el objeto debe tener **RoomId=null** y **Visible=false** y **NO estar en InventoryObjectIds del NPC**
+- **⚠️ OBLIGATORIO: Si el objeto tiene Visible=false, SIEMPRE debes llamar Action_SetObjectVisible(obj_id, true) ANTES de Action_GiveItem**. Sin esto el objeto no funcionará correctamente.
+- **Secuencia OBLIGATORIA para dar objetos ocultos** (ver ejemplo ""script_npc_give_item"" en la plantilla JSON):
+  1. Condition_HasFlag(""objeto_entregado"") → Si True: mostrar ""Ya te lo di""
+  2. Si False → **Action_SetObjectVisible(obj_id, true)** ← NUNCA OMITIR ESTE PASO
+  3. Action_GiveItem(obj_id)
+  4. Action_SetFlag(""objeto_entregado"", true)
+  5. Action_ShowMessage con diálogo
+- **InventoryObjectIds** de los NPCs es solo para objetos que el NPC TIENE permanentemente (ej: un tendero con su mercancía)
 
 ### Género gramatical (Gender)
 - **Gender** indica el género gramatical en español para artículos (el/la): `Masculine` o `Feminine`
@@ -264,7 +395,8 @@ Genera un mundo con temática ""{THEME}"" que contenga:
 
 ### Configuración de tiempo y clima (Game)
 - **StartHour**: Hora inicial del juego (0-23). Ej: 9 para las 9:00, 21 para las 21:00
-- **StartWeather**: Clima inicial. Valores: ""Despejado"", ""Nublado"", ""Lluvia"", ""Tormenta"", ""Nieve"", ""Niebla""
+- **StartWeather**: Clima inicial. Valores EXACTOS: ""Despejado"", ""Lluvioso"", ""Nublado"", ""Tormenta""
+- **MinutesPerGameHour**: Minutos reales por hora de juego (1-10). Ej: 6 = cada 6 min reales pasa 1 hora en el juego
 
 ### Diccionario del parser (Game.ParserDictionaryJson)
 - Permite añadir sinónimos personalizados para verbos, sustantivos y adjetivos
@@ -300,6 +432,34 @@ Genera un mundo con temática ""{THEME}"" que contenga:
 - Los nodos de scripts necesitan posiciones X,Y para visualización (separados ~200px)
 - Conecta los nodos: evento → condiciones/acciones mediante puerto ""Exec""
 - El puerto de salida de eventos y acciones es ""Exec"", el de entrada también es ""Exec""
+
+## ⚠️ ERRORES COMUNES A EVITAR
+
+1. **IDs inexistentes**: Cada Id referenciado (ObjectId, RoomId, NpcId, DoorId, QuestId, ConversationId) DEBE existir en su array correspondiente
+2. **StartRoomId inválido**: Game.StartRoomId DEBE coincidir exactamente con el Id de una sala en el array Rooms
+3. **StartNodeId inválido**: Cada Conversation DEBE tener un StartNodeId que apunte al nodo Conversation_Start. Scripts NO necesitan StartNodeId (empiezan desde nodos Event)
+4. **Conexiones rotas**: Cada Connection debe referenciar FromNodeId y ToNodeId que existan en el mismo Script/Conversation
+5. **Nombres de puerto incorrectos**: Usa EXACTAMENTE los nombres documentados (Exec, True, False, Option1, etc.)
+6. **Puertas sin referencia bidireccional**: Si una puerta conecta dos salas, AMBAS salidas deben tener el mismo DoorId
+7. **Llaves inaccesibles**: NUNCA pongas una llave detrás de la puerta que abre
+8. **Puertas/Contenedores bloqueados sin llave**: Si IsLocked=true, DEBE existir un KeyId/KeyObjectId válido. Para puzzles usa IsLocked=false + IsOpen=false + Action_OpenDoor
+9. **Objetos dados por NPC en InventoryObjectIds**: Los objetos que se dan con Action_GiveItem NO deben estar en InventoryObjectIds
+10. **Puzzle de puerta mal configurado**: Para puzzles usa IsLocked=false + IsOpen=false + Action_OpenDoor. NUNCA uses IsLocked=true sin KeyObjectId
+11. **⚠️ CRÍTICO - Action_GiveItem sin Action_SetObjectVisible**: Si el objeto tiene Visible=false, SIEMPRE debes añadir Action_SetObjectVisible(obj, true) ANTES de Action_GiveItem. Sin esto, el objeto no aparecerá en el inventario correctamente. Secuencia obligatoria:
+    - Condition_HasItem/HasFlag (verificar)
+    - **Action_SetObjectVisible(obj_id, true)** ← NO OLVIDES ESTE PASO
+    - Action_GiveItem(obj_id)
+    - Action_SetFlag (evitar duplicados)
+    - Action_ShowMessage
+12. **OwnerType y OwnerId incoherentes**: El OwnerId DEBE ser el Id de una entidad del tipo OwnerType:
+    - OwnerType=""Game"" → OwnerId=""game""
+    - OwnerType=""Room"" → OwnerId=Id de una sala existente
+    - OwnerType=""Npc"" → OwnerId=Id de un NPC existente
+    - OwnerType=""GameObject"" → OwnerId=Id de un objeto existente
+    - OwnerType=""Door"" → OwnerId=Id de una puerta existente
+    - OwnerType=""Quest"" → OwnerId=Id de una misión existente
+13. **Eventos incompatibles con OwnerType**: Cada evento solo funciona con ciertos OwnerTypes (ver lista de eventos). Ej: Event_OnEnter solo funciona con OwnerType=""Room""
+14. **⚠️ Objetos dentro de contenedor con RoomId**: Si un objeto está en ContainedObjectIds de un contenedor, DEBE tener RoomId=null. Si tiene RoomId, aparecerá suelto en la sala aunque esté ""dentro"" del contenedor
 
 ## FORMATO DE SALIDA
 

@@ -1422,8 +1422,9 @@ public partial class WorldEditorWindow : Window
             // Guardar si la IA está activa para el modo pruebas
             _testAiEnabled = aiEnabled;
 
-            // Crear el engine
-            _testEngine = new GameEngine(_testWorld, state, _testSoundManager);
+            // Crear el engine (con modo debug activo para el editor)
+            _testEngine = new GameEngine(_testWorld, state, _testSoundManager, isDebugMode: true);
+            _testEngine.ScriptMessage += msg => Dispatcher.Invoke(() => HandleTestScriptMessage(msg));
 
             // Si hay sonido y voz, precargar la descripción de la sala inicial
             if (soundEnabled && uiSettings.VoiceVolume > 0 && aiEnabled)
@@ -1499,6 +1500,7 @@ public partial class WorldEditorWindow : Window
         _testAiEnabled = false;
         _isPlayRunning = false;
         MapPanel.SetTestPlayerRoom(null); // Quitar resplandor
+        MapPanel.SetTestDoors(null); // Restaurar estado de puertas del editor
     }
 
     private void UpdateTestDisplay(bool showRoomDescription = false)
@@ -1512,8 +1514,9 @@ public partial class WorldEditorWindow : Window
         TestRoomTitle.Text = room?.Name ?? "Sala desconocida";
         TestRoomDescription.Text = _testEngine.DescribeCurrentRoom();
 
-        // Actualizar resplandor en el mapa
+        // Actualizar resplandor en el mapa y estado de puertas
         MapPanel.SetTestPlayerRoom(state.CurrentRoomId);
+        MapPanel.SetTestDoors(state.Doors);
 
         // Al entrar a una sala nueva, mostrar la descripción en la consola
         if (showRoomDescription && room != null)
@@ -1582,15 +1585,47 @@ public partial class WorldEditorWindow : Window
 
     private void AppendTestOutput(string text, bool isCommand = false)
     {
+        Brush foreground;
+        if (isCommand)
+            foreground = new SolidColorBrush(Color.FromRgb(150, 200, 255));
+        else if (text.StartsWith("[Error]", StringComparison.OrdinalIgnoreCase))
+            foreground = new SolidColorBrush(Color.FromRgb(255, 100, 100)); // Rojo
+        else if (text.StartsWith("[Debug]", StringComparison.OrdinalIgnoreCase))
+            foreground = new SolidColorBrush(Color.FromRgb(255, 220, 100)); // Amarillo
+        else
+            foreground = Brushes.White;
+
         var paragraph = new Paragraph(new Run(text))
         {
             Margin = new Thickness(0, 0, 0, 4),
-            Foreground = isCommand
-                ? new SolidColorBrush(Color.FromRgb(150, 200, 255))
-                : Brushes.White
+            Foreground = foreground
         };
         TestOutputTextBox.Document.Blocks.Add(paragraph);
         TestOutputTextBox.ScrollToEnd();
+    }
+
+    private void HandleTestScriptMessage(string msg)
+    {
+        // Los mensajes [Debug] solo se muestran si el toggle está activado
+        // Los mensajes [Error] siempre se muestran
+        if (msg.StartsWith("[Debug]", StringComparison.OrdinalIgnoreCase))
+        {
+            if (TestDebugToggle.IsChecked == true)
+                AppendTestOutput(msg);
+        }
+        else
+        {
+            // Mensajes normales y de error siempre se muestran
+            AppendTestOutput(msg);
+        }
+    }
+
+    private void TestDebugToggle_Changed(object sender, RoutedEventArgs e)
+    {
+        if (TestDebugIcon == null) return;
+        TestDebugIcon.Foreground = TestDebugToggle.IsChecked == true
+            ? new SolidColorBrush(Color.FromRgb(255, 220, 100)) // Amarillo
+            : new SolidColorBrush(Color.FromRgb(136, 136, 136)); // Gris
     }
 
     private System.Windows.Threading.DispatcherTimer? _testMessageTimer;
@@ -1643,7 +1678,8 @@ public partial class WorldEditorWindow : Window
         try
         {
             var state = WorldLoader.CreateInitialState(_testWorld);
-            _testEngine = new GameEngine(_testWorld, state, _testSoundManager);
+            _testEngine = new GameEngine(_testWorld, state, _testSoundManager, isDebugMode: true);
+            _testEngine.ScriptMessage += msg => Dispatcher.Invoke(() => HandleTestScriptMessage(msg));
             TestOutputTextBox.Document.Blocks.Clear();
             _testCommandHistory.Clear();
             _testHistoryIndex = -1;
@@ -3739,7 +3775,8 @@ Escribe SOLO la descripción en español, 2-3 frases, sin incluir el nombre de l
                 .Where(id => _testWorld.Objects.Any(o => o.Id.Equals(id, StringComparison.OrdinalIgnoreCase)))
                 .ToList();
 
-            _testEngine = new GameEngine(_testWorld, state, _testSoundManager!);
+            _testEngine = new GameEngine(_testWorld, state, _testSoundManager!, isDebugMode: true);
+            _testEngine.ScriptMessage += msg => Dispatcher.Invoke(() => HandleTestScriptMessage(msg));
 
             AppendTestSystemMessage("⟳ Mundo recargado");
             UpdateTestDisplay();

@@ -394,10 +394,12 @@ private void DrawConnections(DrawingContext dc)
     var labeledConnections = new HashSet<(string a, string b)>();
 
     // Mapa rápido de puertas por Id para consultar su estado (abierta/cerrada).
+    // En modo pruebas usar _testDoors (estado del GameState), sino usar _world.Doors
+    var doorsSource = _testDoors ?? _world.Doors;
     Dictionary<string, Door>? doorsById = null;
-    if (_world.Doors != null && _world.Doors.Count > 0)
+    if (doorsSource != null && doorsSource.Count > 0)
     {
-        doorsById = _world.Doors
+        doorsById = doorsSource
             .Where(d => !string.IsNullOrWhiteSpace(d.Id))
             .ToDictionary(d => d.Id, d => d, StringComparer.OrdinalIgnoreCase);
     }
@@ -460,9 +462,9 @@ private void DrawConnections(DrawingContext dc)
                 doorsById.TryGetValue(exit.DoorId, out door);
             }
 
-            if (door == null && _world.Doors != null && _world.Doors.Count > 0)
+            if (door == null && doorsSource != null && doorsSource.Count > 0)
             {
-                door = _world.Doors.FirstOrDefault(d =>
+                door = doorsSource.FirstOrDefault(d =>
                     !string.IsNullOrEmpty(d.RoomIdA) &&
                     !string.IsNullOrEmpty(d.RoomIdB) &&
                     ((string.Equals(d.RoomIdA, room.Id, StringComparison.OrdinalIgnoreCase) &&

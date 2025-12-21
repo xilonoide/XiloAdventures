@@ -623,6 +623,22 @@
                                            FontSize="14"
                                            Foreground="#6BA3FF"/>
                             </Button>
+                            <ToggleButton x:Name="TestDebugToggle"
+                                          DockPanel.Dock="Right"
+                                          Width="28" Height="28"
+                                          Margin="0,0,4,0"
+                                          ToolTip="Mostrar mensajes de debug"
+                                          Background="#444444"
+                                          BorderBrush="#555555"
+                                          IsChecked="False"
+                                          Checked="TestDebugToggle_Changed"
+                                          Unchecked="TestDebugToggle_Changed">
+                                <TextBlock x:Name="TestDebugIcon"
+                                           FontFamily="Segoe MDL2 Assets"
+                                           Text="&#xEBE8;"
+                                           FontSize="14"
+                                           Foreground="#888888"/>
+                            </ToggleButton>
                             <TextBlock x:Name="TestRoomTitle"
                                        Text="Prueba"
                                        FontWeight="Bold"

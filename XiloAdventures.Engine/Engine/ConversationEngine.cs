@@ -16,6 +16,7 @@ public class ConversationEngine
 {
     private readonly WorldModel _world;
     private readonly GameState _gameState;
+    private readonly bool _isDebugMode;
 
     /// <summary>Evento cuando hay texto de diálogo para mostrar.</summary>
     public event Action<ConversationMessage>? OnDialogue;
@@ -41,10 +42,18 @@ public class ConversationEngine
     /// <summary>Obtiene los datos de la tienda activa (si hay).</summary>
     public ShopData? ActiveShopData => _gameState.ActiveConversation?.ActiveShopData;
 
-    public ConversationEngine(WorldModel world, GameState gameState)
+    public ConversationEngine(WorldModel world, GameState gameState, bool isDebugMode = false)
     {
         _world = world;
         _gameState = gameState;
+        _isDebugMode = isDebugMode;
+    }
+
+    /// <summary>Emite un mensaje de depuración solo en modo debug.</summary>
+    private void DebugMessage(string message)
+    {
+        if (_isDebugMode)
+            OnSystemMessage?.Invoke(message);
     }
 
     /// <summary>
@@ -54,29 +63,61 @@ public class ConversationEngine
     {
         var npc = _gameState.Npcs.FirstOrDefault(n =>
             string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
-        if (npc == null) return;
+        if (npc == null)
+        {
+            DebugMessage($"[Error] NPC '{npcId}' no encontrado.");
+            return;
+        }
 
-        // Buscar el script del NPC que contiene los nodos de conversación
-        var npcScript = _world.Scripts.FirstOrDefault(s =>
-            string.Equals(s.OwnerType, "Npc", StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(s.OwnerId, npcId, StringComparison.OrdinalIgnoreCase));
+        ConversationDefinition? conversation = null;
 
-        // Crear una conversación virtual a partir del script del NPC
-        var conversation = CreateConversationFromScript(npcScript, npcId);
-        if (conversation == null || conversation.Nodes.Count == 0) return;
+        // 1. Primero buscar la conversación por ConversationId del NPC
+        if (!string.IsNullOrEmpty(npc.ConversationId))
+        {
+            conversation = _world.Conversations.FirstOrDefault(c =>
+                string.Equals(c.Id, npc.ConversationId, StringComparison.OrdinalIgnoreCase));
+
+            if (conversation == null)
+            {
+                DebugMessage($"[Error] Conversación '{npc.ConversationId}' no encontrada en el mundo.");
+            }
+        }
+
+        // 2. Si no tiene conversación asignada, intentar crear una desde el script del NPC
+        if (conversation == null)
+        {
+            var npcScript = _world.Scripts.FirstOrDefault(s =>
+                string.Equals(s.OwnerType, "Npc", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(s.OwnerId, npcId, StringComparison.OrdinalIgnoreCase));
+
+            conversation = CreateConversationFromScript(npcScript, npcId);
+        }
+
+        if (conversation == null || conversation.Nodes.Count == 0)
+        {
+            DebugMessage($"[Error] No hay conversación disponible para {npc.Name}.");
+            return;
+        }
 
         // Buscar el nodo de inicio
         var startNode = FindStartNode(conversation);
-        if (startNode == null) return;
+        if (startNode == null)
+        {
+            DebugMessage($"[Error] No se encontró nodo Conversation_Start en la conversación.");
+            return;
+        }
 
         // Inicializar estado
         _gameState.ActiveConversation = new ConversationState
         {
-            ConversationId = npcId, // Usamos el npcId como identificador de conversación
+            ConversationId = conversation.Id,
             NpcId = npcId,
             CurrentNodeId = startNode.Id,
             IsActive = true
         };
+
+        // Mensaje visible para confirmar que la conversación se inicia (solo en debug)
+        DebugMessage($"[Conversación con {npc.Name}]");
 
         // Ejecutar desde el nodo de inicio
         await ExecuteNodeAsync(conversation, startNode.Id);
@@ -149,13 +190,22 @@ public class ConversationEngine
     /// </summary>
     public async Task ContinueAsync()
     {
-        if (_gameState.ActiveConversation == null || !_gameState.ActiveConversation.IsActive) return;
+        if (_gameState.ActiveConversation == null || !_gameState.ActiveConversation.IsActive)
+            return;
 
         var conversation = GetCurrentConversation();
-        if (conversation == null) return;
+        if (conversation == null)
+        {
+            DebugMessage("[Error] ContinueAsync: No se pudo obtener la conversación actual.");
+            return;
+        }
 
         var currentNode = GetCurrentNode(conversation);
-        if (currentNode == null) return;
+        if (currentNode == null)
+        {
+            DebugMessage($"[Error] ContinueAsync: Nodo actual no encontrado (ID: {_gameState.ActiveConversation.CurrentNodeId}).");
+            return;
+        }
 
         // Buscar siguiente nodo por conexión "Exec"
         var connection = conversation.Connections.FirstOrDefault(c =>
@@ -327,7 +377,11 @@ public class ConversationEngine
     {
         var node = conversation.Nodes.FirstOrDefault(n =>
             string.Equals(n.Id, nodeId, StringComparison.OrdinalIgnoreCase));
-        if (node == null) return;
+        if (node == null)
+        {
+            DebugMessage($"[Error] Nodo '{nodeId}' no encontrado en conversación.");
+            return;
+        }
 
         // Marcar como visitado
         _gameState.ActiveConversation?.VisitedNodeIds.Add(nodeId);
@@ -380,13 +434,22 @@ public class ConversationEngine
         var speakerName = GetProperty<string>(node, "SpeakerName", "");
         var emotion = GetProperty<string>(node, "Emotion", "Neutral");
 
-        OnDialogue?.Invoke(new ConversationMessage
+        var message = new ConversationMessage
         {
             Text = text,
             SpeakerName = string.IsNullOrEmpty(speakerName) ? GetCurrentNpcName() : speakerName,
             Emotion = emotion,
             IsNpc = true
-        });
+        };
+
+        if (OnDialogue == null)
+        {
+            DebugMessage($"[Error] OnDialogue no está conectado. Mensaje: {text}");
+        }
+        else
+        {
+            OnDialogue.Invoke(message);
+        }
     }
 
     private void HandlePlayerChoice(ConversationDefinition conversation, ScriptNode node)
@@ -684,7 +747,14 @@ public class ConversationEngine
     {
         if (_gameState.ActiveConversation == null) return null;
 
-        // El ConversationId ahora es el NpcId
+        // Primero buscar en las conversaciones del mundo por ConversationId
+        var conversationId = _gameState.ActiveConversation.ConversationId;
+        var conversation = _world.Conversations.FirstOrDefault(c =>
+            string.Equals(c.Id, conversationId, StringComparison.OrdinalIgnoreCase));
+
+        if (conversation != null) return conversation;
+
+        // Si no se encuentra, intentar crear desde el script del NPC
         var npcId = _gameState.ActiveConversation.NpcId;
         var npcScript = _world.Scripts.FirstOrDefault(s =>
             string.Equals(s.OwnerType, "Npc", StringComparison.OrdinalIgnoreCase) &&

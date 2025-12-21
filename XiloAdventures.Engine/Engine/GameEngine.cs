@@ -20,6 +20,7 @@ public class GameEngine
 {
     private readonly WorldModel _world;
     private readonly SoundManager _sound;
+    private readonly bool _isDebugMode;
     private GameState _state;
 
     private DoorService _doorService;
@@ -69,7 +70,7 @@ public class GameEngine
     /// </summary>
     private void InitializeConversationEngine()
     {
-        _conversationEngine = new ConversationEngine(_world, _state);
+        _conversationEngine = new ConversationEngine(_world, _state, _isDebugMode);
         _conversationEngine.OnDialogue += msg => ConversationDialogue?.Invoke(msg);
         _conversationEngine.OnPlayerOptions += options => ConversationOptions?.Invoke(options);
         _conversationEngine.OnShopOpen += shop => ShopOpened?.Invoke(shop);
@@ -149,10 +150,12 @@ public class GameEngine
     /// <param name="world">The world model containing static game definitions.</param>
     /// <param name="state">The initial game state (can be new or loaded from save).</param>
     /// <param name="soundManager">Sound manager for music and voice playback.</param>
-    public GameEngine(WorldModel world, GameState state, SoundManager soundManager)
+    /// <param name="isDebugMode">If true, shows debug messages (for editor test mode).</param>
+    public GameEngine(WorldModel world, GameState state, SoundManager soundManager, bool isDebugMode = false)
     {
         _world = world;
         _sound = soundManager;
+        _isDebugMode = isDebugMode;
         _state = state;
         _doorService = new DoorService(_state.Doors, _state.Objects);
 
@@ -213,16 +216,20 @@ public class GameEngine
     /// Útil cuando el parser normaliza sustantivos (ej: "sable" → "espada") pero el objeto
     /// real se llama "sable oxidado". Primero se intenta con el valor normalizado,
     /// y si falla, con el valor original.
+    /// Normaliza ambos lados de la comparación para ignorar acentos (ej: "baúl" coincide con "baul").
     /// </summary>
     private static bool MatchesName(string objectName, string? normalizedName, string? originalName)
     {
+        // Normalizar el nombre del objeto para comparaciones sin acentos
+        var objectNameNormalized = RemoveAccents(objectName);
+
         if (!string.IsNullOrEmpty(normalizedName) &&
-            objectName.Contains(normalizedName, StringComparison.OrdinalIgnoreCase))
+            objectNameNormalized.Contains(normalizedName, StringComparison.OrdinalIgnoreCase))
             return true;
 
         if (!string.IsNullOrEmpty(originalName) &&
             !string.Equals(originalName, normalizedName, StringComparison.OrdinalIgnoreCase) &&
-            objectName.Contains(originalName, StringComparison.OrdinalIgnoreCase))
+            objectNameNormalized.Contains(RemoveAccents(originalName), StringComparison.OrdinalIgnoreCase))
             return true;
 
         return false;
@@ -310,13 +317,20 @@ public class GameEngine
     /// <summary>
     /// Find an object in the current room or player inventory by name.
     /// Supports fallback to original name when noun aliases don't match.
+    /// Objects in inventory are always findable regardless of Visible property.
     /// </summary>
     private GameObject? FindObjectInRoomOrInventory(Room room, string name, string? originalName = null)
     {
-        var allObjectIds = new List<string>(_state.InventoryObjectIds);
-        allObjectIds.AddRange(room.ObjectIds);
+        // Primero buscar en inventario (siempre accesible, sin importar Visible)
+        foreach (var objId in _state.InventoryObjectIds)
+        {
+            var obj = FindObjectById(objId);
+            if (obj != null && MatchesName(obj.Name, name, originalName))
+                return obj;
+        }
 
-        foreach (var objId in allObjectIds)
+        // Luego buscar en la sala (solo objetos visibles)
+        foreach (var objId in room.ObjectIds)
         {
             var obj = FindObjectById(objId);
             if (obj != null && obj.Visible && MatchesName(obj.Name, name, originalName))
@@ -611,17 +625,19 @@ public class GameEngine
         // Si hay una conversación activa, manejar opciones de diálogo
         if (IsConversationActive)
         {
-            // "opcion N" o "say N"
-            if ((parsedCmd.Verb == "option" || parsedCmd.Verb == "say") &&
-                int.TryParse(parsedCmd.DirectObject, out int optNum) &&
-                optNum >= 1 && optNum <= 4)
+            // Permitir escribir el número directamente (1, 2, 3, 4) o "opcion N" / "decir N"
+            var numStr = parsedCmd.DirectObject ?? parsedCmd.Verb ?? "";
+            if (int.TryParse(numStr, out int optNum) && optNum >= 1 && optNum <= 4)
             {
                 _ = HandleConversationOptionAsync(optNum - 1);
                 return CommandResult.Empty;
             }
 
-            // Permitir salir de la conversación
-            if (parsedCmd.Verb == "go" || parsedCmd.DirectObject == "salir")
+            // Permitir salir de la conversación con "salir", "exit", "terminar", "adios"
+            var exitWords = new[] { "salir", "exit", "terminar", "adios", "adiós", "go" };
+            var inputLower = (parsedCmd.Verb ?? "").ToLowerInvariant();
+            if (exitWords.Contains(inputLower) ||
+                exitWords.Contains((parsedCmd.DirectObject ?? "").ToLowerInvariant()))
             {
                 _conversationEngine?.EndConversation();
                 return CommandResult.Success("Terminas la conversación.");
@@ -632,6 +648,10 @@ public class GameEngine
 
         if (string.IsNullOrEmpty(parsedCmd.Verb))
             return CommandResult.Empty;
+
+        // Debug: mostrar el verbo parseado (solo en modo debug)
+        if (_isDebugMode)
+            ScriptMessage?.Invoke($"[Debug] Verbo parseado: '{parsedCmd.Verb}', DirectObject: '{parsedCmd.DirectObject}'");
 
         return parsedCmd.Verb switch
         {
@@ -702,18 +722,42 @@ public class GameEngine
 
         sb.AppendLine(room.Description);
 
-        // Objetos visibles
+        // Objetos visibles en la sala (no en inventario)
         var visibleObjects = _state.Objects
             .Where(o => o.Visible && _state.InventoryObjectIds.All(id => !id.Equals(o.Id, StringComparison.OrdinalIgnoreCase)))
             .Where(o => room.ObjectIds.Contains(o.Id, StringComparer.OrdinalIgnoreCase))
             .ToList();
 
-        if (visibleObjects.Any())
+        // IDs de objetos contenidos en otros (para excluirlos del nivel superior)
+        var containedIds = _state.Objects
+            .Where(o => o.IsContainer && o.ContainedObjectIds.Any())
+            .SelectMany(o => o.ContainedObjectIds)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        // Objetos de nivel superior (no contenidos en ningún contenedor)
+        var topLevelObjects = visibleObjects
+            .Where(o => !containedIds.Contains(o.Id))
+            .ToList();
+
+        if (topLevelObjects.Any())
         {
             sb.AppendLine();
             sb.AppendLine("Ves aquí:");
-            foreach (var obj in visibleObjects)
+            foreach (var obj in topLevelObjects)
+            {
                 sb.AppendLine($" - {Cap(obj.Name)}");
+                // Mostrar contenido si: está abierto O tiene contenido visible (ej: vitrina cerrada)
+                if (obj.IsContainer && (obj.IsOpen || obj.ContentsVisible) && obj.ContainedObjectIds.Any())
+                {
+                    foreach (var containedId in obj.ContainedObjectIds)
+                    {
+                        var contained = _state.Objects.FirstOrDefault(o =>
+                            o.Id.Equals(containedId, StringComparison.OrdinalIgnoreCase) && o.Visible);
+                        if (contained != null)
+                            sb.AppendLine($"     └ {Cap(contained.Name)}");
+                    }
+                }
+            }
         }
 
         // NPCs visibles
@@ -1024,13 +1068,33 @@ public class GameEngine
         {
             if (CanOpenContainer(obj, out string message))
             {
+                // Guardar si el contenido estaba oculto antes de abrir
+                bool wasContentHidden = !obj.ContentsVisible && !obj.IsOpen;
+
                 obj.IsOpen = true;
                 // Disparar evento de contenedor abierto
                 _ = TriggerEntityScriptAsync("GameObject", obj.Id, "Event_OnContainerOpen");
                 // Solo mostrar mensaje por defecto si no hay script con mensaje personalizado
                 if (HasScriptWithMessage("GameObject", obj.Id, "Event_OnContainerOpen"))
                     return CommandResult.Empty;
-                return CommandResult.Success($"Abres {Low(obj.Name)}.");
+
+                // Si el contenido estaba oculto y hay objetos, listarlos
+                var openMessage = $"Abres {Low(obj.Name)}.";
+                if (wasContentHidden && obj.ContainedObjectIds.Any())
+                {
+                    var contents = obj.ContainedObjectIds
+                        .Select(id => _state.Objects.FirstOrDefault(o =>
+                            string.Equals(o.Id, id, StringComparison.OrdinalIgnoreCase)))
+                        .Where(o => o != null && o.Visible)
+                        .Select(o => Low(o!.Name))
+                        .ToList();
+
+                    if (contents.Any())
+                    {
+                        openMessage += $"\nDentro encuentras: {string.Join(", ", contents)}.";
+                    }
+                }
+                return CommandResult.Success(openMessage);
             }
             return CommandResult.Error(message);
         }
@@ -1828,10 +1892,18 @@ public class GameEngine
         if (string.IsNullOrEmpty(arg))
             return CommandResult.Error("¿Con quién quieres hablar?");
 
+        // Debug: mostrar qué estamos buscando
+        if (_isDebugMode)
+            ScriptMessage?.Invoke($"[Debug] Buscando NPC: '{arg}' en sala '{room.Id}'");
+
         // Buscar NPC en la sala
         var npcsInRoom = _state.Npcs
             .Where(n => n.Visible && room.NpcIds.Contains(n.Id, StringComparer.OrdinalIgnoreCase))
             .ToList();
+
+        // Debug: mostrar NPCs encontrados
+        if (_isDebugMode)
+            ScriptMessage?.Invoke($"[Debug] NPCs en sala: {string.Join(", ", npcsInRoom.Select(n => $"'{n.Name}' (Id:{n.Id})"))}");
 
         // Primero buscar con el objeto directo
         var npc = npcsInRoom.FirstOrDefault(n => MatchesName(n.Name, arg, originalArg));
@@ -1853,7 +1925,14 @@ public class GameEngine
             return CommandResult.Success($"{Cap(npc.Name)} no tiene nada que decir.");
 
         // Iniciar conversación con el NPC
-        _ = StartConversationWithNpcAsync(npc.Id);
+        // Usamos ContinueWith para capturar errores sin bloquear
+        StartConversationWithNpcAsync(npc.Id).ContinueWith(t =>
+        {
+            if (t.IsFaulted && t.Exception != null)
+            {
+                ScriptMessage?.Invoke($"[Error] Conversación falló: {t.Exception.InnerException?.Message ?? t.Exception.Message}");
+            }
+        });
         return CommandResult.Empty; // La UI se actualiza via eventos
     }
 
@@ -2344,6 +2423,15 @@ public class GameEngine
         "{0} acaba de llegar."
     };
 
+    private static readonly string[] _npcDepartureMessages =
+    {
+        "{0} se marcha.",
+        "{0} se aleja.",
+        "{0} abandona la sala.",
+        "{0} se va.",
+        "{0} desaparece por una salida."
+    };
+
     private static readonly Random _arrivalRandom = new();
 
     /// <summary>
@@ -2407,6 +2495,13 @@ public class GameEngine
             string.Equals(id, npc.Id, StringComparison.OrdinalIgnoreCase)))
         {
             newRoom.NpcIds.Add(npc.Id);
+        }
+
+        // Notificar si el NPC abandona la sala del jugador
+        if (wasInPlayerRoom && !willBeInPlayerRoom)
+        {
+            var message = string.Format(_npcDepartureMessages[_arrivalRandom.Next(_npcDepartureMessages.Length)], npc.Name);
+            ScriptMessage?.Invoke(message);
         }
 
         // Notificar si el NPC entra a la sala del jugador

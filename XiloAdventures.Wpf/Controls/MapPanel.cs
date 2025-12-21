@@ -31,6 +31,8 @@ public partial class MapPanel : Control
     private readonly HashSet<string> _selectedRoomIds = new();
     // Sala donde está el jugador durante la prueba (para mostrar resplandor)
     private string? _testPlayerRoomId;
+    // Puertas del GameState para mostrar estado actualizado en modo pruebas
+    private List<Door>? _testDoors;
     // Rectángulos de los puertos de salida (roomId, dirección)
     private readonly Dictionary<(string roomId, string direction), Rect> _portRects = new();
     // Rectángulos de hit testing para las salidas (exits), indexadas por sala + índice de salida
@@ -328,6 +330,16 @@ public partial class MapPanel : Control
             _testPlayerRoomId = roomId;
             InvalidateVisual();
         }
+    }
+
+    /// <summary>
+    /// Establece las puertas del GameState para mostrar su estado actualizado en modo pruebas.
+    /// Pasar null para usar las puertas del WorldModel.
+    /// </summary>
+    public void SetTestDoors(List<Door>? doors)
+    {
+        _testDoors = doors;
+        InvalidateVisual();
     }
 
     public void ClearSelection()
