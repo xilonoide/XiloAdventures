@@ -1434,6 +1434,11 @@ public partial class WorldEditorWindow : Window
             _testEngine = new GameEngine(_testWorld, state, _testSoundManager, isDebugMode: true);
             _testEngine.ScriptMessage += msg => Dispatcher.Invoke(() => HandleTestScriptMessage(msg));
             _testEngine.AdventureCompleted += () => Dispatcher.Invoke(ShowEndingWindow);
+            _testEngine.CombatStarted += npcId => Dispatcher.Invoke(() => HandleTestCombatStarted(npcId));
+            _testEngine.TradeOpened += npc => Dispatcher.Invoke(() => HandleTestTradeOpened(npc));
+            _testEngine.ConversationDialogue += msg => Dispatcher.Invoke(() => HandleTestConversationDialogue(msg));
+            _testEngine.ConversationOptions += options => Dispatcher.Invoke(() => HandleTestConversationOptions(options));
+            _testEngine.ConversationEnded += () => Dispatcher.Invoke(HandleTestConversationEnded);
 
             // Si hay sonido y voz, precargar la descripción de la sala inicial
             if (soundEnabled && uiSettings.VoiceVolume > 0 && aiEnabled)
@@ -1700,6 +1705,116 @@ public partial class WorldEditorWindow : Window
         AppendTestOutput("\n[¡La aventura ha terminado!]\n");
     }
 
+    private void HandleTestCombatStarted(string npcId)
+    {
+        if (_testEngine == null || _testWorld == null) return;
+
+        // Buscar el NPC enemigo
+        var enemy = _testEngine.State.Npcs.FirstOrDefault(n =>
+            n.Id.Equals(npcId, StringComparison.OrdinalIgnoreCase));
+
+        if (enemy == null)
+        {
+            AppendTestOutput("Error: No se encontro el enemigo para el combate.");
+            return;
+        }
+
+        // Obtener el inventario del jugador para el combate
+        var playerInventory = _testEngine.State.InventoryObjectIds
+            .Select(id => _testEngine.State.Objects.FirstOrDefault(o => o.Id == id))
+            .Where(o => o != null)
+            .Cast<GameObject>()
+            .ToList();
+
+        // Crear el motor de combate
+        var combatEngine = new CombatEngine(_testEngine.State);
+
+        // Crear y mostrar la ventana de combate
+        var combatWindow = new CombatWindow(
+            combatEngine, _testEngine.State, enemy, playerInventory, _testWorld.Game.MagicEnabled)
+        {
+            Owner = this
+        };
+
+        combatWindow.CombatEnded += reason =>
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                UpdateTestDisplay();
+                var resultMsg = reason switch
+                {
+                    CombatEndReason.Victory => $"Has derrotado a {enemy.Name}.",
+                    CombatEndReason.Defeat => "Has sido derrotado.",
+                    CombatEndReason.Fled => "Has huido del combate.",
+                    CombatEndReason.EnemyFled => $"{enemy.Name} ha huido.",
+                    _ => "El combate ha terminado."
+                };
+                AppendTestOutput(resultMsg);
+            });
+        };
+
+        combatWindow.ShowDialog();
+    }
+
+    private void HandleTestTradeOpened(Npc merchant)
+    {
+        if (_testEngine == null || _testWorld == null) return;
+
+        // Crear el motor de comercio
+        var tradeEngine = new TradeEngine(_testEngine.State);
+
+        // Crear y mostrar la ventana de comercio
+        var tradeWindow = new TradeWindow(tradeEngine, _testEngine.State, merchant)
+        {
+            Owner = this
+        };
+
+        tradeWindow.TradeClosed += () =>
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                // Notificar al ConversationEngine que la tienda cerro
+                _testEngine.CloseShop();
+
+                // Actualizar UI del modo prueba
+                UpdateTestDisplay();
+            });
+        };
+
+        tradeWindow.ShowDialog();
+    }
+
+    private void HandleTestConversationDialogue(ConversationMessage message)
+    {
+        var emotionStr = message.Emotion != "Neutral" ? $" ({message.Emotion})" : "";
+        var speaker = message.IsNpc ? message.SpeakerName : "Tú";
+        var formattedText = $"[{speaker}{emotionStr}]: \"{message.Text}\"";
+        AppendTestOutput(formattedText);
+    }
+
+    private void HandleTestConversationOptions(List<DialogueOption> options)
+    {
+        if (options == null || options.Count == 0) return;
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("\n¿Qué dices?");
+        foreach (var option in options)
+        {
+            var prefix = option.IsEnabled ? $"  [{option.Index + 1}]" : $"  (×)";
+            var suffix = !option.IsEnabled && !string.IsNullOrEmpty(option.DisabledReason)
+                ? $" - {option.DisabledReason}"
+                : "";
+            sb.AppendLine($"{prefix} {option.Text}{suffix}");
+        }
+        sb.AppendLine("\n(Escribe el número de tu elección o 'salir' para terminar)");
+        AppendTestOutput(sb.ToString());
+    }
+
+    private void HandleTestConversationEnded()
+    {
+        AppendTestOutput("\n[Fin de la conversación]\n");
+    }
+
     private void TestDebugToggle_Changed(object sender, RoutedEventArgs e)
     {
         if (TestDebugIcon == null) return;
@@ -1761,6 +1876,11 @@ public partial class WorldEditorWindow : Window
             _testEngine = new GameEngine(_testWorld, state, _testSoundManager, isDebugMode: true);
             _testEngine.ScriptMessage += msg => Dispatcher.Invoke(() => HandleTestScriptMessage(msg));
             _testEngine.AdventureCompleted += () => Dispatcher.Invoke(ShowEndingWindow);
+            _testEngine.CombatStarted += npcId => Dispatcher.Invoke(() => HandleTestCombatStarted(npcId));
+            _testEngine.TradeOpened += npc => Dispatcher.Invoke(() => HandleTestTradeOpened(npc));
+            _testEngine.ConversationDialogue += msg => Dispatcher.Invoke(() => HandleTestConversationDialogue(msg));
+            _testEngine.ConversationOptions += options => Dispatcher.Invoke(() => HandleTestConversationOptions(options));
+            _testEngine.ConversationEnded += () => Dispatcher.Invoke(HandleTestConversationEnded);
             TestOutputTextBox.Document.Blocks.Clear();
             _testCommandHistory.Clear();
             _testHistoryIndex = -1;
@@ -3952,6 +4072,11 @@ Escribe SOLO la descripción en español, 2-3 frases, sin incluir el nombre de l
             _testEngine = new GameEngine(_testWorld, state, _testSoundManager!, isDebugMode: true);
             _testEngine.ScriptMessage += msg => Dispatcher.Invoke(() => HandleTestScriptMessage(msg));
             _testEngine.AdventureCompleted += () => Dispatcher.Invoke(ShowEndingWindow);
+            _testEngine.CombatStarted += npcId => Dispatcher.Invoke(() => HandleTestCombatStarted(npcId));
+            _testEngine.TradeOpened += npc => Dispatcher.Invoke(() => HandleTestTradeOpened(npc));
+            _testEngine.ConversationDialogue += msg => Dispatcher.Invoke(() => HandleTestConversationDialogue(msg));
+            _testEngine.ConversationOptions += options => Dispatcher.Invoke(() => HandleTestConversationOptions(options));
+            _testEngine.ConversationEnded += () => Dispatcher.Invoke(HandleTestConversationEnded);
 
             AppendTestSystemMessage("⟳ Mundo recargado");
             UpdateTestDisplay();

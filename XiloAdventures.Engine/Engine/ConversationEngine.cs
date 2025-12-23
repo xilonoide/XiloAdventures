@@ -24,8 +24,11 @@ public class ConversationEngine
     /// <summary>Evento cuando hay opciones para el jugador.</summary>
     public event Action<List<DialogueOption>>? OnPlayerOptions;
 
-    /// <summary>Evento cuando se abre la tienda.</summary>
+    /// <summary>Evento cuando se abre la tienda (obsoleto, usar OnTradeOpen).</summary>
     public event Action<ShopData>? OnShopOpen;
+
+    /// <summary>Evento cuando se abre el comercio con un NPC.</summary>
+    public event Action<Npc>? OnTradeOpen;
 
     /// <summary>Evento cuando termina la conversación.</summary>
     public event Action? OnConversationEnded;
@@ -600,6 +603,7 @@ public class ConversationEngine
         }
 
         OnShopOpen?.Invoke(shopData);
+        OnTradeOpen?.Invoke(npc);
     }
 
     private async Task HandleBuyItemAsync(ConversationDefinition conversation, ScriptNode node)

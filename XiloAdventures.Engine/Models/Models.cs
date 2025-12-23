@@ -369,7 +369,7 @@ public class Npc
     /// <summary>Inventario del NPC.</summary>
     public List<string> InventoryObjectIds { get; set; } = new();
 
-    /// <summary>Oro que lleva el NPC (se puede saquear al derrotarlo).</summary>
+    /// <summary>Oro que lleva el NPC. Para comerciantes: -1 = oro infinito, 0+ = cantidad limitada.</summary>
     public int Gold { get; set; }
 
     /// <summary>Estadísticas de combate del NPC.</summary>

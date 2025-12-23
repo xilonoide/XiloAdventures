@@ -75,6 +75,7 @@ public class GameEngine
         _conversationEngine.OnDialogue += msg => ConversationDialogue?.Invoke(msg);
         _conversationEngine.OnPlayerOptions += options => ConversationOptions?.Invoke(options);
         _conversationEngine.OnShopOpen += shop => ShopOpened?.Invoke(shop);
+        _conversationEngine.OnTradeOpen += npc => TradeOpened?.Invoke(npc);
         _conversationEngine.OnConversationEnded += () => ConversationEnded?.Invoke();
         _conversationEngine.OnSystemMessage += msg => ScriptMessage?.Invoke(msg);
     }
@@ -106,9 +107,14 @@ public class GameEngine
     public event Action<List<DialogueOption>>? ConversationOptions;
 
     /// <summary>
-    /// Evento cuando se abre la tienda.
+    /// Evento cuando se abre la tienda (obsoleto, usar TradeOpened).
     /// </summary>
     public event Action<ShopData>? ShopOpened;
+
+    /// <summary>
+    /// Evento cuando se abre el comercio con un NPC.
+    /// </summary>
+    public event Action<Npc>? TradeOpened;
 
     /// <summary>
     /// Evento cuando termina una conversación.
@@ -135,6 +141,14 @@ public class GameEngine
     /// Indica si la tienda está abierta.
     /// </summary>
     public bool IsInShopMode => _conversationEngine?.IsInShopMode == true;
+
+    /// <summary>
+    /// Cierra la tienda/comercio activo.
+    /// </summary>
+    public void CloseShop()
+    {
+        _ = _conversationEngine?.CloseShopAsync();
+    }
 
     /// <summary>
     /// Dispara los scripts iniciales (Event_OnGameStart y Event_OnEnter de la sala inicial).

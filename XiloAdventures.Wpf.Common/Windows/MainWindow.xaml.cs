@@ -72,6 +72,7 @@ public partial class MainWindow : Window
         _engine.ConversationOptions += Engine_ConversationOptions;
         _engine.ConversationEnded += Engine_ConversationEnded;
         _engine.ShopOpened += Engine_ShopOpened;
+        _engine.TradeOpened += Engine_TradeOpened;
         _engine.AdventureCompleted += Engine_AdventureCompleted;
         _engine.PlayerDiedFromNeeds += Engine_PlayerDiedFromNeeds;
         _engine.CombatStarted += Engine_CombatStarted;
@@ -797,6 +798,36 @@ public partial class MainWindow : Window
             sb.AppendLine("\nUsa 'comprar <objeto>' o 'vender <objeto>'");
             sb.AppendLine("Escribe 'salir' para cerrar la tienda.\n");
             AppendText(sb.ToString());
+        });
+    }
+
+    private void Engine_TradeOpened(Npc merchant)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            // Crear el motor de comercio
+            var tradeEngine = new TradeEngine(_engine.State);
+
+            // Crear y mostrar la ventana de comercio
+            var tradeWindow = new TradeWindow(tradeEngine, _engine.State, merchant)
+            {
+                Owner = this
+            };
+
+            tradeWindow.TradeClosed += () =>
+            {
+                // Usar BeginInvoke para asegurar que la actualizacion ocurra despues de cerrar el dialogo
+                Dispatcher.BeginInvoke(() =>
+                {
+                    // Notificar al ConversationEngine que la tienda cerro
+                    _engine.CloseShop();
+
+                    // Actualizar UI principal con cambios de comercio
+                    UpdateStatusPanel();
+                });
+            };
+
+            tradeWindow.ShowDialog();
         });
     }
 
