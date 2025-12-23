@@ -211,8 +211,8 @@
                                          Minimum="0" Maximum="100" Value="100"
                                          Foreground="#E53935" Background="#333"/>
                         </Grid>
-                        <!-- Maná (azul claro) -->
-                        <Grid Margin="0,0,0,2">
+                        <!-- Maná (azul claro) - solo visible si MagicEnabled -->
+                        <Grid x:Name="ManaPanel" Margin="0,0,0,2">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="70"/>
                                 <ColumnDefinition Width="*"/>

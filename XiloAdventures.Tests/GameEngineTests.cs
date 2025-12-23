@@ -969,4 +969,207 @@ public class GameEngineTests
     }
 
     #endregion
+
+    #region Combat Integration Tests
+
+    /// <summary>
+    /// Creates a test world with combat enabled and an NPC to fight.
+    /// </summary>
+    private static (WorldModel world, GameState state) CreateTestWorldWithCombat()
+    {
+        var world = new WorldModel
+        {
+            Game = new GameInfo
+            {
+                Id = "test_combat",
+                Title = "Test Combat",
+                StartRoomId = "room1",
+                StartHour = 12,
+                CombatEnabled = true
+            },
+            Rooms = new List<Room>
+            {
+                new Room
+                {
+                    Id = "room1",
+                    Name = "Arena",
+                    Description = "Una arena de combate.",
+                    IsIlluminated = true,
+                    IsInterior = false,
+                    Exits = new List<Exit>(),
+                    ObjectIds = new List<string>(),
+                    NpcIds = new List<string> { "npc_goblin" }
+                }
+            },
+            Objects = new List<GameObject>(),
+            Npcs = new List<Npc>
+            {
+                new Npc
+                {
+                    Id = "npc_goblin",
+                    Name = "Goblin feroz",
+                    Description = "Un pequeño goblin verde con ojos maliciosos.",
+                    RoomId = "room1",
+                    Visible = true,
+                    Gold = 10,
+                    Stats = new CombatStats
+                    {
+                        Level = 1,
+                        Strength = 5,
+                        Dexterity = 8,
+                        Intelligence = 3,
+                        MaxHealth = 15,
+                        CurrentHealth = 15
+                    }
+                }
+            },
+            Doors = new List<Door>(),
+            Quests = new List<QuestDefinition>()
+        };
+
+        var state = WorldLoader.CreateInitialState(world);
+        return (world, state);
+    }
+
+    [Fact]
+    public void ProcessCommand_Attack_FiresCombatStartedEvent()
+    {
+        // Arrange
+        var (world, state) = CreateTestWorldWithCombat();
+        var sound = CreateMockSoundManager();
+        var engine = new GameEngine(world, state, sound);
+
+        string? capturedNpcId = null;
+        engine.CombatStarted += npcId => capturedNpcId = npcId;
+
+        // Act
+        engine.ProcessCommand("atacar goblin");
+
+        // Assert - Event should have been fired with the correct NPC ID
+        Assert.NotNull(capturedNpcId);
+        Assert.Equal("npc_goblin", capturedNpcId);
+    }
+
+    [Fact]
+    public void ProcessCommand_Attack_WithCombatDisabled_ReturnsError()
+    {
+        // Arrange
+        var (world, state) = CreateTestWorldWithCombat();
+        world.Game.CombatEnabled = false; // Disable combat
+        var sound = CreateMockSoundManager();
+        var engine = new GameEngine(world, state, sound);
+
+        string? capturedNpcId = null;
+        engine.CombatStarted += npcId => capturedNpcId = npcId;
+
+        // Act
+        var result = engine.ProcessCommand("atacar goblin");
+
+        // Assert - Should return error and NOT fire event
+        Assert.True(result.HasError);
+        Assert.Contains("combate no está activo", result.Message.ToLowerInvariant());
+        Assert.Null(capturedNpcId);
+    }
+
+    [Fact]
+    public void ProcessCommand_Attack_NpcNotInRoom_ReturnsError()
+    {
+        // Arrange
+        var (world, state) = CreateTestWorldWithCombat();
+        var sound = CreateMockSoundManager();
+        var engine = new GameEngine(world, state, sound);
+
+        string? capturedNpcId = null;
+        engine.CombatStarted += npcId => capturedNpcId = npcId;
+
+        // Act
+        var result = engine.ProcessCommand("atacar dragon");
+
+        // Assert - Should return error and NOT fire event
+        Assert.True(result.HasError);
+        Assert.Contains("no ves", result.Message.ToLowerInvariant());
+        Assert.Null(capturedNpcId);
+    }
+
+    [Fact]
+    public void ProcessCommand_Attack_NpcIsCorpse_ReturnsError()
+    {
+        // Arrange
+        var (world, state) = CreateTestWorldWithCombat();
+        // Make the NPC a corpse
+        state.Npcs.First(n => n.Id == "npc_goblin").IsCorpse = true;
+        var sound = CreateMockSoundManager();
+        var engine = new GameEngine(world, state, sound);
+
+        string? capturedNpcId = null;
+        engine.CombatStarted += npcId => capturedNpcId = npcId;
+
+        // Act
+        var result = engine.ProcessCommand("atacar goblin");
+
+        // Assert - Should return error about NPC being dead
+        Assert.True(result.HasError);
+        Assert.Contains("muerto", result.Message.ToLowerInvariant());
+        Assert.Null(capturedNpcId);
+    }
+
+    [Fact]
+    public void ProcessCommand_Attack_NoTarget_ReturnsError()
+    {
+        // Arrange
+        var (world, state) = CreateTestWorldWithCombat();
+        var sound = CreateMockSoundManager();
+        var engine = new GameEngine(world, state, sound);
+
+        string? capturedNpcId = null;
+        engine.CombatStarted += npcId => capturedNpcId = npcId;
+
+        // Act
+        var result = engine.ProcessCommand("atacar");
+
+        // Assert - Should ask who to attack
+        Assert.True(result.HasError);
+        Assert.Contains("quién", result.Message.ToLowerInvariant());
+        Assert.Null(capturedNpcId);
+    }
+
+    [Fact]
+    public void ProcessCommand_Attack_InvisibleNpc_ReturnsError()
+    {
+        // Arrange
+        var (world, state) = CreateTestWorldWithCombat();
+        // Make the NPC invisible
+        state.Npcs.First(n => n.Id == "npc_goblin").Visible = false;
+        var sound = CreateMockSoundManager();
+        var engine = new GameEngine(world, state, sound);
+
+        string? capturedNpcId = null;
+        engine.CombatStarted += npcId => capturedNpcId = npcId;
+
+        // Act
+        var result = engine.ProcessCommand("atacar goblin");
+
+        // Assert - Should not find the invisible NPC
+        Assert.True(result.HasError);
+        Assert.Contains("no ves", result.Message.ToLowerInvariant());
+        Assert.Null(capturedNpcId);
+    }
+
+    [Fact]
+    public void CombatStarted_Event_IsNotNull()
+    {
+        // Arrange
+        var (world, state) = CreateTestWorldWithCombat();
+        var sound = CreateMockSoundManager();
+        var engine = new GameEngine(world, state, sound);
+
+        // Act & Assert - Verify we can subscribe to the event without issues
+        bool eventFired = false;
+        engine.CombatStarted += _ => eventFired = true;
+        engine.ProcessCommand("atacar goblin");
+
+        Assert.True(eventFired, "CombatStarted event should fire when attacking a valid NPC");
+    }
+
+    #endregion
 }

@@ -111,6 +111,7 @@ public static class WorldLoader
         world.Musics ??= new List<MusicAsset>();
         world.Fxs ??= new List<FxAsset>();
         world.Scripts ??= new List<ScriptDefinition>();
+        world.Abilities ??= new List<CombatAbility>();
 
         // Normalizar Properties de scripts y corregir categorías de nodos
         foreach (var script in world.Scripts)
@@ -152,6 +153,7 @@ public static class WorldLoader
             Rooms = CloneList(world.Rooms),
             Objects = CloneList(world.Objects),
             Npcs = CloneList(world.Npcs),
+            Abilities = CloneList(world.Abilities),
             UseRules = CloneList(world.UseRules),
             TradeRules = CloneList(world.TradeRules),
             Events = CloneList(world.Events),
@@ -164,7 +166,8 @@ public static class WorldLoader
                 Intelligence = playerDef.Intelligence,
                 Dexterity = playerDef.Dexterity,
                 Charisma = playerDef.Charisma,
-                Gold = playerDef.InitialGold
+                Gold = playerDef.InitialGold,
+                AbilityIds = new List<string>(playerDef.AbilityIds ?? new List<string>())
             }
         };
 

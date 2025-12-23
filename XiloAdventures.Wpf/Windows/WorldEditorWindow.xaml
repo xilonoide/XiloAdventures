@@ -365,6 +365,20 @@
                         </MenuItem.Icon>
                     </MenuItem>
                 </MenuItem>
+                <MenuItem Header="Combate"
+                        Style="{StaticResource TopMenuItemStyle}">
+                    <MenuItem Header="Habilidades"
+                            Click="AbilitiesMenu_Click"
+                            Style="{StaticResource SubMenuItemStyle}">
+                        <MenuItem.Icon>
+                            <TextBlock FontFamily="Segoe MDL2 Assets"
+                                    VerticalAlignment="Center"
+                                    Text="&#xE945;"
+                                    FontSize="18"
+                                    Margin="2"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                </MenuItem>
                 <MenuItem Header="IA"
                         Style="{StaticResource TopMenuItemStyle}">
                     <MenuItem Header="Generar datos"
@@ -738,7 +752,7 @@
                                                      Minimum="0" Maximum="100" Value="100"
                                                      Foreground="#E53935" Background="#333"/>
                                     </Grid>
-                                    <Grid Margin="0,0,0,2">
+                                    <Grid x:Name="TestManaPanel" Margin="0,0,0,2">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="55"/>
                                             <ColumnDefinition Width="*"/>

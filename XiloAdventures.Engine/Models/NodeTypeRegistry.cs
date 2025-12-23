@@ -264,6 +264,51 @@ public static class NodeTypeRegistry
             OutputPorts = new[] { new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" } }
         });
 
+        // === COMBAT EVENTS ===
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Event_OnCombatStart",
+            DisplayName = "Al Iniciar Combate",
+            Description = "Se ejecuta cuando el jugador inicia combate con este NPC",
+            Category = NodeCategory.Event,
+            OwnerTypes = new[] { "Npc" },
+            RequiredFeature = "Combat",
+            OutputPorts = new[] { new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" } }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Event_OnCombatVictory",
+            DisplayName = "Al Ganar Combate",
+            Description = "Se ejecuta cuando el jugador vence a este NPC en combate",
+            Category = NodeCategory.Event,
+            OwnerTypes = new[] { "Npc" },
+            RequiredFeature = "Combat",
+            OutputPorts = new[] { new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" } }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Event_OnCombatDefeat",
+            DisplayName = "Al Perder Combate",
+            Description = "Se ejecuta cuando el NPC vence al jugador en combate",
+            Category = NodeCategory.Event,
+            OwnerTypes = new[] { "Npc" },
+            RequiredFeature = "Combat",
+            OutputPorts = new[] { new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" } }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Event_OnCombatFlee",
+            DisplayName = "Al Huir del Combate",
+            Description = "Se ejecuta cuando el jugador huye del combate con este NPC",
+            Category = NodeCategory.Event,
+            OwnerTypes = new[] { "Npc" },
+            RequiredFeature = "Combat",
+            OutputPorts = new[] { new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" } }
+        });
+
         // === OBJECT EVENTS ===
         Register(new NodeTypeDefinition
         {
@@ -1016,6 +1061,73 @@ public static class NodeTypeRegistry
                 new NodePort { Name = "False", PortType = PortType.Execution, Label = "Muerto" }
             }
         });
+
+        // === NPC COMBAT CONDITIONS ===
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Condition_IsNpcAlive",
+            DisplayName = "Combate: NPC Vivo",
+            Description = "Verifica si el NPC está vivo (salud > 0)",
+            Category = NodeCategory.Condition,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "Combat",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "True", PortType = PortType.Execution, Label = "Vivo" },
+                new NodePort { Name = "False", PortType = PortType.Execution, Label = "Muerto" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "NpcId", DisplayName = "NPC", DataType = "entity", EntityType = "Npc", IsRequired = true }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Condition_NpcHealthBelow",
+            DisplayName = "Combate: Salud NPC Baja",
+            Description = "Verifica si la salud del NPC está por debajo de un umbral",
+            Category = NodeCategory.Condition,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "Combat",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "True", PortType = PortType.Execution, Label = "Sí" },
+                new NodePort { Name = "False", PortType = PortType.Execution, Label = "No" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "NpcId", DisplayName = "NPC", DataType = "entity", EntityType = "Npc", IsRequired = true },
+                new NodePropertyDefinition { Name = "Threshold", DisplayName = "Umbral (%)", DataType = "int", DefaultValue = 50 }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Condition_IsInCombat",
+            DisplayName = "Combate: En Combate",
+            Description = "Verifica si hay un combate activo",
+            Category = NodeCategory.Condition,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "Combat",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "True", PortType = PortType.Execution, Label = "Sí" },
+                new NodePort { Name = "False", PortType = PortType.Execution, Label = "No" }
+            }
+        });
     }
 
     #endregion
@@ -1742,6 +1854,167 @@ public static class NodeTypeRegistry
             Properties = new[]
             {
                 new NodePropertyDefinition { Name = "Amount", DisplayName = "Cantidad", DataType = "int", DefaultValue = 10 }
+            }
+        });
+
+        // === NPC COMBAT ACTIONS ===
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_StartCombat",
+            DisplayName = "Combate: Iniciar",
+            Description = "Inicia un combate con el NPC especificado",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "Combat",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "NpcId", DisplayName = "NPC", DataType = "entity", EntityType = "Npc", IsRequired = true }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_DamageNpc",
+            DisplayName = "Combate: Dañar NPC",
+            Description = "Causa daño a un NPC (reduce su salud)",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "Combat",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
+                new NodePort { Name = "OnDeath", PortType = PortType.Execution, Label = "Si muere" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "NpcId", DisplayName = "NPC", DataType = "entity", EntityType = "Npc", IsRequired = true },
+                new NodePropertyDefinition { Name = "Amount", DisplayName = "Daño", DataType = "int", DefaultValue = 10 }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_HealNpc",
+            DisplayName = "Combate: Curar NPC",
+            Description = "Restaura salud de un NPC",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "Combat",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "NpcId", DisplayName = "NPC", DataType = "entity", EntityType = "Npc", IsRequired = true },
+                new NodePropertyDefinition { Name = "Amount", DisplayName = "Curación", DataType = "int", DefaultValue = 10 }
+            }
+        });
+
+        // === HABILIDADES DE COMBATE ===
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_AddAbility",
+            DisplayName = "Habilidad: Añadir al Jugador",
+            Description = "Otorga una habilidad de combate al jugador",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "Combat",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "AbilityId", DisplayName = "Habilidad", DataType = "entity", EntityType = "Ability", IsRequired = true }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_RemoveAbility",
+            DisplayName = "Habilidad: Quitar al Jugador",
+            Description = "Quita una habilidad de combate del jugador",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "Combat",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "AbilityId", DisplayName = "Habilidad", DataType = "entity", EntityType = "Ability", IsRequired = true }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_AddAbilityToNpc",
+            DisplayName = "Habilidad: Añadir a NPC",
+            Description = "Otorga una habilidad de combate a un NPC",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "Combat",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "NpcId", DisplayName = "NPC", DataType = "entity", EntityType = "Npc", IsRequired = true },
+                new NodePropertyDefinition { Name = "AbilityId", DisplayName = "Habilidad", DataType = "entity", EntityType = "Ability", IsRequired = true }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Action_RemoveAbilityFromNpc",
+            DisplayName = "Habilidad: Quitar a NPC",
+            Description = "Quita una habilidad de combate de un NPC",
+            Category = NodeCategory.Action,
+            OwnerTypes = new[] { "*" },
+            RequiredFeature = "Combat",
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "NpcId", DisplayName = "NPC", DataType = "entity", EntityType = "Npc", IsRequired = true },
+                new NodePropertyDefinition { Name = "AbilityId", DisplayName = "Habilidad", DataType = "entity", EntityType = "Ability", IsRequired = true }
             }
         });
 

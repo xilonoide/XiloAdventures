@@ -78,9 +78,11 @@ public partial class WorldEditorWindow : Window
         PropertyEditor.RequestAiImageGeneration += PropertyEditor_RequestAiImageGeneration;
         PropertyEditor.RequestAiDescriptionGeneration += PropertyEditor_RequestAiDescriptionGeneration;
         PropertyEditor.RequestEditPatrolRoute += PropertyEditor_RequestEditPatrolRoute;
+        PropertyEditor.RequestManageAbilities += PropertyEditor_RequestManageAbilities;
         PropertyEditor.GetRooms = () => _world.Rooms;
         PropertyEditor.GetMusics = () => _world.Musics;
         PropertyEditor.GetObjects = () => _world.Objects;
+        PropertyEditor.GetAbilities = () => _world.Abilities;
         PropertyEditor.GetParserDictionary = () => _world.Game.ParserDictionaryJson;
         PropertyEditor.SetParserDictionary = json =>
         {
@@ -1596,10 +1598,20 @@ public partial class WorldEditorWindow : Window
             var dynamicStats = state.Player.DynamicStats;
             TestHealthBar.Value = dynamicStats.Health;
             TestHealthBar.Maximum = dynamicStats.MaxHealth;
-            TestManaBar.Value = dynamicStats.Mana;
-            TestManaBar.Maximum = dynamicStats.MaxMana;
             TestEnergyBar.Value = dynamicStats.Energy;
             TestSanityBar.Value = dynamicStats.Sanity;
+
+            // Mana solo visible si MagicEnabled
+            if (_testWorld.Game.MagicEnabled)
+            {
+                TestManaPanel.Visibility = Visibility.Visible;
+                TestManaBar.Value = dynamicStats.Mana;
+                TestManaBar.Maximum = dynamicStats.MaxMana;
+            }
+            else
+            {
+                TestManaPanel.Visibility = Visibility.Collapsed;
+            }
         }
         else
         {
@@ -2188,9 +2200,80 @@ public partial class WorldEditorWindow : Window
         }
     }
 
+    /// <summary>
+    /// Guarda el mundo de forma síncrona (para usar en OnClosing).
+    /// No muestra overlay de carga para evitar deadlock.
+    /// </summary>
     private bool PerformSave()
     {
-        return PerformSaveAsync().GetAwaiter().GetResult();
+        if (string.IsNullOrEmpty(_currentPath))
+        {
+            SaveAsMenu_Click(this, new RoutedEventArgs());
+            return !_isDirty; // Si ya no está dirty, se guardó correctamente
+        }
+
+        // Aplicar validaciones pendientes del PropertyEditor antes de guardar
+        PropertyEditor.ApplyPendingValidations();
+
+        // Validar requisitos mínimos del mundo
+        if (!ValidateWorldMinimumRequirements())
+            return false;
+
+        // Validar clave de encriptación (ya se valida en OnClosing, pero por si acaso)
+        if (!ValidateEncryptionKey())
+            return false;
+
+        // Validar características del jugador
+        if (!ValidatePlayerAttributes())
+            return false;
+
+        // Validar puertas con cerradura tengan llave asignada
+        if (!ValidateDoorKeys())
+            return false;
+
+        // Validar NPCs con patrulla tengan ruta definida
+        if (!ValidateNpcPatrols())
+            return false;
+
+        try
+        {
+            // Sincronizar posiciones del mapa con el modelo
+            if (_world != null)
+            {
+                var roomIds = _world.Rooms.Select(r => r.Id);
+                var positions = MapPanel.GetRoomPositions(roomIds);
+
+                _world.RoomPositions ??= new Dictionary<string, MapPosition>();
+                _world.RoomPositions.Clear();
+
+                foreach (var kv in positions)
+                {
+                    _world.RoomPositions[kv.Key] = new MapPosition
+                    {
+                        X = kv.Value.X,
+                        Y = kv.Value.Y
+                    };
+                }
+
+                // Guardar estado del grid y snap-to-grid
+                _world.ShowGrid = MapPanel.IsGridVisible;
+                _world.SnapToGrid = MapPanel.IsSnapToGridEnabled;
+
+                // Guardar configuración de IA
+                _world.UseLlmForGenders = _useLlmForGenders;
+            }
+
+            Directory.CreateDirectory(AppPaths.WorldsFolder);
+            WorldLoader.SaveWorldModel(_world!, _currentPath);
+
+            SetDirty(false);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            new AlertWindow($"Error al guardar mundo:\n{ex.Message}", "Error") { Owner = this }.ShowDialog();
+            return false;
+        }
     }
 
     private void SaveAsMenu_Click(object sender, RoutedEventArgs e)
@@ -2292,6 +2375,28 @@ public partial class WorldEditorWindow : Window
             Owner = this
         };
         fxWindow.ShowDialog();
+
+        SetDirty(true);
+    }
+
+    private void AbilitiesMenu_Click(object sender, RoutedEventArgs e)
+    {
+        var abilityWindow = new AbilityManagerWindow(_world)
+        {
+            Owner = this
+        };
+        abilityWindow.ShowDialog();
+
+        SetDirty(true);
+    }
+
+    private void PropertyEditor_RequestManageAbilities()
+    {
+        var abilityWindow = new AbilityManagerWindow(_world)
+        {
+            Owner = this
+        };
+        abilityWindow.ShowDialog();
 
         SetDirty(true);
     }

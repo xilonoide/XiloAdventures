@@ -74,6 +74,7 @@ public partial class MainWindow : Window
         _engine.ShopOpened += Engine_ShopOpened;
         _engine.AdventureCompleted += Engine_AdventureCompleted;
         _engine.PlayerDiedFromNeeds += Engine_PlayerDiedFromNeeds;
+        _engine.CombatStarted += Engine_CombatStarted;
         _engine.TriggerInitialScripts(); // Disparar scripts iniciales después de suscribir eventos
 
         InitializeComponent();
@@ -648,10 +649,20 @@ public partial class MainWindow : Window
             var stats = _engine.State.Player.DynamicStats;
             HealthBar.Value = stats.Health;
             HealthBar.Maximum = stats.MaxHealth;
-            ManaBar.Value = stats.Mana;
-            ManaBar.Maximum = stats.MaxMana;
             EnergyBar.Value = stats.Energy;
             SanityBar.Value = stats.Sanity;
+
+            // Mana solo visible si MagicEnabled
+            if (_world.Game.MagicEnabled)
+            {
+                ManaPanel.Visibility = Visibility.Visible;
+                ManaBar.Value = stats.Mana;
+                ManaBar.Maximum = stats.MaxMana;
+            }
+            else
+            {
+                ManaPanel.Visibility = Visibility.Collapsed;
+            }
         }
         else
         {
@@ -786,6 +797,65 @@ public partial class MainWindow : Window
             sb.AppendLine("\nUsa 'comprar <objeto>' o 'vender <objeto>'");
             sb.AppendLine("Escribe 'salir' para cerrar la tienda.\n");
             AppendText(sb.ToString());
+        });
+    }
+
+    private void Engine_CombatStarted(string npcId)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            // Buscar el NPC enemigo
+            var enemy = _engine.State.Npcs.FirstOrDefault(n =>
+                n.Id.Equals(npcId, StringComparison.OrdinalIgnoreCase));
+
+            if (enemy == null)
+            {
+                AppendSystemMessage("Error: No se encontró el enemigo para el combate.");
+                return;
+            }
+
+            // Obtener el inventario del jugador para el combate
+            var playerInventory = _engine.State.InventoryObjectIds
+                .Select(id => _engine.State.Objects.FirstOrDefault(o => o.Id == id))
+                .Where(o => o != null)
+                .Cast<GameObject>()
+                .ToList();
+
+            // Crear el motor de combate
+            var combatEngine = new CombatEngine(_engine.State);
+
+            // Crear y mostrar la ventana de combate
+            var combatWindow = new CombatWindow(
+                combatEngine, _engine.State, enemy, playerInventory, _world.Game.MagicEnabled)
+            {
+                Owner = this
+            };
+
+            combatWindow.CombatEnded += reason =>
+            {
+                // Usar BeginInvoke para asegurar que la actualización ocurra después de cerrar el diálogo
+                Dispatcher.BeginInvoke(() =>
+                {
+                    // Actualizar la UI después del combate
+                    UpdateStatusPanel();
+                    UpdateRoomVisuals();
+
+                    switch (reason)
+                    {
+                        case CombatEndReason.Victory:
+                            AppendText($"\n¡Has derrotado a {enemy.Name}!");
+                            break;
+                        case CombatEndReason.Defeat:
+                            AppendText($"\n{enemy.Name} te ha derrotado...");
+                            break;
+                        case CombatEndReason.Fled:
+                            AppendText($"\nHas huido del combate con {enemy.Name}.");
+                            break;
+                    }
+                });
+            };
+
+            combatWindow.ShowDialog();
         });
     }
 

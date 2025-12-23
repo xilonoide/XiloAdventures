@@ -39,6 +39,11 @@ public class ScriptEngine
     public event Action<string>? OnStartConversation;
 
     /// <summary>
+    /// Evento disparado cuando un script quiere iniciar combate con un NPC.
+    /// </summary>
+    public event Action<string>? OnStartCombat;
+
+    /// <summary>
     /// Evento disparado cuando se completan todas las misiones principales.
     /// </summary>
     public event Action? OnAdventureCompleted;
@@ -359,6 +364,35 @@ public class ScriptEngine
                 var probability = GetPropertyValue<int>(node, "Probability", 50);
                 var roll = _random.Next(100);
                 ctx.NextOutputPort = roll < probability ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
+            // === CONDICIONES DE COMBATE ===
+            ["Condition_IsNpcAlive"] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                var npc = ctx.GameState.Npcs.FirstOrDefault(n =>
+                    string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
+                var isAlive = npc != null && !npc.IsCorpse && npc.Stats.CurrentHealth > 0;
+                ctx.NextOutputPort = isAlive ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
+            ["Condition_NpcHealthBelow"] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                var threshold = GetPropertyValue<int>(node, "Threshold", 50);
+                var npc = ctx.GameState.Npcs.FirstOrDefault(n =>
+                    string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
+                var isBelow = npc != null && npc.Stats.CurrentHealth < threshold;
+                ctx.NextOutputPort = isBelow ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
+            ["Condition_IsInCombat"] = async (node, ctx) =>
+            {
+                var isInCombat = ctx.GameState.ActiveCombat?.IsActive ?? false;
+                ctx.NextOutputPort = isInCombat ? "True" : "False";
                 await Task.CompletedTask;
             },
 
@@ -1054,6 +1088,93 @@ public class ScriptEngine
                 }
                 await Task.CompletedTask;
             },
+
+            // === NPC COMBAT ACTIONS ===
+            ["Action_StartCombat"] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                if (!string.IsNullOrEmpty(npcId))
+                {
+                    var npc = ctx.GameState.Npcs.FirstOrDefault(n => n.Id == npcId);
+                    if (npc != null && !npc.IsCorpse)
+                    {
+                        OnStartCombat?.Invoke(npcId);
+                    }
+                }
+                await Task.CompletedTask;
+            },
+            ["Action_DamageNpc"] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                var amount = GetPropertyValue<int>(node, "Amount", 10);
+                var npc = ctx.GameState.Npcs.FirstOrDefault(n => n.Id == npcId);
+                if (npc != null)
+                {
+                    npc.Stats.CurrentHealth = Math.Max(0, npc.Stats.CurrentHealth - amount);
+                    if (npc.Stats.CurrentHealth <= 0)
+                    {
+                        npc.IsCorpse = true;
+                        npc.IsPatrolling = false;
+                        npc.IsFollowingPlayer = false;
+                        ctx.NextOutputPort = "OnDeath";
+                    }
+                }
+                await Task.CompletedTask;
+            },
+            ["Action_HealNpc"] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                var amount = GetPropertyValue<int>(node, "Amount", 10);
+                var npc = ctx.GameState.Npcs.FirstOrDefault(n => n.Id == npcId);
+                if (npc != null)
+                {
+                    npc.Stats.CurrentHealth = Math.Min(npc.Stats.MaxHealth, npc.Stats.CurrentHealth + amount);
+                }
+                await Task.CompletedTask;
+            },
+
+            // === HABILIDADES DE COMBATE ===
+            ["Action_AddAbility"] = async (node, ctx) =>
+            {
+                var abilityId = GetPropertyValue<string>(node, "AbilityId", "");
+                if (!string.IsNullOrEmpty(abilityId) && !ctx.GameState.Player.AbilityIds.Contains(abilityId))
+                {
+                    ctx.GameState.Player.AbilityIds.Add(abilityId);
+                }
+                await Task.CompletedTask;
+            },
+            ["Action_RemoveAbility"] = async (node, ctx) =>
+            {
+                var abilityId = GetPropertyValue<string>(node, "AbilityId", "");
+                if (!string.IsNullOrEmpty(abilityId))
+                {
+                    ctx.GameState.Player.AbilityIds.Remove(abilityId);
+                }
+                await Task.CompletedTask;
+            },
+            ["Action_AddAbilityToNpc"] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                var abilityId = GetPropertyValue<string>(node, "AbilityId", "");
+                var npc = ctx.GameState.Npcs.FirstOrDefault(n => n.Id == npcId);
+                if (npc != null && !string.IsNullOrEmpty(abilityId) && !npc.AbilityIds.Contains(abilityId))
+                {
+                    npc.AbilityIds.Add(abilityId);
+                }
+                await Task.CompletedTask;
+            },
+            ["Action_RemoveAbilityFromNpc"] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                var abilityId = GetPropertyValue<string>(node, "AbilityId", "");
+                var npc = ctx.GameState.Npcs.FirstOrDefault(n => n.Id == npcId);
+                if (npc != null && !string.IsNullOrEmpty(abilityId))
+                {
+                    npc.AbilityIds.Remove(abilityId);
+                }
+                await Task.CompletedTask;
+            },
+
             ["Action_FeedPlayer"] = async (node, ctx) =>
             {
                 var amount = GetPropertyValue<int>(node, "Amount", 25);
@@ -1210,6 +1331,12 @@ public class ScriptEngine
             ["Event_OnStateThreshold"] = async (node, ctx) => { await Task.CompletedTask; },
             ["Event_OnModifierApplied"] = async (node, ctx) => { await Task.CompletedTask; },
             ["Event_OnModifierExpired"] = async (node, ctx) => { await Task.CompletedTask; },
+
+            // === EVENTOS DE COMBATE (entry points) ===
+            ["Event_OnCombatStart"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnCombatVictory"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnCombatDefeat"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnCombatFlee"] = async (node, ctx) => { await Task.CompletedTask; },
 
             // === VELOCIDAD DE NECESIDADES ===
             ["Action_SetNeedRate"] = async (node, ctx) =>

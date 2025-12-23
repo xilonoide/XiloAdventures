@@ -40,6 +40,11 @@ public class WorldModel
     public List<FxAsset> Fxs { get; set; } = new();
 
     /// <summary>
+    /// Biblioteca de habilidades de combate del mundo.
+    /// </summary>
+    public List<CombatAbility> Abilities { get; set; } = new();
+
+    /// <summary>
     /// Posiciones del mapa para cada sala (coordenadas lógicas X/Y) usadas por el editor.
     /// </summary>
     public Dictionary<string, MapPosition> RoomPositions { get; set; } = new();
@@ -78,6 +83,19 @@ public enum ObjectType
     Ropa,           // Ropa
     Llave,          // Llave
     Texto           // Documento legible (libro, carta, pergamino, etc.)
+}
+
+/// <summary>
+/// Tipo de daño para armas y habilidades de combate.
+/// </summary>
+public enum DamageType
+{
+    /// <summary>Daño físico (usa Fuerza).</summary>
+    Physical,
+    /// <summary>Daño mágico (usa Inteligencia).</summary>
+    Magical,
+    /// <summary>Daño perforante (ignora parte de la defensa).</summary>
+    Piercing
 }
 
 /// <summary>
@@ -157,6 +175,9 @@ public class GameInfo
 
     /// <summary>Activa el sistema de combate (salud, maná, energía, cordura).</summary>
     public bool CombatEnabled { get; set; } = false;
+
+    /// <summary>Activa el sistema de magia (maná y habilidades mágicas). Requiere CombatEnabled.</summary>
+    public bool MagicEnabled { get; set; } = false;
 
     // === NECESIDADES BÁSICAS ===
 
@@ -291,6 +312,26 @@ public class GameObject
     /// <summary>Precio del objeto en monedas.</summary>
     public int Price { get; set; } = 0;
 
+    // === ESTADÍSTICAS DE COMBATE (solo para Arma/Armadura) ===
+
+    /// <summary>Modificador de ataque (daño adicional). Solo para tipo Arma.</summary>
+    public int AttackBonus { get; set; } = 0;
+
+    /// <summary>Modificador de defensa (reducción de daño). Solo para tipo Armadura.</summary>
+    public int DefenseBonus { get; set; } = 0;
+
+    /// <summary>Durabilidad máxima del objeto. -1 = indestructible.</summary>
+    public int MaxDurability { get; set; } = -1;
+
+    /// <summary>Durabilidad actual. Cuando llega a 0, el objeto se rompe.</summary>
+    public int CurrentDurability { get; set; } = -1;
+
+    /// <summary>Modificador de iniciativa (afecta orden de turnos en combate).</summary>
+    public int InitiativeBonus { get; set; } = 0;
+
+    /// <summary>Tipo de daño para armas (Físico, Mágico, Perforante).</summary>
+    public DamageType DamageType { get; set; } = DamageType.Physical;
+
     public List<string> Tags { get; set; } = new();
 
     /// <summary>Sala inicial donde se encuentra el objeto.</summary>
@@ -328,14 +369,26 @@ public class Npc
     /// <summary>Inventario del NPC.</summary>
     public List<string> InventoryObjectIds { get; set; } = new();
 
+    /// <summary>Oro que lleva el NPC (se puede saquear al derrotarlo).</summary>
+    public int Gold { get; set; }
+
     /// <summary>Estadísticas de combate del NPC.</summary>
     public CombatStats Stats { get; set; } = new();
+
+    /// <summary>IDs de habilidades de combate que el NPC puede usar.</summary>
+    public List<string> AbilityIds { get; set; } = new();
+
+    /// <summary>Permite al NPC usar ataques y defensas mágicas propias (habilidades). Los objetos mágicos funcionan independientemente.</summary>
+    public bool MagicEnabled { get; set; } = false;
 
     /// <summary>Tags arbitrarios para lógica de eventos, etc.</summary>
     public List<string> Tags { get; set; } = new();
 
     /// <summary>Controla si el jugador puede ver / interactuar con el NPC en la sala.</summary>
     public bool Visible { get; set; } = true;
+
+    /// <summary>Indica si el NPC está muerto (es un cadáver). Se puede examinar y saquear su inventario.</summary>
+    public bool IsCorpse { get; set; } = false;
 
     // === PATRULLA ===
 
@@ -396,8 +449,6 @@ public class CombatStats
 
     public int MaxHealth { get; set; } = 10;
     public int CurrentHealth { get; set; } = 10;
-
-    public int Gold { get; set; }
 }
 
 public class QuestDefinition
@@ -479,6 +530,17 @@ public class PlayerStats
 
     /// <summary>Dinero del jugador en monedas.</summary>
     public int Gold { get; set; } = 0;
+
+    // === EQUIPAMIENTO ===
+
+    /// <summary>ID del arma equipada actualmente (null = sin arma).</summary>
+    public string? EquippedWeaponId { get; set; }
+
+    /// <summary>ID de la armadura equipada actualmente (null = sin armadura).</summary>
+    public string? EquippedArmorId { get; set; }
+
+    /// <summary>IDs de habilidades de combate que el jugador tiene actualmente.</summary>
+    public List<string> AbilityIds { get; set; } = new();
 
     /// <summary>Estados dinámicos del jugador (salud, hambre, sed, energía, cordura).</summary>
     public PlayerDynamicStats DynamicStats { get; set; } = new();
@@ -640,6 +702,9 @@ public class PlayerDefinition
     /// <summary>Dinero inicial en monedas (mínimo 0).</summary>
     public int InitialGold { get; set; } = 0;
 
+    /// <summary>IDs de habilidades de combate que el jugador tiene al inicio.</summary>
+    public List<string> AbilityIds { get; set; } = new();
+
     /// <summary>
     /// Calcula el total de puntos de características asignados.
     /// Debería ser siempre 100.
@@ -652,10 +717,10 @@ public class GameState
 {
     public string WorldId { get; set; } = string.Empty;
     public string? WorldMusicId { get; set; }
-    
+
     // Clave copiada del GameInfo para persistir en la sesión de juego
     public string? WorldEncryptionKey { get; set; }
-    
+
     public string CurrentRoomId { get; set; } = string.Empty;
 
     public PlayerStats Player { get; set; } = new();
@@ -663,6 +728,7 @@ public class GameState
     public List<Room> Rooms { get; set; } = new();
     public List<GameObject> Objects { get; set; } = new();
     public List<Npc> Npcs { get; set; } = new();
+    public List<CombatAbility> Abilities { get; set; } = new();
 
     public Dictionary<string, QuestState> Quests { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public List<UseRule> UseRules { get; set; } = new();
@@ -677,6 +743,9 @@ public class GameState
 
     /// <summary>Estado de la conversación activa (null si no hay diálogo en curso).</summary>
     public ConversationState? ActiveConversation { get; set; }
+
+    /// <summary>Estado del combate activo (null si no hay combate en curso).</summary>
+    public CombatState? ActiveCombat { get; set; }
 
     public DateTime GameTime { get; set; } = default;
     public int TurnCounter { get; set; }

@@ -693,6 +693,11 @@ public class GameEngine
             "read" => HandleRead(parsedCmd),
             "quests" => CommandResult.Success(DescribeQuests()),
             "wait" => HandleWait(),
+            "attack" => HandleAttack(parsedCmd),
+            "equip" => HandleEquip(parsedCmd),
+            "unequip" => HandleUnequip(parsedCmd),
+            "loot" => HandleLoot(parsedCmd),
+            "equipment" => CommandResult.Success(DescribeEquipment()),
             "save" => CommandResult.Success("Usa el menú Archivo -> Guardar partida... para guardar."),
             "load" => CommandResult.Success("Usa el menú Archivo -> Cargar partida... para cargar."),
             "help" or "commands" => CommandResult.Success(GetCommandsText()),
@@ -2706,6 +2711,280 @@ public class GameEngine
         // Luego actualizar NPCs (puede generar mensajes de llegada)
         UpdateFollowingNpcsOnWait();
         return CommandResult.Empty;
+    }
+
+    #endregion
+
+    #region Combat Commands
+
+    /// <summary>
+    /// Evento que se dispara cuando se inicia un combate.
+    /// La UI debe abrir la ventana de combate al recibir este evento.
+    /// </summary>
+    public event Action<string>? CombatStarted;
+
+    /// <summary>
+    /// Maneja el comando atacar.
+    /// </summary>
+    private CommandResult HandleAttack(ParsedCommand parsed)
+    {
+        // Verificar que el sistema de combate está activo
+        if (!_world.Game.CombatEnabled)
+            return CommandResult.Error("El sistema de combate no está activo en esta aventura.");
+
+        if (string.IsNullOrEmpty(parsed.DirectObject))
+            return CommandResult.Error("¿A quién quieres atacar?");
+
+        var room = CurrentRoom;
+        if (room == null)
+            return CommandResult.Error("No estás en ningún lugar.");
+
+        // Buscar el NPC en la sala (incluyendo cadáveres para dar mensaje específico)
+        var npcsInRoom = _state.Npcs
+            .Where(n => n.Visible && room.NpcIds.Contains(n.Id))
+            .ToList();
+
+        var npc = MatchNpcByName(npcsInRoom, parsed.DirectObject);
+        if (npc == null)
+            return CommandResult.Error($"No ves a '{parsed.OriginalDirectObject ?? parsed.DirectObject}' aquí.");
+
+        if (npc.IsCorpse)
+            return CommandResult.Error($"{npc.Name} ya está muerto.");
+
+        // Disparar evento Event_OnCombatStart del NPC
+        _ = TriggerEntityScriptAsync("Npc", npc.Id, "Event_OnCombatStart");
+
+        // Notificar a la UI para abrir la ventana de combate
+        CombatStarted?.Invoke(npc.Id);
+
+        return CommandResult.Empty;
+    }
+
+    /// <summary>
+    /// Maneja el comando equipar.
+    /// </summary>
+    private CommandResult HandleEquip(ParsedCommand parsed)
+    {
+        if (string.IsNullOrEmpty(parsed.DirectObject))
+            return CommandResult.Error("¿Qué quieres equipar?");
+
+        // Buscar el objeto en el inventario
+        GameObject? obj = null;
+        foreach (var objId in _state.InventoryObjectIds)
+        {
+            var candidate = _state.Objects.FirstOrDefault(o => o.Id == objId);
+            if (candidate != null && MatchesName(candidate.Name, parsed.DirectObject, parsed.OriginalDirectObject))
+            {
+                obj = candidate;
+                break;
+            }
+        }
+
+        if (obj == null)
+            return CommandResult.Error($"No tienes '{parsed.OriginalDirectObject ?? parsed.DirectObject}' en tu inventario.");
+
+        // Verificar que es un arma o armadura
+        if (obj.Type == ObjectType.Arma)
+        {
+            var previousWeapon = _state.Player.EquippedWeaponId;
+            _state.Player.EquippedWeaponId = obj.Id;
+
+            if (previousWeapon != null)
+            {
+                var prevObj = _state.Objects.FirstOrDefault(o => o.Id == previousWeapon);
+                if (prevObj != null)
+                    return CommandResult.Success($"Guardas {WithArticle(prevObj)} y empuñas {WithArticle(obj)}.");
+            }
+
+            return CommandResult.Success($"Empuñas {WithArticle(obj)}.");
+        }
+        else if (obj.Type == ObjectType.Armadura)
+        {
+            var previousArmor = _state.Player.EquippedArmorId;
+            _state.Player.EquippedArmorId = obj.Id;
+
+            if (previousArmor != null)
+            {
+                var prevObj = _state.Objects.FirstOrDefault(o => o.Id == previousArmor);
+                if (prevObj != null)
+                    return CommandResult.Success($"Te quitas {WithArticle(prevObj)} y te pones {WithArticle(obj)}.");
+            }
+
+            return CommandResult.Success($"Te pones {WithArticle(obj)}.");
+        }
+        else
+        {
+            return CommandResult.Error($"No puedes equipar {WithArticle(obj)}.");
+        }
+    }
+
+    /// <summary>
+    /// Maneja el comando desequipar.
+    /// </summary>
+    private CommandResult HandleUnequip(ParsedCommand parsed)
+    {
+        if (string.IsNullOrEmpty(parsed.DirectObject))
+            return CommandResult.Error("¿Qué quieres desequipar?");
+
+        // Buscar el objeto equipado
+        var weaponId = _state.Player.EquippedWeaponId;
+        var armorId = _state.Player.EquippedArmorId;
+
+        GameObject? obj = null;
+
+        if (weaponId != null)
+        {
+            var weapon = _state.Objects.FirstOrDefault(o => o.Id == weaponId);
+            if (weapon != null && MatchesName(weapon.Name, parsed.DirectObject, parsed.OriginalDirectObject))
+                obj = weapon;
+        }
+
+        if (obj == null && armorId != null)
+        {
+            var armor = _state.Objects.FirstOrDefault(o => o.Id == armorId);
+            if (armor != null && MatchesName(armor.Name, parsed.DirectObject, parsed.OriginalDirectObject))
+                obj = armor;
+        }
+
+        if (obj == null)
+            return CommandResult.Error($"No tienes '{parsed.OriginalDirectObject ?? parsed.DirectObject}' equipado.");
+
+        if (obj.Type == ObjectType.Arma)
+        {
+            _state.Player.EquippedWeaponId = null;
+            return CommandResult.Success($"Guardas {WithArticle(obj)}.");
+        }
+        else
+        {
+            _state.Player.EquippedArmorId = null;
+            return CommandResult.Success($"Te quitas {WithArticle(obj)}.");
+        }
+    }
+
+    /// <summary>
+    /// Maneja el comando saquear (para cadáveres).
+    /// </summary>
+    private CommandResult HandleLoot(ParsedCommand parsed)
+    {
+        if (string.IsNullOrEmpty(parsed.DirectObject))
+            return CommandResult.Error("¿Qué quieres saquear?");
+
+        var room = CurrentRoom;
+        if (room == null)
+            return CommandResult.Error("No estás en ningún lugar.");
+
+        // Buscar el NPC cadáver en la sala
+        var corpses = _state.Npcs
+            .Where(n => n.Visible && room.NpcIds.Contains(n.Id) && n.IsCorpse)
+            .ToList();
+
+        var npc = MatchNpcByName(corpses, parsed.DirectObject);
+        if (npc == null)
+        {
+            // Intentar buscar por "cadáver" o el nombre original
+            npc = corpses.FirstOrDefault(n =>
+                n.Name.Contains("cadáver", StringComparison.OrdinalIgnoreCase) ||
+                parsed.DirectObject.Contains("cadaver", StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (npc == null)
+            return CommandResult.Error($"No ves ningún cadáver de '{parsed.OriginalDirectObject ?? parsed.DirectObject}' aquí.");
+
+        if (!npc.IsCorpse)
+            return CommandResult.Error($"{npc.Name} no está muerto.");
+
+        // Listar y transferir inventario
+        if (npc.InventoryObjectIds.Count == 0)
+            return CommandResult.Success($"El cadáver de {npc.Name} no tiene nada de valor.");
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"Saqueas el cadáver de {npc.Name} y encuentras:");
+
+        foreach (var objId in npc.InventoryObjectIds.ToList())
+        {
+            var obj = _state.Objects.FirstOrDefault(o => o.Id == objId);
+            if (obj != null)
+            {
+                _state.InventoryObjectIds.Add(objId);
+                npc.InventoryObjectIds.Remove(objId);
+                sb.AppendLine($"  - {obj.Name}");
+            }
+        }
+
+        // Añadir oro del NPC
+        if (npc.Gold > 0)
+        {
+            _state.Player.Gold += npc.Gold;
+            sb.AppendLine($"  - {npc.Gold} monedas de oro");
+            npc.Gold = 0;
+        }
+
+        return CommandResult.Success(sb.ToString().TrimEnd());
+    }
+
+    /// <summary>
+    /// Describe el equipamiento actual del jugador.
+    /// </summary>
+    private string DescribeEquipment()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Tu equipamiento:");
+
+        var weaponId = _state.Player.EquippedWeaponId;
+        if (weaponId != null)
+        {
+            var weapon = _state.Objects.FirstOrDefault(o => o.Id == weaponId);
+            if (weapon != null)
+            {
+                var durability = weapon.MaxDurability < 0
+                    ? ""
+                    : $" ({weapon.CurrentDurability}/{weapon.MaxDurability})";
+                sb.AppendLine($"  Arma: {weapon.Name} (+{weapon.AttackBonus} ataque){durability}");
+            }
+        }
+        else
+        {
+            sb.AppendLine("  Arma: (ninguna)");
+        }
+
+        var armorId = _state.Player.EquippedArmorId;
+        if (armorId != null)
+        {
+            var armor = _state.Objects.FirstOrDefault(o => o.Id == armorId);
+            if (armor != null)
+            {
+                var durability = armor.MaxDurability < 0
+                    ? ""
+                    : $" ({armor.CurrentDurability}/{armor.MaxDurability})";
+                sb.AppendLine($"  Armadura: {armor.Name} (+{armor.DefenseBonus} defensa){durability}");
+            }
+        }
+        else
+        {
+            sb.AppendLine("  Armadura: (ninguna)");
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// Busca un NPC por nombre en una lista.
+    /// </summary>
+    private Npc? MatchNpcByName(List<Npc> npcs, string name)
+    {
+        if (string.IsNullOrEmpty(name) || npcs.Count == 0)
+            return null;
+
+        // Coincidencia exacta
+        var exact = npcs.FirstOrDefault(n =>
+            n.Name.Equals(name, StringComparison.OrdinalIgnoreCase) ||
+            n.Id.Equals(name, StringComparison.OrdinalIgnoreCase));
+        if (exact != null) return exact;
+
+        // Coincidencia parcial
+        return npcs.FirstOrDefault(n =>
+            n.Name.Contains(name, StringComparison.OrdinalIgnoreCase) ||
+            n.Id.Contains(name, StringComparison.OrdinalIgnoreCase));
     }
 
     #endregion

@@ -161,6 +161,13 @@ public static class Parser
         AddVerbAlias("commands", "?", "verbos", "comandos");
         AddVerbAlias("wait", "esperar", "espera", "z");
 
+        // Verbos de combate y equipamiento
+        AddVerbAlias("attack", "atacar", "ataca", "golpear", "golpea", "luchar", "pelear");
+        AddVerbAlias("equip", "equipar", "equipa", "empuñar", "empuña", "vestir", "viste", "ponerse");
+        AddVerbAlias("unequip", "desequipar", "desequipa", "quitar", "quitarse", "desvestir");
+        AddVerbAlias("loot", "saquear", "saquea", "registrar", "registra", "desvalijar");
+        AddVerbAlias("equipment", "equipo", "equipamiento");
+
         // Algunos sinónimos globales de nombres
         AddNounAlias("espada", "hoja", "sable", "mandoble");
         AddNounAlias("enano", "enano borracho", "minero", "barbudo");

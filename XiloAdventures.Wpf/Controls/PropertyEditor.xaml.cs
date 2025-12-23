@@ -56,6 +56,11 @@ public partial class PropertyEditor : UserControl
     /// </summary>
     public event Action<Room>? RequestAiDescriptionGeneration;
 
+    /// <summary>
+    /// Evento para solicitar la apertura del gestor de habilidades mágicas.
+    /// </summary>
+    public event Action? RequestManageAbilities;
+
     public PasswordBox? EncryptionPasswordBox => _encryptionPasswordBox;
 
     public Func<IEnumerable<Room>>? GetRooms { get; set; }
@@ -63,6 +68,8 @@ public partial class PropertyEditor : UserControl
     public Func<IEnumerable<MusicAsset>>? GetMusics { get; set; }
 
     public Func<IEnumerable<GameObject>>? GetObjects { get; set; }
+
+    public Func<IEnumerable<CombatAbility>>? GetAbilities { get; set; }
 
     /// <summary>
     /// Obtiene el diccionario del parser del juego actual (JSON).
@@ -114,7 +121,8 @@ public partial class PropertyEditor : UserControl
                 return browsable == null || browsable.Browsable;
             })
             .Where(p => p.GetCustomAttribute<JsonIgnoreAttribute>() == null) // Excluir propiedades runtime
-            .Where(p => p.Name != "Exits" && p.Name != "GenderAndPluralSetManually" && p.Name != "PatrolRoute" && p.Name != "Stats")
+            .Where(p => p.Name != "Exits" && p.Name != "GenderAndPluralSetManually" && p.Name != "PatrolRoute" && p.Name != "Stats" && p.Name != "AbilityIds")
+            .Where(p => !(obj is Npc && p.Name == "MagicEnabled")) // NPC MagicEnabled se maneja en AddNpcSystemsSection
             .ToList();
 
         // Agrupar propiedades por categoría
@@ -176,6 +184,12 @@ public partial class PropertyEditor : UserControl
 
         // Añadir sección de estadísticas de combate para NPCs
         AddNpcStatsSection(obj);
+
+        // Añadir sección de Sistemas para NPCs (Magia)
+        AddNpcSystemsSection(obj);
+
+        // Añadir sección de habilidades para PlayerDefinition
+        AddPlayerAbilitiesSection(obj);
 
         // Añadir grupo "Otros" al final (si tiene propiedades)
         if (otrosGroup != null && otrosGroup.Properties.Any())
@@ -522,6 +536,86 @@ public partial class PropertyEditor : UserControl
     }
 
     /// <summary>
+    /// Añade una sección de Sistemas para NPCs (Magia).
+    /// </summary>
+    private void AddNpcSystemsSection(object obj)
+    {
+        if (obj is not Npc npc)
+            return;
+
+        // Crear contenido del acordeón
+        var contentPanel = new StackPanel();
+
+        // Checkbox de Magia
+        var magicCheckBox = new CheckBox
+        {
+            Content = "Puede usar habilidades mágicas",
+            IsChecked = npc.MagicEnabled,
+            Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA)),
+            Margin = new Thickness(0, 0, 0, 0)
+        };
+
+        // Panel contenedor para las habilidades (se muestra bajo el checkbox)
+        var npcAbilitiesPanel = CreateMultiSelectAbilityPicker(npc, "NpcAbilities");
+        npcAbilitiesPanel.Margin = new Thickness(16, 8, 0, 0);
+        npcAbilitiesPanel.Visibility = npc.MagicEnabled ? Visibility.Visible : Visibility.Collapsed;
+
+        magicCheckBox.Checked += (_, _) =>
+        {
+            if (_currentObject is Npc targetNpc)
+            {
+                targetNpc.MagicEnabled = true;
+                PropertyEdited?.Invoke(targetNpc, "MagicEnabled");
+                npcAbilitiesPanel.Visibility = Visibility.Visible;
+            }
+        };
+        magicCheckBox.Unchecked += (_, _) =>
+        {
+            if (_currentObject is Npc targetNpc)
+            {
+                targetNpc.MagicEnabled = false;
+                PropertyEdited?.Invoke(targetNpc, "MagicEnabled");
+                npcAbilitiesPanel.Visibility = Visibility.Collapsed;
+            }
+        };
+        contentPanel.Children.Add(magicCheckBox);
+        contentPanel.Children.Add(npcAbilitiesPanel);
+
+        // Crear acordeón
+        AddAccordionSection("🎮 SISTEMAS", contentPanel);
+    }
+
+    /// <summary>
+    /// Añade una sección de habilidades mágicas para PlayerDefinition.
+    /// </summary>
+    private void AddPlayerAbilitiesSection(object obj)
+    {
+        if (obj is not PlayerDefinition player)
+            return;
+
+        // Crear contenido del acordeón
+        var contentPanel = new StackPanel();
+
+        // Descripción
+        var description = new TextBlock
+        {
+            Text = "Selecciona las habilidades mágicas que el jugador tendrá disponibles al iniciar la partida.",
+            TextWrapping = TextWrapping.Wrap,
+            FontSize = 12,
+            Foreground = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88)),
+            Margin = new Thickness(0, 0, 0, 8)
+        };
+        contentPanel.Children.Add(description);
+
+        // Selector de habilidades
+        var abilitiesSelector = CreateMultiSelectAbilityPicker(player, "PlayerAbilities");
+        contentPanel.Children.Add(abilitiesSelector);
+
+        // Crear acordeón
+        AddAccordionSection("✨ HABILIDADES MÁGICAS", contentPanel);
+    }
+
+    /// <summary>
     /// Añade un control para una propiedad de estadística de NPC a un panel específico.
     /// </summary>
     private void AddNpcStatControlToPanel(Npc npc, string propertyName, string displayName, int minValue, int maxValue, Panel targetPanel)
@@ -618,6 +712,7 @@ public partial class PropertyEditor : UserControl
             ["🎮 Sistemas"] = new(),
             ["🎵 Multimedia"] = new(),
             ["⚙️ Comportamiento"] = new(),
+            ["⚔️ Combate"] = new(),
             ["📊 Estadísticas"] = new(),
             ["⚔️ Características"] = new(),
             ["🔒 Seguridad"] = new(),
@@ -651,6 +746,7 @@ public partial class PropertyEditor : UserControl
             "🎮 Sistemas",
             "🎵 Multimedia",
             "⚙️ Comportamiento",
+            "⚔️ Combate",
             "📊 Estadísticas",
             "⚔️ Características",
             "🔒 Seguridad",
@@ -676,7 +772,7 @@ public partial class PropertyEditor : UserControl
             return "📝 Descripción";
 
         // Sistemas (Combate y Necesidades básicas)
-        if (name is "CombatEnabled" or "BasicNeedsEnabled"
+        if (name is "CombatEnabled" or "MagicEnabled" or "BasicNeedsEnabled"
             or "HungerRate" or "ThirstRate" or "SleepRate"
             or "HungerDeathText" or "ThirstDeathText" or "SleepDeathText")
             return "🎮 Sistemas";
@@ -709,6 +805,11 @@ public partial class PropertyEditor : UserControl
         // Propiedades de contenedor de GameObject (se mostrarán con sangría dentro de Comportamiento)
         if (obj is GameObject && name is "ContainedObjectIds" or "KeyId" or "MaxCapacity")
             return "⚙️ Comportamiento";
+
+        // Propiedades de combate de GameObject (armas y armaduras)
+        if (obj is GameObject && name is "AttackBonus" or "DefenseBonus" or "DamageType"
+            or "MaxDurability" or "CurrentDurability" or "InitiativeBonus")
+            return "⚔️ Combate";
 
         // Otras propiedades de contenido que no son de GameObject
         if (name is "InventoryObjectIds" or "Objectives" or "KeyObjectId" or "DoorId" or "ObjectId")
@@ -771,6 +872,7 @@ public partial class PropertyEditor : UserControl
 
             // Sistemas (Combate y Necesidades básicas)
             "CombatEnabled" => 0,
+            "MagicEnabled" => 1,
             "BasicNeedsEnabled" => 10,
             "HungerRate" => 11,
             "ThirstRate" => 12,
@@ -1012,6 +1114,53 @@ public partial class PropertyEditor : UserControl
 
                 // Aplicar visibilidad inicial
                 patrolButton.Visibility = npcForPatrolButton.IsPatrolling && !npcForPatrolButton.IsFollowingPlayer
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+            }
+
+            // Si es MagicEnabled de GameInfo, añadir descripción y botón de habilidades
+            if (obj is GameInfo gameInfoForMagic && prop.Name == "MagicEnabled")
+            {
+                var abilitiesPanel = new StackPanel
+                {
+                    Margin = new Thickness(20, 8, 0, 0)
+                };
+
+                var description = new TextBlock
+                {
+                    Text = "Las habilidades mágicas son ataques y defensas especiales que consumen maná.",
+                    TextWrapping = TextWrapping.Wrap,
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88)),
+                    Margin = new Thickness(0, 0, 0, 6)
+                };
+                abilitiesPanel.Children.Add(description);
+
+                var manageButton = new Button
+                {
+                    Content = "✨ Gestionar Habilidades...",
+                    Padding = new Thickness(12, 6, 12, 6),
+                    Background = new SolidColorBrush(Color.FromRgb(0x3A, 0x3A, 0x3A)),
+                    Foreground = Brushes.White,
+                    BorderBrush = new SolidColorBrush(Color.FromRgb(0x4A, 0x4A, 0x4A)),
+                    Cursor = Cursors.Hand,
+                    HorizontalAlignment = HorizontalAlignment.Left
+                };
+
+                manageButton.Click += (_, _) =>
+                {
+                    RequestManageAbilities?.Invoke();
+                };
+
+                abilitiesPanel.Children.Add(manageButton);
+                RootPanel.Children.Add(abilitiesPanel);
+
+                // Registrar visibilidad: solo visible si MagicEnabled está activado
+                _propertyElements["_AbilitiesPanel"] = abilitiesPanel;
+                _visibilityConditions["_AbilitiesPanel"] = () => gameInfoForMagic.MagicEnabled;
+
+                // Aplicar visibilidad inicial
+                abilitiesPanel.Visibility = gameInfoForMagic.MagicEnabled
                     ? Visibility.Visible
                     : Visibility.Collapsed;
             }
@@ -2397,6 +2546,7 @@ public partial class PropertyEditor : UserControl
         ["GameInfo.TestModeAiEnabled"] = "IA en modo pruebas",
         ["GameInfo.TestModeSoundEnabled"] = "Sonido en modo pruebas",
         ["GameInfo.CombatEnabled"] = "Combate activo",
+        ["GameInfo.MagicEnabled"] = "Magia activa",
         ["GameInfo.BasicNeedsEnabled"] = "Necesidades básicas activas",
         ["GameInfo.HungerRate"] = "Velocidad de hambre",
         ["GameInfo.ThirstRate"] = "Velocidad de sed",
@@ -2661,8 +2811,11 @@ public partial class PropertyEditor : UserControl
         }
 
         // Propiedades de necesidades básicas (subpropiedades de BasicNeedsEnabled)
+        // y MagicEnabled (subpropiedad de CombatEnabled)
         if (obj is GameInfo)
         {
+            if (name is "MagicEnabled")
+                return true;
             if (name is "HungerRate" or "ThirstRate" or "SleepRate"
                 or "HungerDeathText" or "ThirstDeathText" or "SleepDeathText")
                 return true;
@@ -2696,6 +2849,24 @@ public partial class PropertyEditor : UserControl
                 "IsOpenable" or "IsLocked" or "ContentsVisible" or "MaxCapacity" or "ContainedObjectIds"
                     => () => gameObject.IsContainer,
 
+                // === PROPIEDADES DE COMBATE ===
+                // AttackBonus solo visible si Type = Arma
+                "AttackBonus" => () => gameObject.Type == ObjectType.Arma,
+
+                // DefenseBonus solo visible si Type = Armadura
+                "DefenseBonus" => () => gameObject.Type == ObjectType.Armadura,
+
+                // DamageType solo visible si Type = Arma
+                "DamageType" => () => gameObject.Type == ObjectType.Arma,
+
+                // MaxDurability y CurrentDurability visibles si Type = Arma o Armadura
+                "MaxDurability" or "CurrentDurability"
+                    => () => gameObject.Type == ObjectType.Arma || gameObject.Type == ObjectType.Armadura,
+
+                // InitiativeBonus visible si Type = Arma o Armadura
+                "InitiativeBonus"
+                    => () => gameObject.Type == ObjectType.Arma || gameObject.Type == ObjectType.Armadura,
+
                 _ => null
             };
         }
@@ -2705,6 +2876,9 @@ public partial class PropertyEditor : UserControl
         {
             return name switch
             {
+                // MagicEnabled solo visible si CombatEnabled = true
+                "MagicEnabled" => () => gameInfo.CombatEnabled,
+
                 // Propiedades de necesidades básicas solo visibles si BasicNeedsEnabled = true
                 "HungerRate" or "ThirstRate" or "SleepRate"
                 or "HungerDeathText" or "ThirstDeathText" or "SleepDeathText"
@@ -3280,6 +3454,201 @@ public partial class PropertyEditor : UserControl
 
         if (!names.Any())
             return "(Ningún objeto seleccionado)";
+
+        return string.Join(", ", names);
+    }
+
+    /// <summary>
+    /// Crea un selector múltiple de habilidades mágicas para NPC o PlayerDefinition.
+    /// </summary>
+    private FrameworkElement CreateMultiSelectAbilityPicker(object target, string elementKey)
+    {
+        List<string> currentList;
+        Action<List<string>> setList;
+        string propertyName = "AbilityIds";
+
+        if (target is Npc npc)
+        {
+            currentList = npc.AbilityIds ?? new List<string>();
+            setList = list => npc.AbilityIds = list;
+        }
+        else if (target is PlayerDefinition player)
+        {
+            currentList = player.AbilityIds ?? new List<string>();
+            setList = list => player.AbilityIds = list;
+        }
+        else
+        {
+            return new TextBlock { Text = "(Tipo no soportado)" };
+        }
+
+        var allAbilities = GetAbilities?.Invoke()?.ToList() ?? new List<CombatAbility>();
+
+        var mainPanel = new StackPanel();
+
+        // Etiqueta descriptiva
+        var descLabel = new TextBlock
+        {
+            Text = "Habilidades asignadas:",
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(Color.FromRgb(0xCC, 0xCC, 0xCC)),
+            Margin = new Thickness(0, 0, 0, 4)
+        };
+        mainPanel.Children.Add(descLabel);
+
+        // Etiqueta que muestra el resumen de habilidades seleccionadas
+        var summaryText = new TextBlock
+        {
+            Text = GetAbilitiesSummary(currentList, allAbilities),
+            Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA)),
+            FontSize = 12,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 4)
+        };
+        mainPanel.Children.Add(summaryText);
+
+        // Expander con los checkboxes
+        var expander = new Expander
+        {
+            Header = $"Seleccionar habilidades ({currentList.Count})",
+            IsExpanded = false,
+            Foreground = Brushes.White,
+            Background = new SolidColorBrush(Color.FromRgb(0x2A, 0x2A, 0x2A)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(0x4A, 0x4A, 0x4A)),
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(4)
+        };
+
+        var checkboxPanel = new StackPanel { Margin = new Thickness(8, 4, 4, 4) };
+
+        if (!allAbilities.Any())
+        {
+            checkboxPanel.Children.Add(new TextBlock
+            {
+                Text = "(No hay habilidades definidas en el mundo)",
+                Foreground = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88)),
+                FontStyle = FontStyles.Italic
+            });
+        }
+        else
+        {
+            foreach (var ability in allAbilities.OrderBy(a => a.Name))
+            {
+                var isSelected = currentList.Contains(ability.Id, StringComparer.OrdinalIgnoreCase);
+
+                var checkPanel = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Margin = new Thickness(0, 2, 0, 2)
+                };
+
+                var checkbox = new CheckBox
+                {
+                    IsChecked = isSelected,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Tag = ability.Id
+                };
+
+                var typeIcon = ability.AbilityType == AbilityType.Attack ? "⚔" : "🛡";
+                var checkLabel = new TextBlock
+                {
+                    Text = $"{typeIcon} {ability.Name} ({ability.ManaCost} maná)",
+                    Foreground = Brushes.White,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(6, 0, 0, 0),
+                    Cursor = Cursors.Hand
+                };
+
+                checkLabel.MouseLeftButtonDown += (_, _) => checkbox.IsChecked = !checkbox.IsChecked;
+
+                checkbox.Checked += (_, _) =>
+                {
+                    try
+                    {
+                        var list = target is Npc n ? (n.AbilityIds ?? new List<string>()) :
+                                   target is PlayerDefinition p ? (p.AbilityIds ?? new List<string>()) :
+                                   new List<string>();
+
+                        var abilityId = checkbox.Tag as string;
+                        if (!string.IsNullOrEmpty(abilityId) && !list.Contains(abilityId, StringComparer.OrdinalIgnoreCase))
+                        {
+                            list.Add(abilityId);
+                            setList(list);
+                            PropertyEdited?.Invoke(target, propertyName);
+
+                            // Actualizar UI
+                            expander.Header = $"Seleccionar habilidades ({list.Count})";
+                            summaryText.Text = GetAbilitiesSummary(list, allAbilities);
+                        }
+                    }
+                    catch
+                    {
+                        // Ignorar errores
+                    }
+                };
+
+                checkbox.Unchecked += (_, _) =>
+                {
+                    try
+                    {
+                        var list = target is Npc n ? (n.AbilityIds ?? new List<string>()) :
+                                   target is PlayerDefinition p ? (p.AbilityIds ?? new List<string>()) :
+                                   new List<string>();
+
+                        var abilityId = checkbox.Tag as string;
+                        if (!string.IsNullOrEmpty(abilityId))
+                        {
+                            list.RemoveAll(id => string.Equals(id, abilityId, StringComparison.OrdinalIgnoreCase));
+                            setList(list);
+                            PropertyEdited?.Invoke(target, propertyName);
+
+                            // Actualizar UI
+                            expander.Header = $"Seleccionar habilidades ({list.Count})";
+                            summaryText.Text = GetAbilitiesSummary(list, allAbilities);
+                        }
+                    }
+                    catch
+                    {
+                        // Ignorar errores
+                    }
+                };
+
+                checkPanel.Children.Add(checkbox);
+                checkPanel.Children.Add(checkLabel);
+                checkboxPanel.Children.Add(checkPanel);
+            }
+        }
+
+        // Wrap en ScrollViewer si hay muchas habilidades
+        var scrollViewer = new ScrollViewer
+        {
+            MaxHeight = 200,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            Content = checkboxPanel
+        };
+
+        expander.Content = scrollViewer;
+        mainPanel.Children.Add(expander);
+
+        return mainPanel;
+    }
+
+    /// <summary>
+    /// Obtiene un resumen de las habilidades seleccionadas para mostrar en la etiqueta.
+    /// </summary>
+    private static string GetAbilitiesSummary(List<string> selectedIds, List<CombatAbility> allAbilities)
+    {
+        if (!selectedIds.Any())
+            return "(Ninguna habilidad asignada)";
+
+        var names = selectedIds
+            .Select(id => allAbilities.FirstOrDefault(a => string.Equals(a.Id, id, StringComparison.OrdinalIgnoreCase)))
+            .Where(a => a != null)
+            .Select(a => a!.Name)
+            .ToList();
+
+        if (!names.Any())
+            return "(Ninguna habilidad asignada)";
 
         return string.Join(", ", names);
     }
