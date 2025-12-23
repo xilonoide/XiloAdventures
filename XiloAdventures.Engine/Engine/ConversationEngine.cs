@@ -442,13 +442,13 @@ public class ConversationEngine
 
             var obj = _gameState.Objects.FirstOrDefault(o =>
                 string.Equals(o.Id, objectId, StringComparison.OrdinalIgnoreCase));
-            OnSystemMessage?.Invoke($"Has comprado {obj?.Name ?? objectId} por {price} monedas.");
+            OnSystemMessage?.Invoke($"Has comprado {obj?.Name ?? objectId} por {price}.");
 
             await FollowConnectionAsync(conversation, node, "Success");
         }
         else
         {
-            OnSystemMessage?.Invoke("No tienes suficiente oro.");
+            OnSystemMessage?.Invoke("No tienes suficiente dinero.");
             await FollowConnectionAsync(conversation, node, "NotEnoughGold");
         }
     }
@@ -467,7 +467,7 @@ public class ConversationEngine
 
             var obj = _gameState.Objects.FirstOrDefault(o =>
                 string.Equals(o.Id, objectId, StringComparison.OrdinalIgnoreCase));
-            OnSystemMessage?.Invoke($"Has vendido {obj?.Name ?? objectId} por {price} monedas.");
+            OnSystemMessage?.Invoke($"Has vendido {obj?.Name ?? objectId} por {price}.");
 
             await FollowConnectionAsync(conversation, node, "Success");
         }
@@ -506,7 +506,7 @@ public class ConversationEngine
                 var addAmount = GetProperty<int>(node, "Amount", 0);
                 _gameState.Player.Gold += addAmount;
                 if (addAmount > 0)
-                    OnSystemMessage?.Invoke($"Has recibido {addAmount} monedas.");
+                    OnSystemMessage?.Invoke($"Has recibido {addAmount} de dinero.");
                 break;
 
             case "RemoveGold":

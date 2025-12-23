@@ -1568,8 +1568,8 @@ public partial class WorldEditorWindow : Window
         };
         TestStatsLabel.Text = string.Join("\n", statsLines);
 
-        // Oro
-        TestGoldLabel.Text = $"{playerStats.Gold} monedas";
+        // Dinero
+        TestGoldLabel.Text = playerStats.Gold.ToString("N0");
 
         // Hora del juego
         var gameTime = state.GameTime;

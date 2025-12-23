@@ -44,6 +44,11 @@ public class ScriptEngine
     public event Action<string>? OnStartCombat;
 
     /// <summary>
+    /// Evento disparado cuando un script quiere iniciar comercio con un NPC.
+    /// </summary>
+    public event Action<string>? OnStartTrade;
+
+    /// <summary>
     /// Evento disparado cuando se completan todas las misiones principales.
     /// </summary>
     public event Action? OnAdventureCompleted;
@@ -393,6 +398,110 @@ public class ScriptEngine
             {
                 var isInCombat = ctx.GameState.ActiveCombat?.IsActive ?? false;
                 ctx.NextOutputPort = isInCombat ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
+            // === CONDICIONES DE COMBATE ADICIONALES ===
+            ["Condition_PlayerHealthBelow"] = async (node, ctx) =>
+            {
+                var threshold = GetPropertyValue<int>(node, "Threshold", 50);
+                var player = ctx.GameState.Player;
+                var percentHealth = player.DynamicStats.MaxHealth > 0
+                    ? (player.DynamicStats.Health * 100 / player.DynamicStats.MaxHealth)
+                    : 100;
+                ctx.NextOutputPort = percentHealth < threshold ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
+            ["Condition_PlayerHealthAbove"] = async (node, ctx) =>
+            {
+                var threshold = GetPropertyValue<int>(node, "Threshold", 50);
+                var player = ctx.GameState.Player;
+                var percentHealth = player.DynamicStats.MaxHealth > 0
+                    ? (player.DynamicStats.Health * 100 / player.DynamicStats.MaxHealth)
+                    : 100;
+                ctx.NextOutputPort = percentHealth > threshold ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
+            ["Condition_PlayerHasWeaponType"] = async (node, ctx) =>
+            {
+                var damageTypeStr = GetPropertyValue<string>(node, "DamageType", "Physical");
+                var expectedType = Enum.TryParse<DamageType>(damageTypeStr, out var dt) ? dt : DamageType.Physical;
+
+                var hasWeaponType = false;
+                var equippedWeaponId = ctx.GameState.Player.EquippedWeaponId;
+                if (!string.IsNullOrEmpty(equippedWeaponId))
+                {
+                    var weapon = ctx.GameState.Objects.FirstOrDefault(o =>
+                        string.Equals(o.Id, equippedWeaponId, StringComparison.OrdinalIgnoreCase));
+                    hasWeaponType = weapon?.DamageType == expectedType;
+                }
+                ctx.NextOutputPort = hasWeaponType ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
+            ["Condition_PlayerHasArmor"] = async (node, ctx) =>
+            {
+                var hasArmor = !string.IsNullOrEmpty(ctx.GameState.Player.EquippedArmorId);
+                ctx.NextOutputPort = hasArmor ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
+            ["Condition_IsCombatRound"] = async (node, ctx) =>
+            {
+                var expectedRound = GetPropertyValue<int>(node, "Round", 1);
+                var currentRound = ctx.GameState.ActiveCombat?.RoundNumber ?? 0;
+                ctx.NextOutputPort = currentRound == expectedRound ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
+            // === CONDICIONES DE COMERCIO ===
+            ["Condition_IsInTrade"] = async (node, ctx) =>
+            {
+                // Trade state is managed externally by TradeEngine, not in GameState
+                // This condition returns false by default - can be extended if trade state is added to GameState
+                ctx.NextOutputPort = "False";
+                await Task.CompletedTask;
+            },
+
+            ["Condition_PlayerHasGold"] = async (node, ctx) =>
+            {
+                var amount = GetPropertyValue<int>(node, "Amount", 100);
+                var hasEnough = ctx.GameState.Player.Gold >= amount;
+                ctx.NextOutputPort = hasEnough ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
+            ["Condition_NpcHasGold"] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                var amount = GetPropertyValue<int>(node, "Amount", 100);
+                var npc = ctx.GameState.Npcs.FirstOrDefault(n =>
+                    string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
+                // NPC con Gold = -1 tiene infinito
+                var hasEnough = npc != null && (npc.Gold < 0 || npc.Gold >= amount);
+                ctx.NextOutputPort = hasEnough ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
+            ["Condition_NpcHasInfiniteGold"] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                var npc = ctx.GameState.Npcs.FirstOrDefault(n =>
+                    string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
+                var hasInfinite = npc != null && npc.Gold < 0;
+                ctx.NextOutputPort = hasInfinite ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
+            ["Condition_PlayerOwnsItem"] = async (node, ctx) =>
+            {
+                var objectId = GetPropertyValue<string>(node, "ObjectId", "");
+                var requiredQty = GetPropertyValue<int>(node, "Quantity", 1);
+                var ownedQty = ctx.GameState.InventoryObjectIds.Count(id =>
+                    string.Equals(id, objectId, StringComparison.OrdinalIgnoreCase));
+                ctx.NextOutputPort = ownedQty >= requiredQty ? "True" : "False";
                 await Task.CompletedTask;
             },
 
@@ -1133,6 +1242,170 @@ public class ScriptEngine
                 await Task.CompletedTask;
             },
 
+            // === ACCIONES DE COMBATE ADICIONALES ===
+            ["Action_SetPlayerMaxHealth"] = async (node, ctx) =>
+            {
+                var maxHealth = GetPropertyValue<int>(node, "MaxHealth", 100);
+                ctx.GameState.Player.DynamicStats.MaxHealth = maxHealth;
+                if (ctx.GameState.Player.DynamicStats.Health > maxHealth)
+                    ctx.GameState.Player.DynamicStats.Health = maxHealth;
+                await Task.CompletedTask;
+            },
+            ["Action_SetNpcAttack"] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                var attack = GetPropertyValue<int>(node, "Attack", 10);
+                var npc = ctx.GameState.Npcs.FirstOrDefault(n =>
+                    string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
+                if (npc != null)
+                {
+                    // Use Strength as attack stat
+                    npc.Stats.Strength = attack;
+                }
+                await Task.CompletedTask;
+            },
+            ["Action_SetNpcDefense"] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                var defense = GetPropertyValue<int>(node, "Defense", 5);
+                var npc = ctx.GameState.Npcs.FirstOrDefault(n =>
+                    string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
+                if (npc != null)
+                {
+                    // Use Dexterity as defense stat
+                    npc.Stats.Dexterity = defense;
+                }
+                await Task.CompletedTask;
+            },
+            ["Action_EndCombatVictory"] = async (node, ctx) =>
+            {
+                if (ctx.GameState.ActiveCombat?.IsActive == true)
+                {
+                    ctx.GameState.ActiveCombat.IsActive = false;
+                    // Combat end is handled by CombatEngine, this just deactivates the state
+                }
+                await Task.CompletedTask;
+            },
+            ["Action_EndCombatDefeat"] = async (node, ctx) =>
+            {
+                if (ctx.GameState.ActiveCombat?.IsActive == true)
+                {
+                    ctx.GameState.ActiveCombat.IsActive = false;
+                    // Combat end is handled by CombatEngine, this just deactivates the state
+                }
+                await Task.CompletedTask;
+            },
+            ["Action_ForceFlee"] = async (node, ctx) =>
+            {
+                if (ctx.GameState.ActiveCombat?.IsActive == true)
+                {
+                    ctx.GameState.ActiveCombat.IsActive = false;
+                    // Combat flee is handled by CombatEngine, this just deactivates the state
+                }
+                await Task.CompletedTask;
+            },
+
+            // === ACCIONES DE COMERCIO ===
+            ["Action_OpenTrade"] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                var npc = ctx.GameState.Npcs.FirstOrDefault(n =>
+                    string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
+                if (npc != null && npc.IsShopkeeper)
+                {
+                    // Trigger trade open event - the actual TradeWindow is opened via GameEngine
+                    OnStartTrade?.Invoke(npcId);
+                }
+                await Task.CompletedTask;
+            },
+            ["Action_CloseTrade"] = async (node, ctx) =>
+            {
+                // Trade close is handled externally by TradeEngine/TradeWindow
+                // This action just signals intent - actual close happens in UI layer
+                await Task.CompletedTask;
+            },
+            ["Action_AddPlayerGold"] = async (node, ctx) =>
+            {
+                var amount = GetPropertyValue<int>(node, "Amount", 100);
+                ctx.GameState.Player.Gold += amount;
+                await Task.CompletedTask;
+            },
+            ["Action_RemovePlayerGold"] = async (node, ctx) =>
+            {
+                var amount = GetPropertyValue<int>(node, "Amount", 100);
+                if (ctx.GameState.Player.Gold >= amount)
+                {
+                    ctx.GameState.Player.Gold -= amount;
+                }
+                else
+                {
+                    ctx.NextOutputPort = "OnInsufficient";
+                }
+                await Task.CompletedTask;
+            },
+            ["Action_SetNpcGold"] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                var gold = GetPropertyValue<int>(node, "Gold", -1);
+                var npc = ctx.GameState.Npcs.FirstOrDefault(n =>
+                    string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
+                if (npc != null)
+                {
+                    npc.Gold = gold;
+                }
+                await Task.CompletedTask;
+            },
+            ["Action_AddNpcItem"] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                var objectId = GetPropertyValue<string>(node, "ObjectId", "");
+                var npc = ctx.GameState.Npcs.FirstOrDefault(n =>
+                    string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
+                if (npc != null && !string.IsNullOrEmpty(objectId) &&
+                    !npc.ShopInventory.Contains(objectId, StringComparer.OrdinalIgnoreCase))
+                {
+                    npc.ShopInventory.Add(objectId);
+                }
+                await Task.CompletedTask;
+            },
+            ["Action_RemoveNpcItem"] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                var objectId = GetPropertyValue<string>(node, "ObjectId", "");
+                var npc = ctx.GameState.Npcs.FirstOrDefault(n =>
+                    string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
+                if (npc != null && !string.IsNullOrEmpty(objectId))
+                {
+                    npc.ShopInventory.RemoveAll(id =>
+                        string.Equals(id, objectId, StringComparison.OrdinalIgnoreCase));
+                }
+                await Task.CompletedTask;
+            },
+            ["Action_SetBuyMultiplier"] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                var multiplier = GetPropertyValue<double>(node, "Multiplier", 0.5);
+                var npc = ctx.GameState.Npcs.FirstOrDefault(n =>
+                    string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
+                if (npc != null)
+                {
+                    npc.BuyPriceMultiplier = multiplier;
+                }
+                await Task.CompletedTask;
+            },
+            ["Action_SetSellMultiplier"] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                var multiplier = GetPropertyValue<double>(node, "Multiplier", 1.0);
+                var npc = ctx.GameState.Npcs.FirstOrDefault(n =>
+                    string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
+                if (npc != null)
+                {
+                    npc.SellPriceMultiplier = multiplier;
+                }
+                await Task.CompletedTask;
+            },
+
             // === HABILIDADES DE COMBATE ===
             ["Action_AddAbility"] = async (node, ctx) =>
             {
@@ -1337,6 +1610,17 @@ public class ScriptEngine
             ["Event_OnCombatVictory"] = async (node, ctx) => { await Task.CompletedTask; },
             ["Event_OnCombatDefeat"] = async (node, ctx) => { await Task.CompletedTask; },
             ["Event_OnCombatFlee"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnPlayerAttack"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnNpcTurn"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnPlayerDefend"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnCriticalHit"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnMiss"] = async (node, ctx) => { await Task.CompletedTask; },
+
+            // === EVENTOS DE COMERCIO (entry points) ===
+            ["Event_OnTradeStart"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnTradeEnd"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnItemBought"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnItemSold"] = async (node, ctx) => { await Task.CompletedTask; },
 
             // === VELOCIDAD DE NECESIDADES ===
             ["Action_SetNeedRate"] = async (node, ctx) =>

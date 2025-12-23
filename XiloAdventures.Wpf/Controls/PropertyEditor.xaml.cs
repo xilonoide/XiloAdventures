@@ -2517,7 +2517,7 @@ public partial class PropertyEditor : UserControl
         ["MaxCapacity"] = "Capacidad máxima (cm³)",
         ["Volume"] = "Volumen (cm³)",
         ["Weight"] = "Peso (g)",
-        ["Price"] = "Precio (monedas)",
+        ["Price"] = "Precio",
         ["ContainedObjectIds"] = "Objetos contenidos",
         ["InventoryObjectIds"] = "Objetos en inventario",
         ["Dialogue"] = "Diálogo",
@@ -2577,7 +2577,7 @@ public partial class PropertyEditor : UserControl
         ["GameObject.MaxCapacity"] = "Capacidad máxima (cm³)",
         ["GameObject.Volume"] = "Volumen (cm³)",
         ["GameObject.Weight"] = "Peso (g)",
-        ["GameObject.Price"] = "Precio (monedas)",
+        ["GameObject.Price"] = "Precio",
         ["GameObject.ContainedObjectIds"] = "Objetos contenidos",
         ["GameObject.KeyId"] = "Llave necesaria",
         ["GameObject.Tags"] = "Etiquetas",
@@ -2642,12 +2642,12 @@ public partial class PropertyEditor : UserControl
         ["PlayerDefinition.Intelligence"] = "Inteligencia",
         ["PlayerDefinition.Dexterity"] = "Destreza",
         ["PlayerDefinition.Charisma"] = "Carisma",
-        ["PlayerDefinition.InitialGold"] = "Dinero inicial (monedas)",
+        ["PlayerDefinition.InitialGold"] = "Dinero inicial",
         ["Constitution"] = "Constitución",
         ["Charisma"] = "Carisma",
         ["Age"] = "Edad",
         ["Height"] = "Altura",
-        ["InitialGold"] = "Dinero inicial (monedas)",
+        ["InitialGold"] = "Dinero inicial",
     };
 
     private static string GetDisplayLabel(PropertyInfo prop)

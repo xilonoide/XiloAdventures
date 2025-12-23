@@ -847,7 +847,7 @@ public class GameEngine
 
     public string DescribePlayerGold()
     {
-        return $"{_state.Player.Gold} monedas";
+        return _state.Player.Gold.ToString("N0");
     }
 
     /// <summary>
@@ -2863,7 +2863,7 @@ public class GameEngine
         if (npc.Gold > 0)
         {
             _state.Player.Gold += npc.Gold;
-            sb.AppendLine($"  - {npc.Gold} monedas de oro");
+            sb.AppendLine($"  - {npc.Gold} de dinero");
             npc.Gold = 0;
         }
 

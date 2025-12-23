@@ -128,7 +128,7 @@ public partial class TradeWindow : Window
 
         SellButton.IsEnabled = npcCanAfford;
         SellButton.Content = $"VENDER ({totalPrice})";
-        SellTotalText.Text = npcCanAfford ? "" : "El comerciante no tiene suficiente oro";
+        SellTotalText.Text = npcCanAfford ? "" : "El comerciante no tiene suficiente dinero";
         SellTotalText.Foreground = new SolidColorBrush(npcCanAfford ? Color.FromRgb(255, 215, 0) : Color.FromRgb(255, 107, 107));
     }
 

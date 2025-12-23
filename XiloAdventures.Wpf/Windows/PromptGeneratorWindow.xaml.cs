@@ -290,7 +290,7 @@ public partial class PromptGeneratorWindow : Window
   - CompleteQuest: { ""ActionType"": ""CompleteQuest"", ""QuestId"": ""quest_id"" }
   - ShowMessage: { ""ActionType"": ""ShowMessage"", ""Message"": ""texto"" }
 - `Conversation_Shop` - Abre la tienda del NPC. Properties: { ""ShopTitle"": ""Mi Tienda"", ""WelcomeMessage"": ""¡Bienvenido!"" } (salidas: OnClose, OnBuy, OnSell)
-- `Conversation_BuyItem` - Comprar objeto específico. Properties: { ""ObjectId"": ""obj_id"", ""Price"": 10, ""ConfirmText"": ""¿Comprar por {precio} monedas?"" } (salidas: Success, NotEnoughGold, Cancelled)
+- `Conversation_BuyItem` - Comprar objeto específico. Properties: { ""ObjectId"": ""obj_id"", ""Price"": 10, ""ConfirmText"": ""¿Comprar por {precio}?"" } (salidas: Success, NotEnoughGold, Cancelled)
 - `Conversation_SellItem` - Vender objeto específico. Properties: { ""ObjectId"": ""obj_id"", ""Price"": 5 } (salidas: Success, NoItem, Cancelled)
 
 ## REQUISITOS DEL MUNDO
@@ -313,7 +313,7 @@ Genera un mundo con temática ""{THEME}"" que contenga:
    - {CLOTHING_COUNT} ropa (Type=""ropa"") - capas, túnicas, botas...
    - {KEY_COUNT} llaves (Type=""llave"") - para abrir puertas/contenedores
    - {TEXT_COUNT} documentos legibles (Type=""texto"") - cartas, diarios, pergaminos... con TextContent
-   - {OTHER_COUNT} objetos genéricos (Type=""ninguno"") - gemas, monedas, herramientas, objetos de puzzle...
+   - {OTHER_COUNT} objetos genéricos (Type=""ninguno"") - gemas, joyas, herramientas, objetos de puzzle...
    - Usa Visible=false para objetos ocultos que aparecen mediante scripts
 5. **{NPC_COUNT} NPCs** con personalidad acorde a la temática:
    - Si es comerciante: IsShopkeeper=true y añade IDs de objetos a ShopInventory
@@ -410,7 +410,7 @@ Genera un mundo con temática ""{THEME}"" que contenga:
 ### Estadísticas de objetos
 - **Volume**: Volumen en centímetros cúbicos (cm³). Ejemplos: llave=10, libro=1000, espada=500, cofre=50000
 - **Weight**: Peso en gramos. Ejemplos: llave=50, libro=500, espada=1500, cofre=5000
-- **Price**: Precio en monedas. Asigna valores coherentes con la temática (objetos valiosos más caros)
+- **Price**: Precio del objeto. Asigna valores coherentes con la temática (objetos valiosos más caros)
 - **MaxCapacity**: Solo para contenedores (IsContainer=true). Capacidad máxima en cm³. Ej: cofre=100000, bolsa=20000. Usa -1 para ilimitado
 
 ### Configuración del jugador (Player)

@@ -1629,8 +1629,8 @@ public partial class ScriptEditorWindow : Window
             TestTimeLabel.Text = state.TimeOfDay;
         }
 
-        // Oro
-        TestGoldLabel.Text = $"{state.Player.Gold} monedas";
+        // Dinero
+        TestGoldLabel.Text = state.Player.Gold.ToString("N0");
 
         // Inventario
         if (state.InventoryObjectIds.Count == 0)

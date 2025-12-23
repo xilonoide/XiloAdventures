@@ -482,7 +482,7 @@ public partial class NodePalette : UserControl
 
             // === CONDICIONES ===
             "Condition_CheckFlag" => "Si 'puerta_abierta' es true → permitir pasar; si no → decir 'está cerrada'.",
-            "Condition_CompareCounter" => "Si 'monedas' >= 100 → poder comprar; si no → 'no tienes suficiente oro'.",
+            "Condition_CompareCounter" => "Si 'puntos' >= 100 → poder comprar; si no → 'no tienes suficiente'.",
             "Condition_IsTimeOfDay" => "Si es de noche → el vampiro ataca; de día → está dormido.",
             "Condition_HasItem" => "Si tiene 'llave_maestra' → abrir cualquier puerta.",
             "Condition_IsInRoom" => "Si está en 'mazmorra' → los monstruos son agresivos.",
@@ -514,7 +514,7 @@ public partial class NodePalette : UserControl
             "Flow_Sequence" => "Ejecutar en orden: mostrar mensaje → dar objeto → reproducir sonido.",
             "Flow_Branch" => "Si tiene llave → abrir puerta; si no → decir 'necesitas una llave'.",
             "Flow_Delay" => "Esperar 3 segundos antes de que aparezca el fantasma.",
-            "Flow_Loop" => "Repetir 5 veces: dar 1 moneda de oro.",
+            "Flow_Loop" => "Repetir 5 veces: dar 1 objeto.",
             "Flow_RandomBranch" => "Elegir aleatoriamente entre 3 respuestas del NPC.",
 
             // === VARIABLES ===

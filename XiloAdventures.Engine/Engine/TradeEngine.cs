@@ -98,7 +98,7 @@ public class TradeEngine
 
         // Validar oro del jugador
         if (_gameState.Player.Gold < totalPrice)
-            return new TradeResult { Success = false, Message = $"No tienes suficiente oro. Necesitas {totalPrice} monedas." };
+            return new TradeResult { Success = false, Message = $"No tienes suficiente dinero. Necesitas {totalPrice}." };
 
         // Realizar transacción
         _gameState.Player.Gold -= totalPrice;
@@ -138,8 +138,8 @@ public class TradeEngine
         CurrentTrade.PlayerItems = BuildPlayerItems(_currentMerchant);
 
         var message = quantity > 1
-            ? $"Compras {quantity}x {item.Name} por {totalPrice} monedas."
-            : $"Compras {item.Name} por {totalPrice} monedas.";
+            ? $"Compras {quantity}x {item.Name} por {totalPrice}."
+            : $"Compras {item.Name} por {totalPrice}.";
 
         AddLogEntry(message, TradeLogType.Buy);
         ItemBought?.Invoke(this, item);
@@ -179,7 +179,7 @@ public class TradeEngine
 
         // Validar oro del NPC (si no es infinito)
         if (_currentMerchant.Gold >= 0 && _currentMerchant.Gold < totalPrice)
-            return new TradeResult { Success = false, Message = $"El comerciante no tiene suficiente oro." };
+            return new TradeResult { Success = false, Message = $"El comerciante no tiene suficiente dinero." };
 
         // Realizar transacción
         _gameState.Player.Gold += totalPrice;
@@ -209,8 +209,8 @@ public class TradeEngine
         CurrentTrade.NpcItems = BuildNpcItems(_currentMerchant);
 
         var message = quantity > 1
-            ? $"Vendes {quantity}x {item.Name} por {totalPrice} monedas."
-            : $"Vendes {item.Name} por {totalPrice} monedas.";
+            ? $"Vendes {quantity}x {item.Name} por {totalPrice}."
+            : $"Vendes {item.Name} por {totalPrice}.";
 
         AddLogEntry(message, TradeLogType.Sell);
         ItemSold?.Invoke(this, item);
