@@ -74,7 +74,6 @@ public class GameEngine
         _conversationEngine = new ConversationEngine(_world, _state, _isDebugMode);
         _conversationEngine.OnDialogue += msg => ConversationDialogue?.Invoke(msg);
         _conversationEngine.OnPlayerOptions += options => ConversationOptions?.Invoke(options);
-        _conversationEngine.OnShopOpen += shop => ShopOpened?.Invoke(shop);
         _conversationEngine.OnTradeOpen += npc => TradeOpened?.Invoke(npc);
         _conversationEngine.OnConversationEnded += () => ConversationEnded?.Invoke();
         _conversationEngine.OnSystemMessage += msg => ScriptMessage?.Invoke(msg);
@@ -107,11 +106,6 @@ public class GameEngine
     public event Action<List<DialogueOption>>? ConversationOptions;
 
     /// <summary>
-    /// Evento cuando se abre la tienda (obsoleto, usar TradeOpened).
-    /// </summary>
-    public event Action<ShopData>? ShopOpened;
-
-    /// <summary>
     /// Evento cuando se abre el comercio con un NPC.
     /// </summary>
     public event Action<Npc>? TradeOpened;
@@ -136,11 +130,6 @@ public class GameEngine
     /// Indica si hay una conversación activa.
     /// </summary>
     public bool IsConversationActive => _conversationEngine?.IsConversationActive == true;
-
-    /// <summary>
-    /// Indica si la tienda está abierta.
-    /// </summary>
-    public bool IsInShopMode => _conversationEngine?.IsInShopMode == true;
 
     /// <summary>
     /// Cierra la tienda/comercio activo.
@@ -611,50 +600,6 @@ public class GameEngine
         // Manejar "?" directamente
         if (parsedCmd.Verb == "?")
             return CommandResult.Success(GetCommandsText());
-
-        // Si la tienda está abierta, manejar comandos de compra/venta
-        if (IsInShopMode)
-        {
-            // Salir de la tienda
-            if (parsedCmd.Verb is "close" or "go")
-            {
-                _ = _conversationEngine?.CloseShopAsync();
-                return CommandResult.Success("Cierras la tienda.");
-            }
-
-            // Ver inventario
-            if (parsedCmd.Verb == "inventory" || parsedCmd.Verb == "examine")
-            {
-                var shopText = _conversationEngine?.GetShopInventoryText() ?? "No hay tienda abierta.";
-                return CommandResult.Success(shopText);
-            }
-
-            // Comprar
-            if (parsedCmd.Verb == "take")
-            {
-                var itemName = parsedCmd.DirectObject ?? "";
-                if (!string.IsNullOrEmpty(itemName))
-                {
-                    var (success, message) = _conversationEngine?.ProcessBuyCommand(itemName) ?? (false, "Error");
-                    return success ? CommandResult.Success(message) : CommandResult.Error(message);
-                }
-                return CommandResult.Error("¿Qué quieres comprar? Escribe 'comprar [objeto]'.");
-            }
-
-            // Vender
-            if (parsedCmd.Verb == "drop")
-            {
-                var itemName = parsedCmd.DirectObject ?? "";
-                if (!string.IsNullOrEmpty(itemName))
-                {
-                    var (success, message) = _conversationEngine?.ProcessSellCommand(itemName) ?? (false, "Error");
-                    return success ? CommandResult.Success(message) : CommandResult.Error(message);
-                }
-                return CommandResult.Error("¿Qué quieres vender? Escribe 'vender [objeto]'.");
-            }
-
-            return CommandResult.Error("Estás en la tienda. Comandos: 'comprar <objeto>', 'vender <objeto>', 'ver', 'salir'");
-        }
 
         // Si hay una conversación activa, manejar opciones de diálogo
         if (IsConversationActive)
@@ -2100,17 +2045,6 @@ public class GameEngine
 
         if (targetNpc == null)
             return CommandResult.Error($"No ves a '{parsed.OriginalIndirectObject ?? targetName}' aquí.");
-
-        // Si estamos en modo tienda con este NPC, usar el sistema de venta
-        if (IsInShopMode && _conversationEngine != null)
-        {
-            var shopData = _state.ActiveConversation?.ActiveShopData;
-            if (shopData != null && string.Equals(shopData.NpcId, targetNpc.Id, StringComparison.OrdinalIgnoreCase))
-            {
-                var (success, message) = _conversationEngine.ProcessSellCommand(obj.Name);
-                return success ? CommandResult.Success(message) : CommandResult.Error(message);
-            }
-        }
 
         // Transferir el objeto del jugador al NPC
         _state.InventoryObjectIds.RemoveAll(id => id.Equals(obj.Id, StringComparison.OrdinalIgnoreCase));

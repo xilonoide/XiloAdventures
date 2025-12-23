@@ -53,12 +53,6 @@ public class ConversationState
 
     /// <summary>Variables locales de la conversación.</summary>
     public Dictionary<string, object?> LocalVariables { get; set; } = new();
-
-    /// <summary>Indica si la tienda está abierta.</summary>
-    public bool IsInShopMode { get; set; }
-
-    /// <summary>Datos de la tienda activa (cuando IsInShopMode es true).</summary>
-    public ShopData? ActiveShopData { get; set; }
 }
 
 /// <summary>
@@ -98,49 +92,4 @@ public class DialogueOption
 
     /// <summary>Nombre del puerto de salida asociado (Option1, Option2, etc.).</summary>
     public string OutputPort { get; set; } = "";
-}
-
-/// <summary>
-/// Datos de la tienda para la UI de comercio.
-/// </summary>
-public class ShopData
-{
-    /// <summary>Título de la tienda.</summary>
-    public string Title { get; set; } = "Tienda";
-
-    /// <summary>Mensaje de bienvenida del comerciante.</summary>
-    public string WelcomeMessage { get; set; } = "";
-
-    /// <summary>ID del NPC comerciante.</summary>
-    public string NpcId { get; set; } = "";
-
-    /// <summary>Multiplicador de precio al comprar del jugador.</summary>
-    public double BuyPriceMultiplier { get; set; } = 0.5;
-
-    /// <summary>Multiplicador de precio al vender al jugador.</summary>
-    public double SellPriceMultiplier { get; set; } = 1.0;
-
-    /// <summary>Objetos disponibles para comprar.</summary>
-    public List<ShopItem> ItemsForSale { get; set; } = new();
-
-    /// <summary>Objetos del jugador que puede vender.</summary>
-    public List<ShopItem> ItemsToSell { get; set; } = new();
-}
-
-/// <summary>
-/// Objeto en la tienda con precio calculado.
-/// </summary>
-public class ShopItem
-{
-    /// <summary>ID del objeto.</summary>
-    public string ObjectId { get; set; } = "";
-
-    /// <summary>Nombre del objeto.</summary>
-    public string Name { get; set; } = "";
-
-    /// <summary>Precio para esta transacción.</summary>
-    public int Price { get; set; }
-
-    /// <summary>Cantidad disponible (-1 = ilimitado).</summary>
-    public int Stock { get; set; } = -1;
 }

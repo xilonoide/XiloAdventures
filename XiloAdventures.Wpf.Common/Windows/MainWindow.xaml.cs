@@ -71,7 +71,6 @@ public partial class MainWindow : Window
         _engine.ConversationDialogue += Engine_ConversationDialogue;
         _engine.ConversationOptions += Engine_ConversationOptions;
         _engine.ConversationEnded += Engine_ConversationEnded;
-        _engine.ShopOpened += Engine_ShopOpened;
         _engine.TradeOpened += Engine_TradeOpened;
         _engine.AdventureCompleted += Engine_AdventureCompleted;
         _engine.PlayerDiedFromNeeds += Engine_PlayerDiedFromNeeds;
@@ -767,37 +766,6 @@ public partial class MainWindow : Window
         Dispatcher.Invoke(() =>
         {
             AppendText("\n[Fin de la conversación]\n");
-        });
-    }
-
-    private void Engine_ShopOpened(ShopData shopData)
-    {
-        Dispatcher.Invoke(() =>
-        {
-            // Por ahora mostramos la tienda en texto
-            // En el futuro se puede crear una ventana de tienda visual
-            var sb = new StringBuilder();
-            sb.AppendLine($"\n=== {shopData.Title} ===");
-            if (!string.IsNullOrEmpty(shopData.WelcomeMessage))
-                sb.AppendLine($"\"{shopData.WelcomeMessage}\"");
-
-            sb.AppendLine("\nArtículos a la venta:");
-            if (shopData.ItemsForSale.Count == 0)
-            {
-                sb.AppendLine("  (No hay artículos disponibles)");
-            }
-            else
-            {
-                foreach (var item in shopData.ItemsForSale)
-                {
-                    var stock = item.Stock < 0 ? "" : $" (x{item.Stock})";
-                    sb.AppendLine($"  - {item.Name}: {item.Price} monedas{stock}");
-                }
-            }
-
-            sb.AppendLine("\nUsa 'comprar <objeto>' o 'vender <objeto>'");
-            sb.AppendLine("Escribe 'salir' para cerrar la tienda.\n");
-            AppendText(sb.ToString());
         });
     }
 
