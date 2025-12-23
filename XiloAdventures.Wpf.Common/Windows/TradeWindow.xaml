@@ -203,7 +203,7 @@
                                            FontWeight="Bold"
                                            Foreground="#90EE90"/>
                                 <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                    <TextBlock Text="Oro: "
+                                    <TextBlock Text="Dinero: "
                                                FontSize="14"
                                                Foreground="#AAAAAA"/>
                                     <TextBlock x:Name="PlayerGoldText"
@@ -211,9 +211,6 @@
                                                FontSize="14"
                                                FontWeight="SemiBold"
                                                Foreground="#FFD700"/>
-                                    <TextBlock Text=" monedas"
-                                               FontSize="14"
-                                               Foreground="#AAAAAA"/>
                                 </StackPanel>
                             </StackPanel>
 
@@ -253,9 +250,6 @@
                                                                FontSize="11"
                                                                FontWeight="SemiBold"
                                                                Foreground="#FFD700"/>
-                                                    <TextBlock Text=" monedas"
-                                                               FontSize="11"
-                                                               Foreground="#888888"/>
                                                 </StackPanel>
                                             </StackPanel>
                                         </DataTemplate>
@@ -319,7 +313,7 @@
                                            FontWeight="Bold"
                                            Foreground="#FFD700"/>
                                 <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                    <TextBlock Text="Oro: "
+                                    <TextBlock Text="Dinero: "
                                                FontSize="14"
                                                Foreground="#AAAAAA"/>
                                     <TextBlock x:Name="MerchantGoldText"
@@ -360,9 +354,6 @@
                                                                FontSize="11"
                                                                FontWeight="SemiBold"
                                                                Foreground="#FFD700"/>
-                                                    <TextBlock Text=" monedas"
-                                                               FontSize="11"
-                                                               Foreground="#888888"/>
                                                 </StackPanel>
                                             </StackPanel>
                                         </DataTemplate>

@@ -74,7 +74,7 @@ public partial class TradeWindow : Window
         }
         else
         {
-            MerchantGoldText.Text = _tradeEngine.GetNpcGold().ToString("N0") + " monedas";
+            MerchantGoldText.Text = _tradeEngine.GetNpcGold().ToString("N0");
         }
     }
 
@@ -106,8 +106,8 @@ public partial class TradeWindow : Window
         var canAfford = _gameState.Player.Gold >= totalPrice;
 
         BuyButton.IsEnabled = canAfford;
-        BuyButton.Content = $"COMPRAR ({totalPrice} monedas)";
-        BuyTotalText.Text = canAfford ? "" : "Oro insuficiente";
+        BuyButton.Content = $"COMPRAR ({totalPrice})";
+        BuyTotalText.Text = canAfford ? "" : "Dinero insuficiente";
         BuyTotalText.Foreground = new SolidColorBrush(canAfford ? Color.FromRgb(255, 215, 0) : Color.FromRgb(255, 107, 107));
     }
 
@@ -127,7 +127,7 @@ public partial class TradeWindow : Window
         var npcCanAfford = _tradeEngine.NpcHasInfiniteGold() || _tradeEngine.GetNpcGold() >= totalPrice;
 
         SellButton.IsEnabled = npcCanAfford;
-        SellButton.Content = $"VENDER ({totalPrice} monedas)";
+        SellButton.Content = $"VENDER ({totalPrice})";
         SellTotalText.Text = npcCanAfford ? "" : "El comerciante no tiene suficiente oro";
         SellTotalText.Foreground = new SolidColorBrush(npcCanAfford ? Color.FromRgb(255, 215, 0) : Color.FromRgb(255, 107, 107));
     }
