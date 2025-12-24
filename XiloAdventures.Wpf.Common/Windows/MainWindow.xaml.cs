@@ -191,8 +191,11 @@ public partial class MainWindow : Window
         _npcMovementTimer.Tick += (_, _) =>
         {
             _engine.UpdateNpcTimedMovement();
-            // Actualizar UI si hay cambios relevantes en la sala actual
-            UpdateRoomVisuals();
+            // Solo actualizar visuals si la sala está iluminada (evita cambio constante de mensajes de oscuridad)
+            if (_engine.IsCurrentRoomLit)
+            {
+                UpdateRoomVisuals();
+            }
         };
         _npcMovementTimer.Start();
     }

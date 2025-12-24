@@ -320,10 +320,17 @@ public class TradeEngine : ITradeEngine
 
             var calculatedPrice = (int)Math.Ceiling(gameObject.Price * merchant.SellPriceMultiplier);
 
+            var displayName = gameObject.Name;
+            if (gameObject.IsLightSource)
+            {
+                var turnsDisplay = gameObject.LightTurnsRemaining == -1 ? "∞" : gameObject.LightTurnsRemaining.ToString();
+                displayName = $"{gameObject.Name} ({turnsDisplay})";
+            }
+
             items.Add(new TradeItem
             {
                 ObjectId = gameObject.Id,
-                Name = gameObject.Name,
+                Name = displayName,
                 Description = gameObject.Description,
                 BasePrice = gameObject.Price,
                 CalculatedPrice = calculatedPrice,
@@ -358,10 +365,17 @@ public class TradeEngine : ITradeEngine
             // Solo mostrar items con precio > 0
             if (calculatedPrice <= 0) continue;
 
+            var displayName = gameObject.Name;
+            if (gameObject.IsLightSource)
+            {
+                var turnsDisplay = gameObject.LightTurnsRemaining == -1 ? "∞" : gameObject.LightTurnsRemaining.ToString();
+                displayName = $"{gameObject.Name} ({turnsDisplay})";
+            }
+
             items.Add(new TradeItem
             {
                 ObjectId = gameObject.Id,
-                Name = gameObject.Name,
+                Name = displayName,
                 Description = gameObject.Description,
                 BasePrice = gameObject.Price,
                 CalculatedPrice = calculatedPrice,

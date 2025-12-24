@@ -710,11 +710,12 @@ public class GameEngine
     }
 
     /// <summary>
+    /// Verifica si la sala actual está iluminada.
+    /// </summary>
+    public bool IsCurrentRoomLit => CurrentRoom != null && IsRoomLit(CurrentRoom);
+
+    /// <summary>
     /// Determina si la sala tiene iluminación suficiente para que el jugador pueda ver.
-    /// Considera:
-    /// - Si es interior: el flag IsIlluminated de la sala
-    /// - Si es exterior: la hora del día (oscuro de 20:00 a 7:00)
-    /// - Objetos luminosos encendidos en la sala o en el inventario del jugador
     /// </summary>
     private bool IsRoomLit(Room room)
     {
