@@ -774,4 +774,516 @@ public class BasicNeedsTests
     }
 
     #endregion
+
+    #region Eat Command Tests
+
+    [Fact]
+    public void EatCommand_BasicNeedsDisabled_ReturnsError()
+    {
+        var (world, state) = CreateTestWorld(basicNeedsEnabled: false);
+        world.Objects.Add(new GameObject
+        {
+            Id = "apple",
+            Name = "manzana",
+            Type = ObjectType.Comida,
+            NutritionAmount = 20
+        });
+        state.InventoryObjectIds.Add("apple");
+
+        var engine = CreateEngine(world, state);
+        var result = engine.ProcessCommand("comer manzana");
+
+        Assert.False(result.IsSuccess);
+    }
+
+    [Fact]
+    public void EatCommand_NoTarget_AsksWhatToEat()
+    {
+        var (world, state) = CreateTestWorld(basicNeedsEnabled: true);
+        var engine = CreateEngine(world, state);
+
+        var result = engine.ProcessCommand("comer");
+
+        Assert.False(result.IsSuccess);
+    }
+
+    [Fact]
+    public void EatCommand_ObjectNotFood_ReturnsError()
+    {
+        var (world, state) = CreateTestWorld(basicNeedsEnabled: true);
+        world.Objects.Add(new GameObject
+        {
+            Id = "key",
+            Name = "llave",
+            Type = ObjectType.Llave
+        });
+        state.InventoryObjectIds.Add("key");
+
+        var engine = CreateEngine(world, state);
+        var result = engine.ProcessCommand("comer llave");
+
+        Assert.False(result.IsSuccess);
+    }
+
+    [Fact]
+    public void EatCommand_FoodInInventory_ReducesHungerByNutritionAmount()
+    {
+        var (world, state) = CreateTestWorld(basicNeedsEnabled: true);
+        var apple = new GameObject
+        {
+            Id = "apple",
+            Name = "manzana",
+            Type = ObjectType.Comida,
+            NutritionAmount = 25
+        };
+        world.Objects.Add(apple);
+        state.Objects.Add(apple);
+        state.InventoryObjectIds.Add("apple");
+        state.Player.DynamicStats.Hunger = 50;
+
+        var engine = CreateEngine(world, state);
+        var result = engine.ProcessCommand("comer manzana");
+
+        Assert.True(result.IsSuccess);
+        // Hunger reduced by 25, but turn increments by 1 (hunger rate)
+        Assert.True(state.Player.DynamicStats.Hunger < 50);
+        Assert.True(state.Player.DynamicStats.Hunger <= 26); // 50 - 25 + 1 = 26
+    }
+
+    [Fact]
+    public void EatCommand_FoodInRoom_ReducesHungerByNutritionAmount()
+    {
+        var (world, state) = CreateTestWorld(basicNeedsEnabled: true);
+        var bread = new GameObject
+        {
+            Id = "bread",
+            Name = "pan",
+            Type = ObjectType.Comida,
+            NutritionAmount = 15,
+            RoomId = "room1"
+        };
+        world.Objects.Add(bread);
+        state.Objects.Add(bread);
+        state.Rooms[0].ObjectIds.Add("bread");
+
+        state.Player.DynamicStats.Hunger = 40;
+
+        var engine = CreateEngine(world, state);
+        var result = engine.ProcessCommand("comer pan");
+
+        Assert.True(result.IsSuccess);
+        // Hunger reduced by 15, but turn increments by 1
+        Assert.True(state.Player.DynamicStats.Hunger < 40);
+        Assert.True(state.Player.DynamicStats.Hunger <= 26); // 40 - 15 + 1 = 26
+    }
+
+    [Fact]
+    public void EatCommand_HungerNeverGoesBelowZero()
+    {
+        var (world, state) = CreateTestWorld(basicNeedsEnabled: true);
+        var feast = new GameObject
+        {
+            Id = "feast",
+            Name = "banquete",
+            Type = ObjectType.Comida,
+            NutritionAmount = 100
+        };
+        world.Objects.Add(feast);
+        state.Objects.Add(feast);
+        state.InventoryObjectIds.Add("feast");
+        state.Player.DynamicStats.Hunger = 10;
+
+        var engine = CreateEngine(world, state);
+        engine.ProcessCommand("comer banquete");
+
+        // Hunger is reduced to 0, then increments by 1 from turn
+        Assert.True(state.Player.DynamicStats.Hunger <= 2);
+    }
+
+    [Fact]
+    public void EatCommand_RemovesFoodFromInventory()
+    {
+        var (world, state) = CreateTestWorld(basicNeedsEnabled: true);
+        var apple = new GameObject
+        {
+            Id = "apple",
+            Name = "manzana",
+            Type = ObjectType.Comida,
+            NutritionAmount = 10
+        };
+        world.Objects.Add(apple);
+        state.Objects.Add(apple);
+        state.InventoryObjectIds.Add("apple");
+
+        var engine = CreateEngine(world, state);
+        engine.ProcessCommand("comer manzana");
+
+        Assert.DoesNotContain("apple", state.InventoryObjectIds);
+    }
+
+    [Fact]
+    public void EatCommand_RemovesFoodFromRoom()
+    {
+        var (world, state) = CreateTestWorld(basicNeedsEnabled: true);
+        var bread = new GameObject
+        {
+            Id = "bread",
+            Name = "pan",
+            Type = ObjectType.Comida,
+            NutritionAmount = 10,
+            RoomId = "room1"
+        };
+        world.Objects.Add(bread);
+        state.Objects.Add(bread);
+        state.Rooms[0].ObjectIds.Add("bread");
+
+        var engine = CreateEngine(world, state);
+        engine.ProcessCommand("comer pan");
+
+        Assert.DoesNotContain("bread", state.Rooms[0].ObjectIds);
+    }
+
+    [Fact]
+    public void EatCommand_DefaultNutritionAmount_Is10()
+    {
+        var food = new GameObject { Type = ObjectType.Comida };
+        Assert.Equal(10, food.NutritionAmount);
+    }
+
+    #endregion
+
+    #region Drink Command Tests
+
+    [Fact]
+    public void DrinkCommand_BasicNeedsDisabled_ReturnsError()
+    {
+        var (world, state) = CreateTestWorld(basicNeedsEnabled: false);
+        world.Objects.Add(new GameObject
+        {
+            Id = "water",
+            Name = "agua",
+            Type = ObjectType.Bebida,
+            NutritionAmount = 20
+        });
+        state.InventoryObjectIds.Add("water");
+
+        var engine = CreateEngine(world, state);
+        var result = engine.ProcessCommand("beber agua");
+
+        Assert.False(result.IsSuccess);
+    }
+
+    [Fact]
+    public void DrinkCommand_NoTarget_AsksWhatToDrink()
+    {
+        var (world, state) = CreateTestWorld(basicNeedsEnabled: true);
+        var engine = CreateEngine(world, state);
+
+        var result = engine.ProcessCommand("beber");
+
+        Assert.False(result.IsSuccess);
+    }
+
+    [Fact]
+    public void DrinkCommand_ObjectNotDrink_ReturnsError()
+    {
+        var (world, state) = CreateTestWorld(basicNeedsEnabled: true);
+        world.Objects.Add(new GameObject
+        {
+            Id = "sword",
+            Name = "espada",
+            Type = ObjectType.Arma
+        });
+        state.InventoryObjectIds.Add("sword");
+
+        var engine = CreateEngine(world, state);
+        var result = engine.ProcessCommand("beber espada");
+
+        Assert.False(result.IsSuccess);
+    }
+
+    [Fact]
+    public void DrinkCommand_DrinkInInventory_ReducesThirstByNutritionAmount()
+    {
+        var (world, state) = CreateTestWorld(basicNeedsEnabled: true);
+        var water = new GameObject
+        {
+            Id = "water",
+            Name = "agua",
+            Type = ObjectType.Bebida,
+            NutritionAmount = 30
+        };
+        world.Objects.Add(water);
+        state.Objects.Add(water);
+        state.InventoryObjectIds.Add("water");
+        state.Player.DynamicStats.Thirst = 60;
+
+        var engine = CreateEngine(world, state);
+        var result = engine.ProcessCommand("beber agua");
+
+        Assert.True(result.IsSuccess);
+        // Thirst reduced by 30, but turn increments by 1
+        Assert.True(state.Player.DynamicStats.Thirst < 60);
+        Assert.True(state.Player.DynamicStats.Thirst <= 31); // 60 - 30 + 1 = 31
+    }
+
+    [Fact]
+    public void DrinkCommand_DrinkInRoom_ReducesThirstByNutritionAmount()
+    {
+        var (world, state) = CreateTestWorld(basicNeedsEnabled: true);
+        var juice = new GameObject
+        {
+            Id = "juice",
+            Name = "zumo",
+            Type = ObjectType.Bebida,
+            NutritionAmount = 20,
+            RoomId = "room1"
+        };
+        world.Objects.Add(juice);
+        state.Objects.Add(juice);
+        state.Rooms[0].ObjectIds.Add("juice");
+        state.Player.DynamicStats.Thirst = 50;
+
+        var engine = CreateEngine(world, state);
+        var result = engine.ProcessCommand("beber zumo");
+
+        Assert.True(result.IsSuccess);
+        // Thirst reduced by 20, but turn increments by 1
+        Assert.True(state.Player.DynamicStats.Thirst < 50);
+        Assert.True(state.Player.DynamicStats.Thirst <= 31); // 50 - 20 + 1 = 31
+    }
+
+    [Fact]
+    public void DrinkCommand_ThirstNeverGoesBelowZero()
+    {
+        var (world, state) = CreateTestWorld(basicNeedsEnabled: true);
+        var fountain = new GameObject
+        {
+            Id = "fountain",
+            Name = "fuente",
+            Type = ObjectType.Bebida,
+            NutritionAmount = 100
+        };
+        world.Objects.Add(fountain);
+        state.Objects.Add(fountain);
+        state.InventoryObjectIds.Add("fountain");
+        state.Player.DynamicStats.Thirst = 15;
+
+        var engine = CreateEngine(world, state);
+        engine.ProcessCommand("beber fuente");
+
+        // Thirst is reduced to 0, then increments by 1 from turn
+        Assert.True(state.Player.DynamicStats.Thirst <= 2);
+    }
+
+    [Fact]
+    public void DrinkCommand_RemovesDrinkFromInventory()
+    {
+        var (world, state) = CreateTestWorld(basicNeedsEnabled: true);
+        var water = new GameObject
+        {
+            Id = "water",
+            Name = "agua",
+            Type = ObjectType.Bebida,
+            NutritionAmount = 10
+        };
+        world.Objects.Add(water);
+        state.Objects.Add(water);
+        state.InventoryObjectIds.Add("water");
+
+        var engine = CreateEngine(world, state);
+        engine.ProcessCommand("beber agua");
+
+        Assert.DoesNotContain("water", state.InventoryObjectIds);
+    }
+
+    #endregion
+
+    #region Sleep Command Tests
+
+    [Fact]
+    public void SleepCommand_BasicNeedsDisabled_ReturnsError()
+    {
+        var (world, state) = CreateTestWorld(basicNeedsEnabled: false);
+        var engine = CreateEngine(world, state);
+
+        var result = engine.ProcessCommand("dormir");
+
+        Assert.False(result.IsSuccess);
+    }
+
+    [Fact]
+    public void SleepCommand_AsksForHours()
+    {
+        var (world, state) = CreateTestWorld(basicNeedsEnabled: true);
+        var engine = CreateEngine(world, state);
+
+        var result = engine.ProcessCommand("dormir");
+
+        // Sleep command should succeed and ask for hours
+        Assert.True(result.IsSuccess);
+        Assert.Contains("hora", result.Message.ToLower());
+    }
+
+    [Fact]
+    public void SleepCommand_WithHours_ReducesSleepByAmount()
+    {
+        var (world, state) = CreateTestWorld(basicNeedsEnabled: true);
+        state.Player.DynamicStats.Sleep = 50;
+
+        var engine = CreateEngine(world, state);
+        engine.ProcessCommand("dormir");
+
+        // Use TryProcessSleepResponse to provide hours
+        Assert.True(engine.TryProcessSleepResponse("4", out var result));
+        Assert.True(result.IsSuccess);
+
+        // Each hour reduces sleep by 10, so 4 hours = 40 reduction
+        Assert.True(state.Player.DynamicStats.Sleep < 50);
+    }
+
+    [Fact]
+    public void SleepCommand_InvalidHours_ReturnsError()
+    {
+        var (world, state) = CreateTestWorld(basicNeedsEnabled: true);
+        var engine = CreateEngine(world, state);
+
+        engine.ProcessCommand("dormir");
+
+        // Use TryProcessSleepResponse with invalid hours
+        Assert.True(engine.TryProcessSleepResponse("10", out var result));
+        Assert.False(result.IsSuccess);
+    }
+
+    [Fact]
+    public void SleepCommand_ZeroHours_ReturnsError()
+    {
+        var (world, state) = CreateTestWorld(basicNeedsEnabled: true);
+        var engine = CreateEngine(world, state);
+
+        engine.ProcessCommand("dormir");
+
+        // Use TryProcessSleepResponse with zero hours
+        Assert.True(engine.TryProcessSleepResponse("0", out var result));
+        Assert.False(result.IsSuccess);
+    }
+
+    [Fact]
+    public void SleepCommand_SleepNeverGoesBelowZero()
+    {
+        var (world, state) = CreateTestWorld(basicNeedsEnabled: true);
+        state.Player.DynamicStats.Sleep = 15;
+
+        var engine = CreateEngine(world, state);
+        engine.ProcessCommand("dormir");
+        engine.TryProcessSleepResponse("8", out _); // 8 hours = 80 reduction
+
+        // Sleep should be near 0 (after turn increments)
+        Assert.True(state.Player.DynamicStats.Sleep <= 10);
+    }
+
+    [Fact]
+    public void SleepCommand_AdvancesTurns()
+    {
+        var (world, state) = CreateTestWorld(basicNeedsEnabled: true);
+        var initialTurns = state.TurnCounter;
+        world.Game.MinutesPerGameHour = 60;
+
+        var engine = CreateEngine(world, state);
+        engine.ProcessCommand("dormir");
+        engine.TryProcessSleepResponse("2", out _); // Sleep 2 hours
+
+        // Turns should advance (60 min per hour = 2 turns per hour at 30 min per turn default)
+        Assert.True(state.TurnCounter > initialTurns);
+    }
+
+    #endregion
+
+    #region Script Event Tests
+
+    [Fact]
+    public void NodeTypeRegistry_Event_OnEat_Exists()
+    {
+        var nodeDef = NodeTypeRegistry.GetNodeType("Event_OnEat");
+        Assert.NotNull(nodeDef);
+        Assert.Equal("Event_OnEat", nodeDef.TypeId);
+        Assert.Equal(NodeCategory.Event, nodeDef.Category);
+        Assert.Equal("BasicNeeds", nodeDef.RequiredFeature);
+    }
+
+    [Fact]
+    public void NodeTypeRegistry_Event_OnDrink_Exists()
+    {
+        var nodeDef = NodeTypeRegistry.GetNodeType("Event_OnDrink");
+        Assert.NotNull(nodeDef);
+        Assert.Equal("Event_OnDrink", nodeDef.TypeId);
+        Assert.Equal(NodeCategory.Event, nodeDef.Category);
+        Assert.Equal("BasicNeeds", nodeDef.RequiredFeature);
+    }
+
+    [Fact]
+    public void NodeTypeRegistry_Event_OnSleep_Exists()
+    {
+        var nodeDef = NodeTypeRegistry.GetNodeType("Event_OnSleep");
+        Assert.NotNull(nodeDef);
+        Assert.Equal("Event_OnSleep", nodeDef.TypeId);
+        Assert.Equal(NodeCategory.Event, nodeDef.Category);
+        Assert.Equal("BasicNeeds", nodeDef.RequiredFeature);
+    }
+
+    [Fact]
+    public void NodeTypeRegistry_Event_OnWakeUp_Exists()
+    {
+        var nodeDef = NodeTypeRegistry.GetNodeType("Event_OnWakeUp");
+        Assert.NotNull(nodeDef);
+        Assert.Equal("Event_OnWakeUp", nodeDef.TypeId);
+        Assert.Equal(NodeCategory.Event, nodeDef.Category);
+        Assert.Equal("BasicNeeds", nodeDef.RequiredFeature);
+    }
+
+    [Fact]
+    public void NodeTypeRegistry_Event_OnWakeUpStartled_Exists()
+    {
+        var nodeDef = NodeTypeRegistry.GetNodeType("Event_OnWakeUpStartled");
+        Assert.NotNull(nodeDef);
+        Assert.Equal("Event_OnWakeUpStartled", nodeDef.TypeId);
+        Assert.Equal(NodeCategory.Event, nodeDef.Category);
+        Assert.Equal("BasicNeeds", nodeDef.RequiredFeature);
+    }
+
+    [Fact]
+    public void NodeTypeRegistry_ConsumableEvents_FilteredByFeature()
+    {
+        var gameInfoWithBasicNeeds = new GameInfo { BasicNeedsEnabled = true };
+        var gameInfoWithoutBasicNeeds = new GameInfo { BasicNeedsEnabled = false };
+
+        var nodesWithFeature = NodeTypeRegistry.GetNodesForOwnerType("GameObject", gameInfoWithBasicNeeds).ToList();
+        var nodesWithoutFeature = NodeTypeRegistry.GetNodesForOwnerType("GameObject", gameInfoWithoutBasicNeeds).ToList();
+
+        Assert.Contains(nodesWithFeature, n => n.TypeId == "Event_OnEat");
+        Assert.Contains(nodesWithFeature, n => n.TypeId == "Event_OnDrink");
+
+        Assert.DoesNotContain(nodesWithoutFeature, n => n.TypeId == "Event_OnEat");
+        Assert.DoesNotContain(nodesWithoutFeature, n => n.TypeId == "Event_OnDrink");
+    }
+
+    #endregion
+
+    #region GameObject NutritionAmount Tests
+
+    [Fact]
+    public void GameObject_NutritionAmount_DefaultsTo10()
+    {
+        var obj = new GameObject();
+        Assert.Equal(10, obj.NutritionAmount);
+    }
+
+    [Fact]
+    public void GameObject_NutritionAmount_CanBeSetAndGet()
+    {
+        var obj = new GameObject { NutritionAmount = 50 };
+        Assert.Equal(50, obj.NutritionAmount);
+    }
+
+    #endregion
 }

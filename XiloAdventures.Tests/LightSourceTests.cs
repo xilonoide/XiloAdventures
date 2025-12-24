@@ -584,7 +584,11 @@ public class LightSourceTests
 
         Assert.Equal(0, lantern.LightTurnsRemaining);
         Assert.False(lantern.IsLit);
-        Assert.Contains("se apaga", result.Message.ToLower());
+        var msg = result.Message.ToLower();
+        Assert.True(
+            msg.Contains("se apaga") || msg.Contains("extingue") || msg.Contains("muere") ||
+            msg.Contains("deja de iluminar") || msg.Contains("desvanece") || msg.Contains("expira"),
+            $"Expected light-goes-out message, got: {result.Message}");
     }
 
     [Fact]

@@ -496,6 +496,37 @@ public static class NodeTypeRegistry
             OutputPorts = new[] { new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" } }
         });
 
+        // === CONSUMABLE EVENTS ===
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Event_OnEat",
+            DisplayName = "Al Comer",
+            Description = "Se ejecuta cuando el jugador come este objeto",
+            Category = NodeCategory.Event,
+            OwnerTypes = new[] { "GameObject" },
+            RequiredFeature = "BasicNeeds",
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
+                new NodePort { Name = "NutritionAmount", PortType = PortType.Data, DataType = "int", Label = "Cantidad" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Event_OnDrink",
+            DisplayName = "Al Beber",
+            Description = "Se ejecuta cuando el jugador bebe este objeto",
+            Category = NodeCategory.Event,
+            OwnerTypes = new[] { "GameObject" },
+            RequiredFeature = "BasicNeeds",
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
+                new NodePort { Name = "NutritionAmount", PortType = PortType.Data, DataType = "int", Label = "Cantidad" }
+            }
+        });
+
         // === QUEST EVENTS ===
         Register(new NodeTypeDefinition
         {
@@ -667,6 +698,51 @@ public static class NodeTypeRegistry
             Properties = new[]
             {
                 new NodePropertyDefinition { Name = "Threshold", DisplayName = "Umbral", DataType = "int", DefaultValue = 75 }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Event_OnSleep",
+            DisplayName = "Al Dormir",
+            Description = "Se ejecuta cuando el jugador comienza a dormir",
+            Category = NodeCategory.Event,
+            OwnerTypes = new[] { "Game", "*" },
+            RequiredFeature = "BasicNeeds",
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
+                new NodePort { Name = "Hours", PortType = PortType.Data, DataType = "int", Label = "Horas" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Event_OnWakeUp",
+            DisplayName = "Al Despertar",
+            Description = "Se ejecuta cuando el jugador despierta normalmente",
+            Category = NodeCategory.Event,
+            OwnerTypes = new[] { "Game", "*" },
+            RequiredFeature = "BasicNeeds",
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
+                new NodePort { Name = "HoursSlept", PortType = PortType.Data, DataType = "int", Label = "Horas dormidas" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = "Event_OnWakeUpStartled",
+            DisplayName = "Al Despertar Sobresaltado",
+            Description = "Se ejecuta cuando el jugador despierta abruptamente (NPC entró, necesidad alta)",
+            Category = NodeCategory.Event,
+            OwnerTypes = new[] { "Game", "*" },
+            RequiredFeature = "BasicNeeds",
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" },
+                new NodePort { Name = "Reason", PortType = PortType.Data, DataType = "string", Label = "Razón" }
             }
         });
 

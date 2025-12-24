@@ -923,6 +923,7 @@ public partial class PropertyEditor : UserControl
             "Volume" => 40,
             "Weight" => 41,
             "Price" => 42,
+            "NutritionAmount" => 43,
 
             _ => 99
         };
@@ -2578,6 +2579,7 @@ public partial class PropertyEditor : UserControl
         ["Volume"] = "Volumen (cm³)",
         ["Weight"] = "Peso (g)",
         ["Price"] = "Precio",
+        ["NutritionAmount"] = "Cantidad (nutrición)",
         ["ContainedObjectIds"] = "Objetos contenidos",
         ["InventoryObjectIds"] = "Objetos en inventario",
         ["Dialogue"] = "Diálogo",
@@ -2638,6 +2640,7 @@ public partial class PropertyEditor : UserControl
         ["GameObject.Volume"] = "Volumen (cm³)",
         ["GameObject.Weight"] = "Peso (g)",
         ["GameObject.Price"] = "Precio",
+        ["GameObject.NutritionAmount"] = "Cantidad (nutrición)",
         ["GameObject.ContainedObjectIds"] = "Objetos contenidos",
         ["GameObject.KeyId"] = "Llave necesaria",
         ["GameObject.Tags"] = "Etiquetas",
@@ -2918,6 +2921,10 @@ public partial class PropertyEditor : UserControl
                 // Propiedades de contenedor solo visibles si IsContainer = true
                 "IsOpenable" or "IsLocked" or "ContentsVisible" or "MaxCapacity" or "ContainedObjectIds"
                     => () => gameObject.IsContainer,
+
+                // === PROPIEDADES DE CONSUMIBLES ===
+                // NutritionAmount solo visible si Type = Comida o Bebida
+                "NutritionAmount" => () => gameObject.Type == ObjectType.Comida || gameObject.Type == ObjectType.Bebida,
 
                 // === PROPIEDADES DE COMBATE ===
                 // AttackBonus solo visible si Type = Arma

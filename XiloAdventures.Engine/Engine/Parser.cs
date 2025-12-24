@@ -172,6 +172,11 @@ public static class Parser
         AddVerbAlias("ignite", "encender", "enciende", "prender", "prende");
         AddVerbAlias("extinguish", "apagar", "apaga");
 
+        // Verbos de necesidades básicas
+        AddVerbAlias("eat", "comer", "come", "devorar", "devora", "masticar", "mastica", "tragar", "zampar");
+        AddVerbAlias("drink", "beber", "bebe", "tomar", "sorber", "sorbe");
+        AddVerbAlias("sleep", "dormir", "duerme", "descansar", "descansa", "echarse", "acostarse");
+
         // Algunos sinónimos globales de nombres
         AddNounAlias("espada", "hoja", "sable", "mandoble");
         AddNounAlias("enano", "enano borracho", "minero", "barbudo");

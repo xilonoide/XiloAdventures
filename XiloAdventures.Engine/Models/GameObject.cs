@@ -166,6 +166,16 @@ public class GameObject
     /// </summary>
     public bool Visible { get; set; } = true;
 
+    #region Consumable Properties
+
+    /// <summary>
+    /// Cantidad de puntos que reduce de la necesidad correspondiente (hambre para comida, sed para bebida).
+    /// Solo aplica a objetos de tipo Comida o Bebida.
+    /// </summary>
+    public int NutritionAmount { get; set; } = 10;
+
+    #endregion
+
     #region Light Source Properties
 
     /// <summary>

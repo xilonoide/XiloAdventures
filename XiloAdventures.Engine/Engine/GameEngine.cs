@@ -699,6 +699,9 @@ public class GameEngine
             "equipment" => CommandResult.Success(DescribeEquipment()),
             "ignite" => HandleIgnite(parsedCmd),
             "extinguish" => HandleExtinguish(parsedCmd),
+            "eat" => HandleEat(parsedCmd),
+            "drink" => HandleDrink(parsedCmd),
+            "sleep" => HandleSleep(parsedCmd),
             "save" => CommandResult.Success("Usa el menú Archivo -> Guardar partida... para guardar."),
             "load" => CommandResult.Success("Usa el menú Archivo -> Cargar partida... para cargar."),
             "help" or "commands" => CommandResult.Success(GetCommandsText()),
@@ -3337,6 +3340,304 @@ public class GameEngine
         NeedRate.High => 1.5,
         _ => 1.0
     };
+
+    /// <summary>
+    /// Busca un objeto visible para el jugador (en inventario, sala o contenedor visible).
+    /// </summary>
+    private GameObject? FindVisibleObject(Room room, string name, string? originalName = null)
+    {
+        // Primero buscar en inventario
+        foreach (var objId in _state.InventoryObjectIds)
+        {
+            var obj = FindObjectById(objId);
+            if (obj != null && MatchesName(obj.Name, name, originalName))
+                return obj;
+        }
+
+        // Luego buscar en la sala
+        foreach (var objId in room.ObjectIds)
+        {
+            var obj = FindObjectById(objId);
+            if (obj != null && obj.Visible && MatchesName(obj.Name, name, originalName))
+                return obj;
+        }
+
+        // Buscar en contenedores visibles (abiertos o con contenido visible)
+        var allContainers = room.ObjectIds
+            .Select(FindObjectById)
+            .Where(o => o != null && o.IsContainer && o.Visible && (o.IsOpen || o.ContentsVisible))
+            .Concat(_state.InventoryObjectIds
+                .Select(FindObjectById)
+                .Where(o => o != null && o.IsContainer && (o.IsOpen || o.ContentsVisible)));
+
+        foreach (var container in allContainers)
+        {
+            if (container == null) continue;
+            foreach (var containedId in container.ContainedObjectIds)
+            {
+                var contained = FindObjectById(containedId);
+                if (contained != null && contained.Visible && MatchesName(contained.Name, name, originalName))
+                    return contained;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Maneja el comando comer.
+    /// </summary>
+    private CommandResult HandleEat(ParsedCommand parsed)
+    {
+        // Verificar que el sistema de necesidades básicas esté activo
+        if (!_world.Game.BasicNeedsEnabled)
+            return CommandResult.Error(RandomMessages.BasicNeedsNotEnabled);
+
+        var room = CurrentRoom;
+        if (room == null)
+            return CommandResult.Error(RandomMessages.PlayerLost);
+
+        var objName = (parsed.DirectObject ?? string.Empty).Trim();
+        var originalObjName = parsed.OriginalDirectObject;
+
+        if (string.IsNullOrWhiteSpace(objName))
+            return CommandResult.Error(RandomMessages.WhatToEat);
+
+        // Buscar el objeto
+        var obj = FindVisibleObject(room, objName, originalObjName);
+        if (obj == null)
+            return CommandResult.Error(RandomMessages.ObjectNotFound);
+
+        // Verificar que sea comida
+        if (obj.Type != ObjectType.Comida)
+            return CommandResult.Error(string.Format(RandomMessages.CannotEat, Cap(obj.Name)));
+
+        // Consumir el objeto
+        var stats = _state.Player.DynamicStats;
+        var oldHunger = stats.Hunger;
+        stats.Hunger = Math.Max(0, stats.Hunger - obj.NutritionAmount);
+
+        // Eliminar el objeto del juego
+        RemoveObjectFromGame(obj);
+
+        // Disparar evento de comer
+        _ = TriggerEntityScriptAsync("GameObject", obj.Id, "Event_OnEat");
+
+        // Mostrar mensaje
+        var message = string.Format(RandomMessages.EatSuccess, Low(obj.Name));
+        if (oldHunger > 0 && stats.Hunger == 0)
+            message += " " + RandomMessages.NotHungry;
+
+        return CommandResult.Success(message);
+    }
+
+    /// <summary>
+    /// Maneja el comando beber.
+    /// </summary>
+    private CommandResult HandleDrink(ParsedCommand parsed)
+    {
+        // Verificar que el sistema de necesidades básicas esté activo
+        if (!_world.Game.BasicNeedsEnabled)
+            return CommandResult.Error(RandomMessages.BasicNeedsNotEnabled);
+
+        var room = CurrentRoom;
+        if (room == null)
+            return CommandResult.Error(RandomMessages.PlayerLost);
+
+        var objName = (parsed.DirectObject ?? string.Empty).Trim();
+        var originalObjName = parsed.OriginalDirectObject;
+
+        if (string.IsNullOrWhiteSpace(objName))
+            return CommandResult.Error(RandomMessages.WhatToDrink);
+
+        // Buscar el objeto
+        var obj = FindVisibleObject(room, objName, originalObjName);
+        if (obj == null)
+            return CommandResult.Error(RandomMessages.ObjectNotFound);
+
+        // Verificar que sea bebida
+        if (obj.Type != ObjectType.Bebida)
+            return CommandResult.Error(string.Format(RandomMessages.CannotDrink, Cap(obj.Name)));
+
+        // Consumir el objeto
+        var stats = _state.Player.DynamicStats;
+        var oldThirst = stats.Thirst;
+        stats.Thirst = Math.Max(0, stats.Thirst - obj.NutritionAmount);
+
+        // Eliminar el objeto del juego
+        RemoveObjectFromGame(obj);
+
+        // Disparar evento de beber
+        _ = TriggerEntityScriptAsync("GameObject", obj.Id, "Event_OnDrink");
+
+        // Mostrar mensaje
+        var message = string.Format(RandomMessages.DrinkSuccess, Low(obj.Name));
+        if (oldThirst > 0 && stats.Thirst == 0)
+            message += " " + RandomMessages.NotThirsty;
+
+        return CommandResult.Success(message);
+    }
+
+    /// <summary>
+    /// Elimina un objeto del juego (inventario, sala o contenedor).
+    /// </summary>
+    private void RemoveObjectFromGame(GameObject obj)
+    {
+        // Eliminar del inventario
+        _state.InventoryObjectIds.Remove(obj.Id);
+
+        // Eliminar de la sala
+        var rooms = _state.Rooms.Where(r => r.ObjectIds.Contains(obj.Id));
+        foreach (var room in rooms)
+            room.ObjectIds.Remove(obj.Id);
+
+        // Eliminar de contenedores
+        foreach (var container in _state.Objects.Where(o => o.IsContainer))
+            container.ContainedObjectIds.Remove(obj.Id);
+
+        // Eliminar el objeto del estado
+        _state.Objects.RemoveAll(o => o.Id == obj.Id);
+    }
+
+    /// <summary>
+    /// Estado de sueño pendiente para responder a la pregunta de horas.
+    /// </summary>
+    private bool _awaitingSleepHours;
+
+    /// <summary>
+    /// Maneja el comando dormir.
+    /// </summary>
+    private CommandResult HandleSleep(ParsedCommand parsed)
+    {
+        // Verificar que el sistema de necesidades básicas esté activo
+        if (!_world.Game.BasicNeedsEnabled)
+            return CommandResult.Error(RandomMessages.BasicNeedsNotEnabled);
+
+        var room = CurrentRoom;
+        if (room == null)
+            return CommandResult.Error(RandomMessages.PlayerLost);
+
+        // Si ya tenemos un número de horas especificado
+        var hoursStr = (parsed.DirectObject ?? string.Empty).Trim();
+        if (!string.IsNullOrEmpty(hoursStr) && int.TryParse(hoursStr, out int hours))
+        {
+            return ExecuteSleep(hours);
+        }
+
+        // Si no hay número, pedir las horas
+        _awaitingSleepHours = true;
+        return CommandResult.Success(RandomMessages.HowManyHoursToSleep);
+    }
+
+    /// <summary>
+    /// Procesa la respuesta de horas de sueño.
+    /// </summary>
+    public bool TryProcessSleepResponse(string input, out CommandResult result)
+    {
+        result = CommandResult.Empty;
+
+        if (!_awaitingSleepHours)
+            return false;
+
+        _awaitingSleepHours = false;
+
+        if (int.TryParse(input.Trim(), out int hours))
+        {
+            result = ExecuteSleep(hours);
+            return true;
+        }
+
+        result = CommandResult.Error(RandomMessages.InvalidSleepHours);
+        return true;
+    }
+
+    /// <summary>
+    /// Ejecuta el proceso de dormir por las horas especificadas.
+    /// </summary>
+    private CommandResult ExecuteSleep(int hours)
+    {
+        if (hours < 1 || hours > 8)
+            return CommandResult.Error(RandomMessages.InvalidSleepHours);
+
+        var room = CurrentRoom;
+        if (room == null)
+            return CommandResult.Error(RandomMessages.PlayerLost);
+
+        var stats = _state.Player.DynamicStats;
+        var messages = new StringBuilder();
+        bool wokeUpStartled = false;
+        int hoursSlept = 0;
+
+        // Disparar evento de inicio de sueño
+        _ = TriggerEntityScriptAsync("Player", "player", "Event_OnSleep");
+
+        // Calcular cuántos turnos por hora del juego
+        // MinutesPerGameHour = minutos reales por hora del juego
+        // Asumimos 1 turno = 1 minuto real (aproximadamente)
+        int turnsPerGameHour = Math.Max(1, _world.Game.MinutesPerGameHour);
+
+        for (int hour = 1; hour <= hours; hour++)
+        {
+            // Simular los turnos de esa hora
+            for (int turn = 0; turn < turnsPerGameHour; turn++)
+            {
+                // Guardar NPCs en la sala antes de procesar el turno
+                var npcsBeforeTurn = room.NpcIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                // Procesar el turno (como si el jugador escribiera "z")
+                _state.TurnCounter++;
+                UpdateGameTimeFromReal();
+                _ = UpdateLightSources();
+                UpdateNpcPatrols();
+                var needsMsg = ProcessBasicNeeds();
+
+                // Verificar si un NPC entró a la sala
+                var npcsAfterTurn = room.NpcIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var newNpcs = npcsAfterTurn.Except(npcsBeforeTurn).ToList();
+
+                if (newNpcs.Any())
+                {
+                    // Alguien entró, despertar sobresaltado
+                    messages.AppendLine(RandomMessages.SomeoneEnteredWhileSleeping);
+                    messages.AppendLine(RandomMessages.WakeUpStartled);
+                    stats.Sanity = Math.Max(0, stats.Sanity - 10);
+                    wokeUpStartled = true;
+                    break;
+                }
+
+                // Verificar si alguna necesidad supera 80
+                if (stats.Hunger > 80 || stats.Thirst > 80 || stats.Sleep > 80)
+                {
+                    messages.AppendLine(RandomMessages.NeedWokeYouUp);
+                    messages.AppendLine(RandomMessages.WakeUpStartled);
+                    stats.Sanity = Math.Max(0, stats.Sanity - 10);
+                    wokeUpStartled = true;
+                    break;
+                }
+            }
+
+            if (wokeUpStartled)
+                break;
+
+            // Reducir sueño por cada hora dormida
+            stats.Sleep = Math.Max(0, stats.Sleep - 10);
+            hoursSlept++;
+
+            // Mostrar progreso
+            messages.AppendLine(RandomMessages.SleepProgress(hoursSlept, hours));
+        }
+
+        // Mensaje final si no se despertó sobresaltado
+        if (!wokeUpStartled && hoursSlept == hours)
+        {
+            messages.AppendLine(RandomMessages.WakeUpNormal);
+        }
+
+        // Disparar evento de despertar
+        _ = TriggerEntityScriptAsync("Player", "player", wokeUpStartled ? "Event_OnWakeUpStartled" : "Event_OnWakeUp");
+
+        return CommandResult.Success(messages.ToString().TrimEnd());
+    }
 
     #endregion
 }
