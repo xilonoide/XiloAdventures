@@ -122,10 +122,9 @@ public class GameEngine
     public event Action? AdventureCompleted;
 
     /// <summary>
-    /// Evento cuando el jugador muere por necesidades básicas (hambre, sed, sueño).
-    /// El string contiene el tipo de muerte: "Hunger", "Thirst" o "Sleep".
+    /// Evento cuando el jugador muere por necesidades básicas, falta de salud o cordura.
     /// </summary>
-    public event Action<string>? PlayerDiedFromNeeds;
+    public event Action<DeathType>? PlayerDied;
 
     /// <summary>
     /// Indica si hay una conversación activa.
@@ -3305,17 +3304,17 @@ public class GameEngine
         // Verificar muerte (100)
         if (stats.Hunger >= 100)
         {
-            PlayerDiedFromNeeds?.Invoke("Hunger");
+            PlayerDied?.Invoke(DeathType.Hunger);
             return null;
         }
         if (stats.Thirst >= 100)
         {
-            PlayerDiedFromNeeds?.Invoke("Thirst");
+            PlayerDied?.Invoke(DeathType.Thirst);
             return null;
         }
         if (stats.Sleep >= 100)
         {
-            PlayerDiedFromNeeds?.Invoke("Sleep");
+            PlayerDied?.Invoke(DeathType.Sleep);
             return null;
         }
 
@@ -3336,13 +3335,13 @@ public class GameEngine
 
         if (stats.Health <= 0)
         {
-            PlayerDiedFromNeeds?.Invoke("Health");
+            PlayerDied?.Invoke(DeathType.Health);
             return;
         }
 
         if (stats.Sanity <= 0)
         {
-            PlayerDiedFromNeeds?.Invoke("Sanity");
+            PlayerDied?.Invoke(DeathType.Sanity);
         }
     }
 

@@ -17,6 +17,7 @@ using Microsoft.Win32;
 using XiloAdventures.Engine;
 using XiloAdventures.Engine.Engine;
 using XiloAdventures.Engine.Models;
+using XiloAdventures.Engine.Models.Enums;
 using XiloAdventures.Wpf.Common.Ui;
 using XiloAdventures.Wpf.Common.Services;
 using XiloAdventures.Wpf.Common.Windows;
@@ -75,7 +76,7 @@ public partial class MainWindow : Window
         _engine.ConversationEnded += Engine_ConversationEnded;
         _engine.TradeOpened += Engine_TradeOpened;
         _engine.AdventureCompleted += Engine_AdventureCompleted;
-        _engine.PlayerDiedFromNeeds += Engine_PlayerDiedFromNeeds;
+        _engine.PlayerDied += Engine_PlayerDied;
         _engine.CombatStarted += Engine_CombatStarted;
         _engine.TriggerInitialScripts(); // Disparar scripts iniciales después de suscribir eventos
 
@@ -909,7 +910,7 @@ public partial class MainWindow : Window
         });
     }
 
-    private void Engine_PlayerDiedFromNeeds(string deathType)
+    private void Engine_PlayerDied(DeathType deathType)
     {
         Dispatcher.Invoke(() =>
         {
@@ -919,11 +920,11 @@ public partial class MainWindow : Window
 
             var deathText = deathType switch
             {
-                "Hunger" => RandomMessages.HungerDeath,
-                "Thirst" => RandomMessages.ThirstDeath,
-                "Sleep" => RandomMessages.SleepDeath,
-                "Health" => RandomMessages.HealthDeath,
-                "Sanity" => RandomMessages.SanityDeath,
+                DeathType.Hunger => RandomMessages.HungerDeath,
+                DeathType.Thirst => RandomMessages.ThirstDeath,
+                DeathType.Sleep => RandomMessages.SleepDeath,
+                DeathType.Health => RandomMessages.HealthDeath,
+                DeathType.Sanity => RandomMessages.SanityDeath,
                 _ => "Has muerto."
             };
 

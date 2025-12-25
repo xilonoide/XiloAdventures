@@ -227,14 +227,14 @@ public class BasicNeedsTests
         var (world, state) = CreateTestWorld(basicNeedsEnabled: true);
         var engine = CreateEngine(world, state);
 
-        string? deathType = null;
-        engine.PlayerDiedFromNeeds += type => deathType = type;
+        DeathType? deathType = null;
+        engine.PlayerDied += type => deathType = type;
 
         // Hambre: 1.3 por turno, desde 99 cruza 100 en primer turno
         state.Player.DynamicStats.Hunger = 99;
         engine.ProcessCommand("esperar");
 
-        Assert.Equal("Hunger", deathType);
+        Assert.Equal(DeathType.Hunger, deathType);
     }
 
     [Fact]
@@ -243,14 +243,14 @@ public class BasicNeedsTests
         var (world, state) = CreateTestWorld(basicNeedsEnabled: true);
         var engine = CreateEngine(world, state);
 
-        string? deathType = null;
-        engine.PlayerDiedFromNeeds += type => deathType = type;
+        DeathType? deathType = null;
+        engine.PlayerDied += type => deathType = type;
 
         // Sed: 1.0 por turno, desde 99 cruza 100 en primer turno
         state.Player.DynamicStats.Thirst = 99;
         engine.ProcessCommand("esperar");
 
-        Assert.Equal("Thirst", deathType);
+        Assert.Equal(DeathType.Thirst, deathType);
     }
 
     [Fact]
@@ -259,8 +259,8 @@ public class BasicNeedsTests
         var (world, state) = CreateTestWorld(basicNeedsEnabled: true);
         var engine = CreateEngine(world, state);
 
-        string? deathType = null;
-        engine.PlayerDiedFromNeeds += type => deathType = type;
+        DeathType? deathType = null;
+        engine.PlayerDied += type => deathType = type;
 
         // Sueño: 0.7 por turno, desde 99:
         // Turno 1: acum=0.7, inc=0, sleep=99
@@ -269,7 +269,7 @@ public class BasicNeedsTests
         engine.ProcessCommand("esperar"); // Primer turno
         engine.ProcessCommand("esperar"); // Segundo turno, muerte
 
-        Assert.Equal("Sleep", deathType);
+        Assert.Equal(DeathType.Sleep, deathType);
     }
 
     #endregion
