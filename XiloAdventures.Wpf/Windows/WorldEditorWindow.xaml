@@ -389,14 +389,16 @@
                                     Margin="2"/>
                         </MenuItem.Icon>
                     </MenuItem>
-                    <Separator/>
+                </MenuItem>
+                <MenuItem Header="Opciones"
+                        Style="{StaticResource TopMenuItemStyle}">
                     <MenuItem Header="Modo pruebas"
                             Click="TestModeOptionsMenu_Click"
                             Style="{StaticResource SubMenuItemStyle}">
                         <MenuItem.Icon>
                             <TextBlock FontFamily="Segoe MDL2 Assets"
                                     VerticalAlignment="Center"
-                                    Text="&#xE768;"
+                                    Text="&#xE713;"
                                     FontSize="18"
                                     Margin="2"/>
                         </MenuItem.Icon>

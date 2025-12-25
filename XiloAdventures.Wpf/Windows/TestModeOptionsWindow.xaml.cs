@@ -25,10 +25,9 @@ public partial class TestModeOptionsWindow : Window
         set => AiCheckBox.IsChecked = value;
     }
 
-    private void SaveButton_Click(object sender, RoutedEventArgs e)
+    private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
     {
         DialogResult = true;
-        Close();
     }
 
     private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)

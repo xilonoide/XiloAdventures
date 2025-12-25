@@ -2565,12 +2565,12 @@ public partial class WorldEditorWindow : Window
             AiEnabled = _world.Game.TestModeAiEnabled
         };
 
-        if (optionsWindow.ShowDialog() == true)
-        {
-            _world.Game.TestModeSoundEnabled = optionsWindow.SoundEnabled;
-            _world.Game.TestModeAiEnabled = optionsWindow.AiEnabled;
-            SetDirty(true);
-        }
+        optionsWindow.ShowDialog();
+
+        // Siempre guardar las opciones al cerrar la ventana
+        _world.Game.TestModeSoundEnabled = optionsWindow.SoundEnabled;
+        _world.Game.TestModeAiEnabled = optionsWindow.AiEnabled;
+        SetDirty(true);
     }
 
     private void AboutMenu_Click(object sender, RoutedEventArgs e)

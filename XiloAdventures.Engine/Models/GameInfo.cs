@@ -65,11 +65,13 @@ public class GameInfo
     /// <summary>
     /// Activar sonido en modo pruebas del editor.
     /// </summary>
+    [Browsable(false)]
     public bool TestModeSoundEnabled { get; set; } = false;
 
     /// <summary>
     /// Activar IA en modo pruebas del editor.
     /// </summary>
+    [Browsable(false)]
     public bool TestModeAiEnabled { get; set; } = false;
 
     /// <summary>
