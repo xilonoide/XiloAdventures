@@ -62,8 +62,8 @@ public class TradeEngine : ITradeEngine
             IsActive = true,
             NpcId = merchant.Id,
             NpcName = merchant.Name,
-            NpcGold = merchant.Gold,
-            PlayerGold = _gameState.Player.Gold,
+            NpcMoney = merchant.Money,
+            PlayerMoney = _gameState.Player.Money,
             BuyMultiplier = merchant.BuyPriceMultiplier,
             SellMultiplier = merchant.SellPriceMultiplier,
             NpcItems = BuildNpcItems(merchant),
@@ -99,18 +99,18 @@ public class TradeEngine : ITradeEngine
         var totalPrice = item.CalculatedPrice * quantity;
 
         // Validar oro del jugador
-        if (_gameState.Player.Gold < totalPrice)
+        if (_gameState.Player.Money < totalPrice)
             return new TradeResult { Success = false, Message = $"No tienes suficiente dinero. Necesitas {totalPrice}." };
 
         // Realizar transacción
-        _gameState.Player.Gold -= totalPrice;
-        CurrentTrade.PlayerGold = _gameState.Player.Gold;
+        _gameState.Player.Money -= totalPrice;
+        CurrentTrade.PlayerMoney = _gameState.Player.Money;
 
         // Si el NPC tiene oro limitado, añadir
-        if (_currentMerchant.Gold >= 0)
+        if (_currentMerchant.Money >= 0)
         {
-            _currentMerchant.Gold += totalPrice;
-            CurrentTrade.NpcGold = _currentMerchant.Gold;
+            _currentMerchant.Money += totalPrice;
+            CurrentTrade.NpcMoney = _currentMerchant.Money;
         }
 
         // Transferir objeto(s) al jugador
@@ -129,10 +129,19 @@ public class TradeEngine : ITradeEngine
         if (item.Quantity > 0)
         {
             item.Quantity -= quantity;
+            var shopItem = _currentMerchant.ShopInventory.FirstOrDefault(si =>
+                si.ObjectId.Equals(objectId, StringComparison.OrdinalIgnoreCase));
+            if (shopItem != null)
+            {
+                shopItem.Quantity -= quantity;
+            }
             if (item.Quantity <= 0)
             {
                 CurrentTrade.NpcItems.Remove(item);
-                _currentMerchant.ShopInventory.Remove(objectId);
+                if (shopItem != null)
+                {
+                    _currentMerchant.ShopInventory.Remove(shopItem);
+                }
             }
         }
 
@@ -150,7 +159,7 @@ public class TradeEngine : ITradeEngine
         {
             Success = true,
             Message = message,
-            GoldTransferred = totalPrice,
+            MoneyTransferred = totalPrice,
             ItemsTransferred = quantity
         };
     }
@@ -180,18 +189,18 @@ public class TradeEngine : ITradeEngine
         var totalPrice = item.CalculatedPrice * quantity;
 
         // Validar oro del NPC (si no es infinito)
-        if (_currentMerchant.Gold >= 0 && _currentMerchant.Gold < totalPrice)
+        if (_currentMerchant.Money >= 0 && _currentMerchant.Money < totalPrice)
             return new TradeResult { Success = false, Message = $"El comerciante no tiene suficiente dinero." };
 
         // Realizar transacción
-        _gameState.Player.Gold += totalPrice;
-        CurrentTrade.PlayerGold = _gameState.Player.Gold;
+        _gameState.Player.Money += totalPrice;
+        CurrentTrade.PlayerMoney = _gameState.Player.Money;
 
         // Si el NPC tiene oro limitado, restar
-        if (_currentMerchant.Gold >= 0)
+        if (_currentMerchant.Money >= 0)
         {
-            _currentMerchant.Gold -= totalPrice;
-            CurrentTrade.NpcGold = _currentMerchant.Gold;
+            _currentMerchant.Money -= totalPrice;
+            CurrentTrade.NpcMoney = _currentMerchant.Money;
         }
 
         // Remover objeto(s) del inventario del jugador
@@ -221,7 +230,7 @@ public class TradeEngine : ITradeEngine
         {
             Success = true,
             Message = message,
-            GoldTransferred = totalPrice,
+            MoneyTransferred = totalPrice,
             ItemsTransferred = quantity
         };
     }
@@ -255,17 +264,17 @@ public class TradeEngine : ITradeEngine
     /// <summary>
     /// Obtiene el oro actual del jugador.
     /// </summary>
-    public int GetPlayerGold() => CurrentTrade?.PlayerGold ?? _gameState.Player.Gold;
+    public int GetPlayerMoney() => CurrentTrade?.PlayerMoney ?? _gameState.Player.Money;
 
     /// <summary>
     /// Obtiene el oro actual del NPC (-1 si es infinito).
     /// </summary>
-    public int GetNpcGold() => CurrentTrade?.NpcGold ?? -1;
+    public int GetNpcMoney() => CurrentTrade?.NpcMoney ?? -1;
 
     /// <summary>
     /// Indica si el NPC tiene oro infinito.
     /// </summary>
-    public bool NpcHasInfiniteGold() => (CurrentTrade?.NpcGold ?? -1) < 0;
+    public bool NpcHasInfiniteMoney() => (CurrentTrade?.NpcMoney ?? -1) < 0;
 
     /// <summary>
     /// Calcula el precio máximo que el jugador puede pagar (considerando su oro).
@@ -279,10 +288,10 @@ public class TradeEngine : ITradeEngine
 
         if (item == null || item.CalculatedPrice <= 0) return 0;
 
-        var maxByGold = _gameState.Player.Gold / item.CalculatedPrice;
+        var maxByMoney = _gameState.Player.Money / item.CalculatedPrice;
         var maxByStock = item.Quantity > 0 ? item.Quantity : int.MaxValue;
 
-        return Math.Min(maxByGold, maxByStock);
+        return Math.Min(maxByMoney, maxByStock);
     }
 
     /// <summary>
@@ -300,21 +309,21 @@ public class TradeEngine : ITradeEngine
         var maxByStock = item.Quantity;
 
         // Si el NPC tiene oro infinito, solo limitar por stock
-        if (_currentMerchant.Gold < 0)
+        if (_currentMerchant.Money < 0)
             return maxByStock;
 
-        var maxByNpcGold = _currentMerchant.Gold / item.CalculatedPrice;
-        return Math.Min(maxByStock, maxByNpcGold);
+        var maxByNpcMoney = _currentMerchant.Money / item.CalculatedPrice;
+        return Math.Min(maxByStock, maxByNpcMoney);
     }
 
     private List<TradeItem> BuildNpcItems(Npc merchant)
     {
         var items = new List<TradeItem>();
 
-        foreach (var objectId in merchant.ShopInventory)
+        foreach (var shopItem in merchant.ShopInventory)
         {
             var gameObject = _gameState.Objects.FirstOrDefault(o =>
-                o.Id.Equals(objectId, StringComparison.OrdinalIgnoreCase));
+                o.Id.Equals(shopItem.ObjectId, StringComparison.OrdinalIgnoreCase));
 
             if (gameObject == null || gameObject.Price <= 0) continue;
 
@@ -334,7 +343,7 @@ public class TradeEngine : ITradeEngine
                 Description = gameObject.Description,
                 BasePrice = gameObject.Price,
                 CalculatedPrice = calculatedPrice,
-                Quantity = -1, // Ilimitado por defecto en tienda
+                Quantity = shopItem.Quantity, // -1 = infinito, >= 0 = cantidad limitada
                 Type = gameObject.Type,
                 AttackBonus = gameObject.AttackBonus,
                 DefenseBonus = gameObject.DefenseBonus,

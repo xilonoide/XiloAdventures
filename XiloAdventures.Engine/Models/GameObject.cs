@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.ComponentModel;
 using XiloAdventures.Engine.Models.Enums;
 
 namespace XiloAdventures.Engine.Models;
@@ -154,6 +155,7 @@ public class GameObject
     /// <summary>
     /// Tags arbitrarios para lógica de scripts y eventos.
     /// </summary>
+    [Browsable(false)]
     public List<string> Tags { get; set; } = new();
 
     /// <summary>

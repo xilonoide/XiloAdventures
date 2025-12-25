@@ -341,41 +341,41 @@ public class ScriptEngineTests
     #region Gold Tests
 
     [Fact]
-    public async Task Action_AddGold_IncreasesPlayerGold()
+    public async Task Action_AddMoney_IncreasesPlayerGold()
     {
         var (world, state) = CreateTestWorld();
-        state.Player.Gold = 100;
+        state.Player.Money = 100;
 
         var actionProps = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
         {
             ["Amount"] = 50
         };
 
-        world.Scripts.Add(CreateScript("Game", "test_scripts", "Event_OnGameStart", "Action_AddGold", actionProps));
+        world.Scripts.Add(CreateScript("Game", "test_scripts", "Event_OnGameStart", "Action_AddMoney", actionProps));
 
         var engine = new ScriptEngine(world, state);
         await engine.TriggerEventAsync("Game", "test_scripts", "Event_OnGameStart");
 
-        Assert.Equal(150, state.Player.Gold);
+        Assert.Equal(150, state.Player.Money);
     }
 
     [Fact]
-    public async Task Action_RemoveGold_DecreasesPlayerGold()
+    public async Task Action_RemoveMoney_DecreasesPlayerGold()
     {
         var (world, state) = CreateTestWorld();
-        state.Player.Gold = 100;
+        state.Player.Money = 100;
 
         var actionProps = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
         {
             ["Amount"] = 30
         };
 
-        world.Scripts.Add(CreateScript("Game", "test_scripts", "Event_OnGameStart", "Action_RemoveGold", actionProps));
+        world.Scripts.Add(CreateScript("Game", "test_scripts", "Event_OnGameStart", "Action_RemoveMoney", actionProps));
 
         var engine = new ScriptEngine(world, state);
         await engine.TriggerEventAsync("Game", "test_scripts", "Event_OnGameStart");
 
-        Assert.Equal(70, state.Player.Gold);
+        Assert.Equal(70, state.Player.Money);
     }
 
     #endregion

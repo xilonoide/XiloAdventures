@@ -206,7 +206,7 @@
                                     <TextBlock Text="Dinero: "
                                                FontSize="14"
                                                Foreground="#AAAAAA"/>
-                                    <TextBlock x:Name="PlayerGoldText"
+                                    <TextBlock x:Name="PlayerMoneyText"
                                                Text="0"
                                                FontSize="14"
                                                FontWeight="SemiBold"
@@ -336,7 +336,7 @@
                                     <TextBlock Text="Dinero: "
                                                FontSize="14"
                                                Foreground="#AAAAAA"/>
-                                    <TextBlock x:Name="MerchantGoldText"
+                                    <TextBlock x:Name="MerchantMoneyText"
                                                Text="Infinito"
                                                FontSize="14"
                                                FontWeight="SemiBold"

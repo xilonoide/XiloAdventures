@@ -103,10 +103,10 @@ public class ScriptEngineTradeTests
                     RoomId = "room1",
                     Visible = true,
                     IsShopkeeper = true,
-                    Gold = 500,
+                    Money = 500,
                     BuyPriceMultiplier = 0.5,
                     SellPriceMultiplier = 1.0,
-                    ShopInventory = new List<string> { "potion" }
+                    ShopInventory = new List<ShopItem> { new ShopItem { ObjectId = "potion" } }
                 }
             },
             Doors = new List<Door>(),
@@ -115,7 +115,7 @@ public class ScriptEngineTradeTests
         };
 
         var state = WorldLoader.CreateInitialState(world);
-        state.Player.Gold = 200;
+        state.Player.Money = 200;
         state.Player.DynamicStats.Health = 100;
         state.Player.DynamicStats.MaxHealth = 100;
 
@@ -125,17 +125,17 @@ public class ScriptEngineTradeTests
     #region Trade Condition Tests
 
     [Fact]
-    public async Task Condition_PlayerHasGold_True_WhenEnoughGold()
+    public async Task Condition_PlayerHasMoney_True_WhenEnoughGold()
     {
         // Arrange
         var (world, state) = CreateScriptTestWorld();
-        state.Player.Gold = 500;
+        state.Player.Money = 500;
         var engine = new ScriptEngine(world, state);
 
         var node = new ScriptNode
         {
             Id = "test_node",
-            NodeType = "Condition_PlayerHasGold",
+            NodeType = "Condition_PlayerHasMoney",
             Properties = new Dictionary<string, object?>
             {
                 ["Amount"] = 300
@@ -150,17 +150,17 @@ public class ScriptEngineTradeTests
     }
 
     [Fact]
-    public async Task Condition_PlayerHasGold_False_WhenNotEnoughGold()
+    public async Task Condition_PlayerHasMoney_False_WhenNotEnoughGold()
     {
         // Arrange
         var (world, state) = CreateScriptTestWorld();
-        state.Player.Gold = 100;
+        state.Player.Money = 100;
         var engine = new ScriptEngine(world, state);
 
         var node = new ScriptNode
         {
             Id = "test_node",
-            NodeType = "Condition_PlayerHasGold",
+            NodeType = "Condition_PlayerHasMoney",
             Properties = new Dictionary<string, object?>
             {
                 ["Amount"] = 300
@@ -172,18 +172,18 @@ public class ScriptEngineTradeTests
     }
 
     [Fact]
-    public async Task Condition_NpcHasGold_True_WhenEnoughGold()
+    public async Task Condition_NpcHasMoney_True_WhenEnoughGold()
     {
         // Arrange
         var (world, state) = CreateScriptTestWorld();
         var merchant = state.Npcs.First(n => n.Id == "merchant");
-        merchant.Gold = 500;
+        merchant.Money = 500;
         var engine = new ScriptEngine(world, state);
 
         var node = new ScriptNode
         {
             Id = "test_node",
-            NodeType = "Condition_NpcHasGold",
+            NodeType = "Condition_NpcHasMoney",
             Properties = new Dictionary<string, object?>
             {
                 ["NpcId"] = "merchant",
@@ -196,18 +196,18 @@ public class ScriptEngineTradeTests
     }
 
     [Fact]
-    public async Task Condition_NpcHasInfiniteGold_True_WhenGoldNegative()
+    public async Task Condition_NpcHasInfiniteMoney_True_WhenGoldNegative()
     {
         // Arrange
         var (world, state) = CreateScriptTestWorld();
         var merchant = state.Npcs.First(n => n.Id == "merchant");
-        merchant.Gold = -1;
+        merchant.Money = -1;
         var engine = new ScriptEngine(world, state);
 
         var node = new ScriptNode
         {
             Id = "test_node",
-            NodeType = "Condition_NpcHasInfiniteGold",
+            NodeType = "Condition_NpcHasInfiniteMoney",
             Properties = new Dictionary<string, object?>
             {
                 ["NpcId"] = "merchant"
@@ -248,17 +248,17 @@ public class ScriptEngineTradeTests
     #region Trade Action Tests
 
     [Fact]
-    public async Task Action_AddPlayerGold_IncreasesGold()
+    public async Task Action_AddPlayerMoney_IncreasesGold()
     {
         // Arrange
         var (world, state) = CreateScriptTestWorld();
-        state.Player.Gold = 100;
+        state.Player.Money = 100;
         var engine = new ScriptEngine(world, state);
 
         var node = new ScriptNode
         {
             Id = "test_node",
-            NodeType = "Action_AddPlayerGold",
+            NodeType = "Action_AddPlayerMoney",
             Properties = new Dictionary<string, object?>
             {
                 ["Amount"] = 50
@@ -269,21 +269,21 @@ public class ScriptEngineTradeTests
         await engine.ExecuteSingleNodeAsync(node);
 
         // Assert
-        Assert.Equal(150, state.Player.Gold);
+        Assert.Equal(150, state.Player.Money);
     }
 
     [Fact]
-    public async Task Action_RemovePlayerGold_DecreasesGold()
+    public async Task Action_RemovePlayerMoney_DecreasesGold()
     {
         // Arrange
         var (world, state) = CreateScriptTestWorld();
-        state.Player.Gold = 100;
+        state.Player.Money = 100;
         var engine = new ScriptEngine(world, state);
 
         var node = new ScriptNode
         {
             Id = "test_node",
-            NodeType = "Action_RemovePlayerGold",
+            NodeType = "Action_RemovePlayerMoney",
             Properties = new Dictionary<string, object?>
             {
                 ["Amount"] = 30
@@ -294,21 +294,21 @@ public class ScriptEngineTradeTests
         await engine.ExecuteSingleNodeAsync(node);
 
         // Assert
-        Assert.Equal(70, state.Player.Gold);
+        Assert.Equal(70, state.Player.Money);
     }
 
     [Fact]
-    public async Task Action_RemovePlayerGold_DoesNotGoBelowZero()
+    public async Task Action_RemovePlayerMoney_DoesNotGoBelowZero()
     {
         // Arrange
         var (world, state) = CreateScriptTestWorld();
-        state.Player.Gold = 50;
+        state.Player.Money = 50;
         var engine = new ScriptEngine(world, state);
 
         var node = new ScriptNode
         {
             Id = "test_node",
-            NodeType = "Action_RemovePlayerGold",
+            NodeType = "Action_RemovePlayerMoney",
             Properties = new Dictionary<string, object?>
             {
                 ["Amount"] = 100
@@ -319,26 +319,26 @@ public class ScriptEngineTradeTests
         await engine.ExecuteSingleNodeAsync(node);
 
         // Assert - Should not remove gold if insufficient
-        Assert.Equal(50, state.Player.Gold);
+        Assert.Equal(50, state.Player.Money);
     }
 
     [Fact]
-    public async Task Action_SetNpcGold_ChangesNpcGold()
+    public async Task Action_SetNpcMoney_ChangesNpcGold()
     {
         // Arrange
         var (world, state) = CreateScriptTestWorld();
         var merchant = state.Npcs.First(n => n.Id == "merchant");
-        merchant.Gold = 500;
+        merchant.Money = 500;
         var engine = new ScriptEngine(world, state);
 
         var node = new ScriptNode
         {
             Id = "test_node",
-            NodeType = "Action_SetNpcGold",
+            NodeType = "Action_SetNpcMoney",
             Properties = new Dictionary<string, object?>
             {
                 ["NpcId"] = "merchant",
-                ["Gold"] = 1000
+                ["Money"] = 1000
             }
         };
 
@@ -346,26 +346,26 @@ public class ScriptEngineTradeTests
         await engine.ExecuteSingleNodeAsync(node);
 
         // Assert
-        Assert.Equal(1000, merchant.Gold);
+        Assert.Equal(1000, merchant.Money);
     }
 
     [Fact]
-    public async Task Action_SetNpcGold_CanSetToInfinite()
+    public async Task Action_SetNpcMoney_CanSetToInfinite()
     {
         // Arrange
         var (world, state) = CreateScriptTestWorld();
         var merchant = state.Npcs.First(n => n.Id == "merchant");
-        merchant.Gold = 500;
+        merchant.Money = 500;
         var engine = new ScriptEngine(world, state);
 
         var node = new ScriptNode
         {
             Id = "test_node",
-            NodeType = "Action_SetNpcGold",
+            NodeType = "Action_SetNpcMoney",
             Properties = new Dictionary<string, object?>
             {
                 ["NpcId"] = "merchant",
-                ["Gold"] = -1
+                ["Money"] = -1
             }
         };
 
@@ -373,7 +373,7 @@ public class ScriptEngineTradeTests
         await engine.ExecuteSingleNodeAsync(node);
 
         // Assert
-        Assert.Equal(-1, merchant.Gold);
+        Assert.Equal(-1, merchant.Money);
     }
 
     [Fact]
@@ -399,7 +399,7 @@ public class ScriptEngineTradeTests
         await engine.ExecuteSingleNodeAsync(node);
 
         // Assert
-        Assert.Contains("sword", merchant.ShopInventory);
+        Assert.Contains(merchant.ShopInventory, si => si.ObjectId == "sword");
     }
 
     [Fact]
@@ -408,7 +408,7 @@ public class ScriptEngineTradeTests
         // Arrange
         var (world, state) = CreateScriptTestWorld();
         var merchant = state.Npcs.First(n => n.Id == "merchant");
-        merchant.ShopInventory.Add("sword");
+        merchant.ShopInventory.Add(new ShopItem { ObjectId = "sword" });
         var engine = new ScriptEngine(world, state);
 
         var node = new ScriptNode
@@ -426,7 +426,7 @@ public class ScriptEngineTradeTests
         await engine.ExecuteSingleNodeAsync(node);
 
         // Assert
-        Assert.DoesNotContain("sword", merchant.ShopInventory);
+        Assert.DoesNotContain(merchant.ShopInventory, si => si.ObjectId == "sword");
     }
 
     [Fact]

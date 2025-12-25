@@ -80,22 +80,22 @@ public interface ITradeEngine
     List<TradeItem> GetPlayerItems();
 
     /// <summary>
-    /// Gets the player's current gold amount.
+    /// Gets the player's current money amount.
     /// </summary>
-    /// <returns>Player's gold.</returns>
-    int GetPlayerGold();
+    /// <returns>Player's money.</returns>
+    int GetPlayerMoney();
 
     /// <summary>
-    /// Gets the NPC merchant's current gold amount.
+    /// Gets the NPC merchant's current money amount.
     /// </summary>
-    /// <returns>NPC's gold, or -1 for infinite.</returns>
-    int GetNpcGold();
+    /// <returns>NPC's money, or -1 for infinite.</returns>
+    int GetNpcMoney();
 
     /// <summary>
-    /// Checks if the NPC has infinite gold.
+    /// Checks if the NPC has infinite money.
     /// </summary>
-    /// <returns>True if NPC has infinite gold.</returns>
-    bool NpcHasInfiniteGold();
+    /// <returns>True if NPC has infinite money.</returns>
+    bool NpcHasInfiniteMoney();
 
     /// <summary>
     /// Calculates the maximum quantity of an item the player can buy.

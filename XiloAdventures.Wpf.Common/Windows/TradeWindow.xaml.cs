@@ -24,6 +24,16 @@ public partial class TradeWindow : Window
     /// </summary>
     public event Action? TradeClosed;
 
+    /// <summary>
+    /// Evento disparado cuando el jugador compra un item.
+    /// </summary>
+    public event Action<string>? ItemBought;
+
+    /// <summary>
+    /// Evento disparado cuando el jugador vende un item.
+    /// </summary>
+    public event Action<string>? ItemSold;
+
     public TradeWindow(TradeEngine tradeEngine, GameState gameState, Npc merchant)
     {
         InitializeComponent();
@@ -46,11 +56,11 @@ public partial class TradeWindow : Window
     {
         // Info del jugador
         PlayerNameText.Text = _gameState.Player.Name ?? "Jugador";
-        UpdatePlayerGold();
+        UpdatePlayerMoney();
 
         // Info del comerciante
         MerchantNameText.Text = _merchant.Name;
-        UpdateMerchantGold();
+        UpdateMerchantMoney();
 
         // Cargar listas
         UpdatePlayerItems();
@@ -61,20 +71,20 @@ public partial class TradeWindow : Window
         UpdateSellButton();
     }
 
-    private void UpdatePlayerGold()
+    private void UpdatePlayerMoney()
     {
-        PlayerGoldText.Text = _tradeEngine.GetPlayerGold().ToString("N0");
+        PlayerMoneyText.Text = _tradeEngine.GetPlayerMoney().ToString("N0");
     }
 
-    private void UpdateMerchantGold()
+    private void UpdateMerchantMoney()
     {
-        if (_tradeEngine.NpcHasInfiniteGold())
+        if (_tradeEngine.NpcHasInfiniteMoney())
         {
-            MerchantGoldText.Text = "Infinito";
+            MerchantMoneyText.Text = "Infinito";
         }
         else
         {
-            MerchantGoldText.Text = _tradeEngine.GetNpcGold().ToString("N0");
+            MerchantMoneyText.Text = _tradeEngine.GetNpcMoney().ToString("N0");
         }
     }
 
@@ -103,7 +113,7 @@ public partial class TradeWindow : Window
         }
 
         var totalPrice = selectedItem.CalculatedPrice * _buyQuantity;
-        var canAfford = _gameState.Player.Gold >= totalPrice;
+        var canAfford = _gameState.Player.Money >= totalPrice;
 
         BuyButton.IsEnabled = canAfford;
         BuyButton.Content = $"COMPRAR ({totalPrice})";
@@ -124,7 +134,7 @@ public partial class TradeWindow : Window
         }
 
         var totalPrice = selectedItem.CalculatedPrice * _sellQuantity;
-        var npcCanAfford = _tradeEngine.NpcHasInfiniteGold() || _tradeEngine.GetNpcGold() >= totalPrice;
+        var npcCanAfford = _tradeEngine.NpcHasInfiniteMoney() || _tradeEngine.GetNpcMoney() >= totalPrice;
 
         SellButton.IsEnabled = npcCanAfford;
         SellButton.Content = $"VENDER ({totalPrice})";
@@ -205,8 +215,8 @@ public partial class TradeWindow : Window
 
         if (result.Success)
         {
-            UpdatePlayerGold();
-            UpdateMerchantGold();
+            UpdatePlayerMoney();
+            UpdateMerchantMoney();
             UpdatePlayerItems();
             UpdateMerchantItems();
 
@@ -214,6 +224,8 @@ public partial class TradeWindow : Window
             BuyQuantityText.Text = "1";
             MerchantItemsList.SelectedItem = null;
             UpdateBuyButton();
+
+            ItemBought?.Invoke(selectedItem.ObjectId);
         }
     }
 
@@ -226,8 +238,8 @@ public partial class TradeWindow : Window
 
         if (result.Success)
         {
-            UpdatePlayerGold();
-            UpdateMerchantGold();
+            UpdatePlayerMoney();
+            UpdateMerchantMoney();
             UpdatePlayerItems();
             UpdateMerchantItems();
 
@@ -235,6 +247,8 @@ public partial class TradeWindow : Window
             SellQuantityText.Text = "1";
             PlayerItemsList.SelectedItem = null;
             UpdateSellButton();
+
+            ItemSold?.Invoke(selectedItem.ObjectId);
         }
     }
 
@@ -248,14 +262,16 @@ public partial class TradeWindow : Window
 
         if (result.Success)
         {
-            UpdatePlayerGold();
-            UpdateMerchantGold();
+            UpdatePlayerMoney();
+            UpdateMerchantMoney();
             UpdatePlayerItems();
             UpdateMerchantItems();
 
             _sellQuantity = 1;
             SellQuantityText.Text = "1";
             UpdateSellButton();
+
+            ItemSold?.Invoke(selectedItem.ObjectId);
         }
     }
 
@@ -269,14 +285,16 @@ public partial class TradeWindow : Window
 
         if (result.Success)
         {
-            UpdatePlayerGold();
-            UpdateMerchantGold();
+            UpdatePlayerMoney();
+            UpdateMerchantMoney();
             UpdatePlayerItems();
             UpdateMerchantItems();
 
             _buyQuantity = 1;
             BuyQuantityText.Text = "1";
             UpdateBuyButton();
+
+            ItemBought?.Invoke(selectedItem.ObjectId);
         }
     }
 

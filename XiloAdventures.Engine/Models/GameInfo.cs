@@ -141,4 +141,13 @@ public class GameInfo
     public string SanityDeathText { get; set; } = "Tu mente se ha quebrado. La locura te consume por completo.";
 
     #endregion
+
+    #region Crafting Configuration
+
+    /// <summary>
+    /// Activa el sistema de fabricación (crear objetos combinando ingredientes).
+    /// </summary>
+    public bool CraftingEnabled { get; set; } = false;
+
+    #endregion
 }

@@ -1360,7 +1360,7 @@ public class IntegrationTests
         };
 
         var state = WorldLoader.CreateInitialState(world);
-        state.Player.Gold = 100;
+        state.Player.Money = 100;
         return (world, state);
     }
 
@@ -1371,7 +1371,7 @@ public class IntegrationTests
         var (world, state) = CreateEconomyWorld();
 
         // Assert
-        Assert.Equal(100, state.Player.Gold);
+        Assert.Equal(100, state.Player.Money);
     }
 
     [Fact]
@@ -1381,11 +1381,11 @@ public class IntegrationTests
         var (world, state) = CreateEconomyWorld();
 
         // Act
-        state.Player.Gold += 50;
-        Assert.Equal(150, state.Player.Gold);
+        state.Player.Money += 50;
+        Assert.Equal(150, state.Player.Money);
 
-        state.Player.Gold -= 30;
-        Assert.Equal(120, state.Player.Gold);
+        state.Player.Money -= 30;
+        Assert.Equal(120, state.Player.Money);
     }
 
     #endregion

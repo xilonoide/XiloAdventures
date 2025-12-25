@@ -32,7 +32,7 @@ public partial class PromptGeneratorWindow : Window
     ""Intelligence"": 20,
     ""Dexterity"": 20,
     ""Charisma"": 20,
-    ""InitialGold"": 50
+    ""InitialMoney"": 50
   },
   ""Rooms"": [
     {
@@ -99,7 +99,7 @@ public partial class PromptGeneratorWindow : Window
         ""Intelligence"": 5,
         ""MaxHealth"": 10,
         ""CurrentHealth"": 10,
-        ""Gold"": 0
+        ""Money"": 0
       }
     }
   ],
@@ -258,8 +258,8 @@ public partial class PromptGeneratorWindow : Window
 - `Action_FailQuest` - Properties: { ""QuestId"": ""quest_id"" }
 - `Action_SetNpcVisible` - Properties: { ""NpcId"": ""npc_id"", ""Visible"": true }
 - `Action_SetObjectVisible` - Properties: { ""ObjectId"": ""obj_id"", ""Visible"": true }
-- `Action_AddGold` - Properties: { ""Amount"": 10 }
-- `Action_RemoveGold` - Properties: { ""Amount"": 10 }
+- `Action_AddMoney` - Properties: { ""Amount"": 10 }
+- `Action_RemoveMoney` - Properties: { ""Amount"": 10 }
 - `Action_PlaySound` - Properties: { ""SoundId"": ""fx_id"" }
 - `Action_StartConversation` - Inicia una conversación con un NPC. Properties: { ""NpcId"": ""npc_id"" }
 
@@ -276,21 +276,21 @@ public partial class PromptGeneratorWindow : Window
 - `Conversation_Branch` - Bifurcación condicional (salidas: True, False). Properties según ConditionType:
   - HasFlag: { ""ConditionType"": ""HasFlag"", ""FlagName"": ""nombre_flag"" }
   - HasItem: { ""ConditionType"": ""HasItem"", ""ItemId"": ""obj_id"" }
-  - HasGold: { ""ConditionType"": ""HasGold"", ""GoldAmount"": 50 }
+  - HasMoney: { ""ConditionType"": ""HasMoney"", ""MoneyAmount"": 50 }
   - QuestStatus: { ""ConditionType"": ""QuestStatus"", ""QuestId"": ""quest_id"", ""QuestStatus"": ""InProgress"" }
   - VisitedNode: { ""ConditionType"": ""VisitedNode"" } (verifica si ya se visitó este nodo en la conversación)
 - `Conversation_End` - Fin de conversación (sin propiedades, solo puerto entrada ""Exec"")
 - `Conversation_Action` - Ejecuta acción dentro de conversación. Properties según ActionType:
   - GiveItem: { ""ActionType"": ""GiveItem"", ""ObjectId"": ""obj_id"" }
   - RemoveItem: { ""ActionType"": ""RemoveItem"", ""ObjectId"": ""obj_id"" }
-  - AddGold: { ""ActionType"": ""AddGold"", ""Amount"": 10 }
-  - RemoveGold: { ""ActionType"": ""RemoveGold"", ""Amount"": 10 }
+  - AddMoney: { ""ActionType"": ""AddMoney"", ""Amount"": 10 }
+  - RemoveMoney: { ""ActionType"": ""RemoveMoney"", ""Amount"": 10 }
   - SetFlag: { ""ActionType"": ""SetFlag"", ""FlagName"": ""nombre_flag"" }
   - StartQuest: { ""ActionType"": ""StartQuest"", ""QuestId"": ""quest_id"" }
   - CompleteQuest: { ""ActionType"": ""CompleteQuest"", ""QuestId"": ""quest_id"" }
   - ShowMessage: { ""ActionType"": ""ShowMessage"", ""Message"": ""texto"" }
 - `Conversation_Shop` - Abre la tienda del NPC. Properties: { ""ShopTitle"": ""Mi Tienda"", ""WelcomeMessage"": ""¡Bienvenido!"" } (salidas: OnClose, OnBuy, OnSell)
-- `Conversation_BuyItem` - Comprar objeto específico. Properties: { ""ObjectId"": ""obj_id"", ""Price"": 10, ""ConfirmText"": ""¿Comprar por {precio}?"" } (salidas: Success, NotEnoughGold, Cancelled)
+- `Conversation_BuyItem` - Comprar objeto específico. Properties: { ""ObjectId"": ""obj_id"", ""Price"": 10, ""ConfirmText"": ""¿Comprar por {precio}?"" } (salidas: Success, NotEnoughMoney, Cancelled)
 - `Conversation_SellItem` - Vender objeto específico. Properties: { ""ObjectId"": ""obj_id"", ""Price"": 5 } (salidas: Success, NoItem, Cancelled)
 
 ## REQUISITOS DEL MUNDO
@@ -319,7 +319,7 @@ Genera un mundo con temática ""{THEME}"" que contenga:
    - Si es comerciante: IsShopkeeper=true y añade IDs de objetos a ShopInventory
    - Si lleva objetos (que puede dar/intercambiar): añade IDs a InventoryObjectIds
    - Si tiene diálogo: crea una Conversation y asigna ConversationId
-   - **Stats de combate**: Level, Strength, Dexterity, Intelligence, MaxHealth, CurrentHealth, Gold
+   - **Stats de combate**: Level, Strength, Dexterity, Intelligence, MaxHealth, CurrentHealth, Money
    - **Patrulla por turnos**: PatrolRoute con lista de IDs de salas conectadas. PatrolMovementMode=""Turns"", PatrolSpeed=1 (cada turno), 2 (lento), 3 (muy lento). IsPatrolling=true para empezar patrullando.
    - **Patrulla por tiempo**: PatrolMovementMode=""Time"", PatrolTimeInterval=3.0 (segundos entre movimientos)
    - **Seguimiento por turnos**: FollowMovementMode=""Turns"", FollowSpeed=1/2/3. Actívalo con `Action_FollowPlayer`.
@@ -428,7 +428,7 @@ Genera un mundo con temática ""{THEME}"" que contenga:
   - Ejemplo guerrero: Strength=35, Constitution=25, Intelligence=12, Dexterity=18, Charisma=10 (suma=100)
   - Ejemplo mago: Strength=10, Constitution=15, Intelligence=40, Dexterity=20, Charisma=15 (suma=100)
   - Ejemplo equilibrado: Strength=20, Constitution=20, Intelligence=20, Dexterity=20, Charisma=20 (suma=100)
-- **InitialGold**: Dinero inicial. Calcula un valor razonable basándote en los precios de los objetos (que pueda comprar 1-2 objetos baratos)
+- **InitialMoney**: Dinero inicial. Calcula un valor razonable basándote en los precios de los objetos (que pueda comprar 1-2 objetos baratos)
 - Los nodos de scripts necesitan posiciones X,Y para visualización (separados ~200px)
 - Conecta los nodos: evento → condiciones/acciones mediante puerto ""Exec""
 - El puerto de salida de eventos y acciones es ""Exec"", el de entrada también es ""Exec""

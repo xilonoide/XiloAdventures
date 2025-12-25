@@ -14,7 +14,9 @@ using Microsoft.Win32;
 using XiloAdventures.Engine.Models;
 using XiloAdventures.Engine.Models.Enums;
 using XiloAdventures.Wpf.Common.Windows;
+using XiloAdventures.Wpf.Helpers;
 using XiloAdventures.Wpf.Windows;
+using PN = XiloAdventures.Wpf.Helpers.PropertyNames;
 
 namespace XiloAdventures.Wpf.Controls;
 
@@ -71,6 +73,13 @@ public partial class PropertyEditor : UserControl
     public Func<IEnumerable<GameObject>>? GetObjects { get; set; }
 
     public Func<IEnumerable<CombatAbility>>? GetAbilities { get; set; }
+
+    public Func<IEnumerable<QuestDefinition>>? GetQuests { get; set; }
+
+    /// <summary>
+    /// Obtiene la información del juego actual.
+    /// </summary>
+    public Func<GameInfo?>? GetGameInfo { get; set; }
 
     /// <summary>
     /// Obtiene el diccionario del parser del juego actual (JSON).
@@ -524,7 +533,7 @@ public partial class PropertyEditor : UserControl
             ("Intelligence", "Inteligencia", 1, 100),
             ("MaxHealth", "Vida máxima", 1, 1000),
             ("CurrentHealth", "Vida actual", 0, 1000),
-            ("Gold", "Dinero", 0, 100000)
+            ("Money", "Dinero", 0, 100000)
         };
 
         foreach (var (propName, displayName, minVal, maxVal) in statsProperties)
@@ -765,17 +774,19 @@ public partial class PropertyEditor : UserControl
         var name = prop.Name;
 
         // Identificación
-        if (name is "Id" or "Name" or "Title" or "Theme")
+        if (name is var n && n == PN.Id || n == PN.Name || n == PN.Title || n == PN.Theme)
             return "🔖 Identificación";
 
         // Descripción
-        if (name is "Description" or "Dialogue" or "TextContent")
+        if (name == PN.Description || name == PN.Dialogue || name == PN.TextContent)
             return "📝 Descripción";
 
-        // Sistemas (Combate y Necesidades básicas)
-        if (name is "CombatEnabled" or "MagicEnabled" or "BasicNeedsEnabled"
-            or "HungerRate" or "ThirstRate" or "SleepRate"
-            or "HungerDeathText" or "ThirstDeathText" or "SleepDeathText")
+        // Sistemas (Combate, Necesidades básicas y Fabricación)
+        if (name == PN.CombatEnabled || name == PN.MagicEnabled || name == PN.BasicNeedsEnabled
+            || name == PN.HungerRate || name == PN.ThirstRate || name == PN.SleepRate
+            || name == PN.HungerDeathText || name == PN.ThirstDeathText || name == PN.SleepDeathText
+            || name == PN.HealthDeathText || name == PN.SanityDeathText
+            || name == PN.CraftingEnabled)
             return "🎮 Sistemas";
 
         // Multimedia
@@ -783,63 +794,75 @@ public partial class PropertyEditor : UserControl
             return "🎵 Multimedia";
 
         // Salas (al final de Identificación)
-        if (name is "RoomId" or "RoomIdA" or "RoomIdB" or "StartRoomId" or "TargetRoomId" or "Direction")
+        if (name == PN.RoomId || name == PN.RoomIdA || name == PN.RoomIdB
+            || name == PN.StartRoomId || name == PN.TargetRoomId || name == PN.Direction)
             return "🔖 Identificación";
 
         // Comportamiento (incluyendo propiedades de contenedor de GameObject que irán con sangría)
-        if (name is "Visible" or "CanTake" or "Type" or "Gender" or "IsPlural" or "IsContainer" or "IsOpenable" or "IsOpen"
-            or "IsLocked" or "ContentsVisible" or "IsIlluminated"
-            or "IsInterior" or "StartHour" or "StartWeather" or "MinutesPerGameHour"
-            or "RequiredQuestId" or "RequiredQuestStatus" or "OpenFromSide" or "EndingText"
-            or "IsLightSource" or "IsLit" or "LightTurnsRemaining" or "CanExtinguish" or "CanIgnite" or "IgniterObjectId")
+        if (name == PN.Visible || name == PN.CanTake || name == PN.Type || name == PN.Gender
+            || name == PN.IsPlural || name == PN.IsContainer || name == PN.IsOpenable || name == PN.IsOpen
+            || name == PN.IsLocked || name == PN.ContentsVisible || name == PN.IsIlluminated
+            || name == PN.IsInterior || name == PN.StartHour || name == PN.StartWeather || name == PN.MinutesPerGameHour
+            || name == PN.RequiredQuests || name == PN.OpenFromSide || name == PN.EndingText
+            || name == PN.IsLightSource || name == PN.IsLit || name == PN.LightTurnsRemaining
+            || name == PN.CanExtinguish || name == PN.CanIgnite || name == PN.IgniterObjectId)
             return "⚙️ Comportamiento";
 
-        // Propiedades de llave de Door
-        if (obj is Door && name is "KeyObjectId")
+        // Propiedades de llave, visibilidad y misiones de Door
+        if (obj is Door && (name == PN.KeyObjectId || name == PN.Visible || name == PN.RequiredQuests))
             return "⚙️ Comportamiento";
 
         // Propiedades de conversación, comercio, patrulla y seguimiento de NPC
-        if (obj is Npc && name is "ConversationId" or "IsShopkeeper" or "ShopInventory" or "BuyPriceMultiplier" or "SellPriceMultiplier"
-            or "IsPatrolling" or "PatrolMovementMode" or "PatrolSpeed" or "PatrolTimeInterval"
-            or "IsFollowingPlayer" or "FollowMovementMode" or "FollowSpeed" or "FollowTimeInterval")
+        if (obj is Npc && (name == PN.ConversationId || name == PN.IsShopkeeper || name == PN.ShopInventory
+            || name == PN.BuyPriceMultiplier || name == PN.SellPriceMultiplier
+            || name == PN.IsPatrolling || name == PN.PatrolMovementMode || name == PN.PatrolSpeed || name == PN.PatrolTimeInterval
+            || name == PN.IsFollowingPlayer || name == PN.FollowMovementMode || name == PN.FollowSpeed || name == PN.FollowTimeInterval))
             return "⚙️ Comportamiento";
 
+        // Fabricación (GameObject)
+        if (obj is GameObject && name == PN.CraftingRecipe)
+            return "🔧 Fabricación";
+
         // Propiedades de contenedor de GameObject (se mostrarán con sangría dentro de Comportamiento)
-        if (obj is GameObject && name is "ContainedObjectIds" or "KeyId" or "MaxCapacity")
+        if (obj is GameObject && (name == PN.ContainedObjectIds || name == PN.KeyId || name == PN.MaxCapacity))
             return "⚙️ Comportamiento";
 
         // Propiedades de combate de GameObject (armas y armaduras)
-        if (obj is GameObject && name is "AttackBonus" or "DefenseBonus" or "DamageType"
-            or "MaxDurability" or "CurrentDurability" or "InitiativeBonus")
+        if (obj is GameObject && (name == PN.AttackBonus || name == PN.DefenseBonus || name == PN.DamageType
+            || name == PN.MaxDurability || name == PN.CurrentDurability || name == PN.InitiativeBonus))
             return "⚔️ Combate";
 
         // Otras propiedades de contenido que no son de GameObject
-        if (name is "InventoryObjectIds" or "Objectives" or "KeyObjectId" or "DoorId" or "ObjectId")
+        if (name == PN.InventoryObjectIds || name == PN.Objectives || name == PN.KeyObjectId
+            || name == PN.DoorId || name == PN.ObjectId)
             return "🏷️ Otros";
 
         // PlayerDefinition: propiedades físicas y económicas
-        if (obj is PlayerDefinition && name is "Age" or "Weight" or "Height" or "InitialGold")
+        if (obj is PlayerDefinition && (name == PN.Age || name == PN.Weight || name == PN.Height || name == PN.InitialMoney
+            || name == PN.MaxInventoryWeight || name == PN.MaxInventoryVolume))
             return "📊 Estadísticas";
 
         // PlayerDefinition: características
-        if (obj is PlayerDefinition && name is "Strength" or "Constitution" or "Intelligence" or "Dexterity" or "Charisma")
+        if (obj is PlayerDefinition && (name == PN.Strength || name == PN.Constitution
+            || name == PN.Intelligence || name == PN.Dexterity || name == PN.Charisma))
             return "⚔️ Características";
 
         // Estadísticas
-        if (name is "Level" or "Strength" or "Dexterity" or "Intelligence" or "MaxHealth"
-            or "CurrentHealth" or "Gold" or "Stats" or "Volume" or "Weight" or "Price")
+        if (name == PN.Level || name == PN.Strength || name == PN.Dexterity || name == PN.Intelligence
+            || name == PN.MaxHealth || name == PN.CurrentHealth || name == PN.Money || name == PN.Stats
+            || name == PN.Volume || name == PN.Weight || name == PN.Price)
             return "📊 Estadísticas";
 
         // Seguridad
-        if (name is "EncryptionKey")
+        if (name == PN.EncryptionKey)
             return "🔒 Seguridad";
 
         // Tags
-        if (name is "Tags")
+        if (name == PN.Tags)
             return "🏷️ Otros";
 
         // Parser Dictionary al final de Otros
-        if (name is "ParserDictionaryJson")
+        if (name == PN.ParserDictionaryJson)
             return "🏷️ Otros";
 
         return "🏷️ Otros";
@@ -848,85 +871,87 @@ public partial class PropertyEditor : UserControl
     private static int GetPropertyOrder(PropertyInfo prop)
     {
         // Orden de prioridad para propiedades dentro de su grupo
-        return prop.Name switch
-        {
-            "Id" => 0,
-            "Name" => 1,
-            "Theme" => 1,
-            "Title" => 2,
-            "Description" => 0,
-            "TextContent" => 1,
-            "Dialogue" => 2,
-            "ImageId" => 0,
-            "ImageBase64" => 1,
-            "MusicId" => 2,
-            "WorldMusicId" => 3,
-            // Propiedades de sala al final de Identificación
-            "StartRoomId" => 100,
-            "RoomId" => 101,
-            "RoomIdA" => 102,
-            "RoomIdB" => 103,
-            "Direction" => 104,
-            "TargetRoomId" => 105,
+        var name = prop.Name;
+        if (name == PN.Id) return 0;
+        if (name == PN.Name) return 1;
+        if (name == PN.Theme) return 1;
+        if (name == PN.Title) return 2;
+        if (name == PN.Description) return 0;
+        if (name == PN.TextContent) return 1;
+        if (name == PN.Dialogue) return 2;
+        if (name == PN.ImageId) return 0;
+        if (name == PN.ImageBase64) return 1;
+        if (name == PN.MusicId) return 2;
+        if (name == PN.WorldMusicId) return 3;
 
-            // Texto de finalización al final de Comportamiento
-            "EndingText" => 200,
+        // Propiedades de sala al final de Identificación
+        if (name == PN.StartRoomId) return 100;
+        if (name == PN.RoomId) return 101;
+        if (name == PN.RoomIdA) return 102;
+        if (name == PN.RoomIdB) return 103;
+        if (name == PN.Direction) return 104;
+        if (name == PN.TargetRoomId) return 105;
 
-            // Sistemas (Combate y Necesidades básicas)
-            "CombatEnabled" => 0,
-            "MagicEnabled" => 1,
-            "BasicNeedsEnabled" => 10,
-            "HungerRate" => 11,
-            "ThirstRate" => 12,
-            "SleepRate" => 13,
-            "HungerDeathText" => 14,
-            "ThirstDeathText" => 15,
-            "SleepDeathText" => 16,
+        // Texto de finalización al final de Comportamiento
+        if (name == PN.EndingText) return 200;
 
-            // Parser Dictionary al final de Otros
-            "ParserDictionaryJson" => 999,
+        // Sistemas (Fabricación, Combate, Necesidades básicas)
+        if (name == PN.CraftingEnabled) return 0;
+        if (name == PN.CombatEnabled) return 1;
+        if (name == PN.MagicEnabled) return 2;
+        if (name == PN.HealthDeathText) return 3;
+        if (name == PN.SanityDeathText) return 4;
+        if (name == PN.BasicNeedsEnabled) return 10;
+        if (name == PN.HungerRate) return 11;
+        if (name == PN.ThirstRate) return 12;
+        if (name == PN.SleepRate) return 13;
+        if (name == PN.HungerDeathText) return 14;
+        if (name == PN.ThirstDeathText) return 15;
+        if (name == PN.SleepDeathText) return 16;
 
-            // Orden para propiedades de contenedor (GameObject)
-            "Type" => 10,
-            "CanTake" => 11,
-            "Visible" => 12,
-            "Gender" => 13,
-            "IsPlural" => 14,
-            "IsContainer" => 20,
-            "IsOpenable" => 21,
-            "IsOpen" => 22,
-            "IsLocked" => 23,
-            "KeyId" => 24,
-            "ContentsVisible" => 25,
-            "MaxCapacity" => 26,
-            "ContainedObjectIds" => 27,
+        // Parser Dictionary al final de Otros
+        if (name == PN.ParserDictionaryJson) return 999;
 
-            // Orden para propiedades de iluminación (GameObject)
-            "IsLightSource" => 50,
-            "IsLit" => 51,
-            "LightTurnsRemaining" => 52,
-            "CanExtinguish" => 53,
-            "CanIgnite" => 54,
-            "IgniterObjectId" => 55,
+        // Orden para propiedades de contenedor (GameObject)
+        if (name == PN.Type) return 10;
+        if (name == PN.CanTake) return 11;
+        if (name == PN.Visible) return 12;
+        if (name == PN.Gender) return 13;
+        if (name == PN.IsPlural) return 14;
+        if (name == PN.IsContainer) return 20;
+        if (name == PN.IsOpenable) return 21;
+        if (name == PN.IsOpen) return 22;
+        if (name == PN.IsLocked) return 23;
+        if (name == PN.KeyId) return 24;
+        if (name == PN.ContentsVisible) return 25;
+        if (name == PN.MaxCapacity) return 26;
+        if (name == PN.ContainedObjectIds) return 27;
 
-            // Orden para propiedades de patrulla/seguimiento de NPC
-            "IsPatrolling" => 30,
-            "PatrolMovementMode" => 31,
-            "PatrolSpeed" => 32,
-            "PatrolTimeInterval" => 33,
-            "IsFollowingPlayer" => 35,
-            "FollowMovementMode" => 36,
-            "FollowSpeed" => 37,
-            "FollowTimeInterval" => 38,
+        // Orden para propiedades de iluminación (GameObject)
+        if (name == PN.IsLightSource) return 50;
+        if (name == PN.IsLit) return 51;
+        if (name == PN.LightTurnsRemaining) return 52;
+        if (name == PN.CanExtinguish) return 53;
+        if (name == PN.CanIgnite) return 54;
+        if (name == PN.IgniterObjectId) return 55;
 
-            // Estadísticas
-            "Volume" => 40,
-            "Weight" => 41,
-            "Price" => 42,
-            "NutritionAmount" => 43,
+        // Orden para propiedades de patrulla/seguimiento de NPC
+        if (name == PN.IsPatrolling) return 30;
+        if (name == PN.PatrolMovementMode) return 31;
+        if (name == PN.PatrolSpeed) return 32;
+        if (name == PN.PatrolTimeInterval) return 33;
+        if (name == PN.IsFollowingPlayer) return 35;
+        if (name == PN.FollowMovementMode) return 36;
+        if (name == PN.FollowSpeed) return 37;
+        if (name == PN.FollowTimeInterval) return 38;
 
-            _ => 99
-        };
+        // Estadísticas
+        if (name == PN.Volume) return 40;
+        if (name == PN.Weight) return 41;
+        if (name == PN.Price) return 42;
+        if (name == PN.NutritionAmount) return 43;
+
+        return 99;
     }
 
     private void AddPropertyControl(object obj, PropertyInfo prop)
@@ -984,7 +1009,7 @@ public partial class PropertyEditor : UserControl
                     if (_currentObject is not { } target) return;
 
                     // Si es NPC y se activa IsFollowingPlayer, verificar si tiene ruta de patrulla
-                    if (target is Npc npc && prop.Name == "IsFollowingPlayer" && npc.PatrolRoute.Count > 0)
+                    if (target is Npc npc && prop.Name == PN.IsFollowingPlayer && npc.PatrolRoute.Count > 0)
                     {
                         var confirmWindow = new ConfirmWindow(
                             "Este NPC tiene una ruta de patrulla definida.\n¿Deseas eliminarla para activar el seguimiento?",
@@ -1024,7 +1049,7 @@ public partial class PropertyEditor : UserControl
                     if (_currentObject is not { } target) return;
 
                     // Si es una puerta y se desmarca IsLocked (Cerradura), limpiar llave y preguntar si eliminarla
-                    if (target is Door door && prop.Name == "IsLocked" && !string.IsNullOrEmpty(door.KeyObjectId))
+                    if (target is Door door && prop.Name == PN.IsLocked && !string.IsNullOrEmpty(door.KeyObjectId))
                     {
                         var keyId = door.KeyObjectId;
                         var keyObject = GetObjects?.Invoke().FirstOrDefault(o => o.Id == keyId);
@@ -1053,9 +1078,17 @@ public partial class PropertyEditor : UserControl
                     UpdatePropertyVisibility();
 
                     // Si es una puerta, refrescar el PropertyEditor para mostrar el combo de llave en "(ninguna)"
-                    if (target is Door && prop.Name == "IsLocked")
+                    if (target is Door && prop.Name == PN.IsLocked)
                     {
                         SetObject(target);
+                    }
+
+                    // Si se desmarca CombatEnabled, desmarcar también MagicEnabled
+                    if (target is GameInfo gameInfo && prop.Name == PN.CombatEnabled && gameInfo.MagicEnabled)
+                    {
+                        gameInfo.MagicEnabled = false;
+                        PropertyEdited?.Invoke(target, PN.MagicEnabled);
+                        SetObject(target); // Refrescar para actualizar el checkbox de Magia
                     }
                 }
                 catch
@@ -1096,7 +1129,7 @@ public partial class PropertyEditor : UserControl
             }
 
             // Si es IsPatrolling de un NPC, añadir botón de editar ruta justo después
-            if (obj is Npc npcForPatrolButton && prop.Name == "IsPatrolling")
+            if (obj is Npc npcForPatrolButton && prop.Name == PN.IsPatrolling)
             {
                 var patrolButton = new Button
                 {
@@ -1130,7 +1163,7 @@ public partial class PropertyEditor : UserControl
             }
 
             // Si es MagicEnabled de GameInfo, añadir descripción y botón de habilidades
-            if (obj is GameInfo gameInfoForMagic && prop.Name == "MagicEnabled")
+            if (obj is GameInfo gameInfoForMagic && prop.Name == PN.MagicEnabled)
             {
                 var abilitiesPanel = new StackPanel
                 {
@@ -1188,7 +1221,7 @@ public partial class PropertyEditor : UserControl
             Foreground = new SolidColorBrush(Color.FromRgb(0xCC, 0xCC, 0xCC))
         };
 
-        if (obj is Room && prop.Name == "MusicId" && prop.PropertyType == typeof(string))
+        if (obj is Room && prop.Name == PN.MusicId && prop.PropertyType == typeof(string))
         {
             var labelPanel = new StackPanel
             {
@@ -1213,7 +1246,7 @@ public partial class PropertyEditor : UserControl
 
             containerPanel.Children.Add(labelPanel);
         }
-        else if (obj is Room && prop.Name == "Description" && prop.PropertyType == typeof(string))
+        else if (obj is Room && prop.Name == PN.Description && prop.PropertyType == typeof(string))
         {
             // Description de Room: label + botón 🤖 para generar con IA
             var labelPanel = new StackPanel
@@ -1259,7 +1292,7 @@ public partial class PropertyEditor : UserControl
             // StartRoomId: selector de sala
             // Selectores de sala (StartRoomId, RoomId, RoomIdA, RoomIdB)
             if (prop.PropertyType == typeof(string) && GetRooms != null &&
-                (prop.Name == "StartRoomId" || prop.Name == "RoomId" || prop.Name == "RoomIdA" || prop.Name == "RoomIdB"))
+                (prop.Name == PN.StartRoomId || prop.Name == PN.RoomId || prop.Name == PN.RoomIdA || prop.Name == PN.RoomIdB))
             {
                 var rooms = GetRooms().ToList();
                 var combo = new ComboBox
@@ -1270,13 +1303,13 @@ public partial class PropertyEditor : UserControl
                     ItemsSource = rooms
                 };
 
-                if (obj is Door && (prop.Name == "RoomIdA" || prop.Name == "RoomIdB"))
+                if (obj is Door && (prop.Name == PN.RoomIdA || prop.Name == PN.RoomIdB))
                 {
                     combo.IsEnabled = false;
                 }
 
                 // Si es un GameObject con RoomId, verificar si está contenido en otro objeto
-                if (obj is GameObject gameObj && prop.Name == "RoomId")
+                if (obj is GameObject gameObj && prop.Name == PN.RoomId)
                 {
                     if (IsObjectContainedInAnother(gameObj))
                     {
@@ -1306,7 +1339,7 @@ public partial class PropertyEditor : UserControl
                             PropertyEdited?.Invoke(target, prop.Name);
 
                             // Si es un contenedor que cambió de sala, mover sus objetos contenidos
-                            if (target is GameObject containerObj && prop.Name == "RoomId")
+                            if (target is GameObject containerObj && prop.Name == PN.RoomId)
                             {
                                 UpdateContainedObjectsRoom(containerObj, id);
                             }
@@ -1323,7 +1356,7 @@ public partial class PropertyEditor : UserControl
             else if (prop.PropertyType.IsEnum && prop.Name != "PatrolMovementMode" && prop.Name != "FollowMovementMode")
             {
                 // Caso especial para OpenFromSide de Door: mostrar nombres de salas
-                if (obj is Door door && prop.Name == "OpenFromSide" && GetRooms != null)
+                if (obj is Door door && prop.Name == PN.OpenFromSide && GetRooms != null)
                 {
                     var rooms = GetRooms().ToList();
                     var roomA = rooms.FirstOrDefault(r => string.Equals(r.Id, door.RoomIdA, StringComparison.OrdinalIgnoreCase));
@@ -1379,7 +1412,7 @@ public partial class PropertyEditor : UserControl
                     editor = comboOpenSide;
                 }
                 // Caso especial para GrammaticalGender de GameObject o Door: mostrar en español
-                else if ((obj is GameObject || obj is Door) && prop.Name == "Gender" && prop.PropertyType == typeof(GrammaticalGender))
+                else if ((obj is GameObject || obj is Door) && prop.Name == PN.Gender && prop.PropertyType == typeof(GrammaticalGender))
                 {
                     var genderOptions = new List<GenderComboItem>
                     {
@@ -1584,7 +1617,7 @@ public partial class PropertyEditor : UserControl
                                 PropertyEdited?.Invoke(target, prop.Name);
 
                                 // Si es ObjectType.Type, actualizar visibilidad de propiedades dependientes
-                                if (prop.Name == "Type")
+                                if (prop.Name == PN.Type)
                                 {
                                     UpdatePropertyVisibility();
                                 }
@@ -1599,7 +1632,7 @@ public partial class PropertyEditor : UserControl
                     editor = comboEnum;
                 }
             }
-            else if (obj is GameInfo && prop.Name == "MinutesPerGameHour" && prop.PropertyType == typeof(int))
+            else if (obj is GameInfo && prop.Name == PN.MinutesPerGameHour && prop.PropertyType == typeof(int))
             {
                 var comboMinutes = new ComboBox
                 {
@@ -1634,7 +1667,7 @@ public partial class PropertyEditor : UserControl
                 editor = comboMinutes;
             }
             // PlayerDefinition: Age (10-90 de 1 en 1)
-            else if (obj is PlayerDefinition && prop.Name == "Age" && prop.PropertyType == typeof(int))
+            else if (obj is PlayerDefinition && prop.Name == PN.Age && prop.PropertyType == typeof(int))
             {
                 var comboAge = new ComboBox
                 {
@@ -1669,7 +1702,7 @@ public partial class PropertyEditor : UserControl
                 editor = comboAge;
             }
             // PlayerDefinition: Weight (50-150 de 5 en 5)
-            else if (obj is PlayerDefinition && prop.Name == "Weight" && prop.PropertyType == typeof(int))
+            else if (obj is PlayerDefinition && prop.Name == PN.Weight && prop.PropertyType == typeof(int))
             {
                 var comboWeight = new ComboBox
                 {
@@ -1706,7 +1739,7 @@ public partial class PropertyEditor : UserControl
                 editor = comboWeight;
             }
             // PlayerDefinition: Height (50-220 de 5 en 5)
-            else if (obj is PlayerDefinition && prop.Name == "Height" && prop.PropertyType == typeof(int))
+            else if (obj is PlayerDefinition && prop.Name == PN.Height && prop.PropertyType == typeof(int))
             {
                 var comboHeight = new ComboBox
                 {
@@ -1742,19 +1775,19 @@ public partial class PropertyEditor : UserControl
 
                 editor = comboHeight;
             }
-            // PlayerDefinition: InitialGold (dinero inicial, mínimo 0, sin decimales)
-            else if (obj is PlayerDefinition && prop.Name == "InitialGold" && prop.PropertyType == typeof(int))
+            // PlayerDefinition: InitialMoney (dinero inicial, mínimo 0, sin decimales)
+            else if (obj is PlayerDefinition && prop.Name == PN.InitialMoney && prop.PropertyType == typeof(int))
             {
-                var currentGold = prop.GetValue(obj) is int g ? g : 0;
-                if (currentGold < 0) currentGold = 0;
+                var currentMoney = prop.GetValue(obj) is int g ? g : 0;
+                if (currentMoney < 0) currentMoney = 0;
 
-                var tbGold = new TextBox
+                var tbMoney = new TextBox
                 {
                     Margin = new Thickness(0, 2, 0, 0),
-                    Text = currentGold.ToString()
+                    Text = currentMoney.ToString()
                 };
 
-                tbGold.PreviewTextInput += (_, e) =>
+                tbMoney.PreviewTextInput += (_, e) =>
                 {
                     // Solo permitir dígitos
                     foreach (char c in e.Text)
@@ -1767,23 +1800,23 @@ public partial class PropertyEditor : UserControl
                     }
                 };
 
-                tbGold.LostFocus += (_, _) =>
+                tbMoney.LostFocus += (_, _) =>
                 {
                     try
                     {
                         if (_currentObject is not { } target) return;
-                        if (int.TryParse(tbGold.Text, out var value))
+                        if (int.TryParse(tbMoney.Text, out var value))
                         {
                             if (value < 0) value = 0;
                             prop.SetValue(target, value);
-                            tbGold.Text = value.ToString();
+                            tbMoney.Text = value.ToString();
                             PropertyEdited?.Invoke(target, prop.Name);
                         }
                         else
                         {
                             // Si no es válido, restaurar a 0
                             prop.SetValue(target, 0);
-                            tbGold.Text = "0";
+                            tbMoney.Text = "0";
                             PropertyEdited?.Invoke(target, prop.Name);
                         }
                     }
@@ -1793,7 +1826,7 @@ public partial class PropertyEditor : UserControl
                     }
                 };
 
-                editor = tbGold;
+                editor = tbMoney;
             }
             // PlayerDefinition: Características (Strength, Constitution, Intelligence, Dexterity, Charisma)
             else if (obj is PlayerDefinition playerDef &&
@@ -1803,7 +1836,7 @@ public partial class PropertyEditor : UserControl
                 editor = CreateAttributeEditor(playerDef, prop);
             }
             // NPC: Velocidad de patrulla (1-3) con RadioButtons
-            else if (obj is Npc npcForPatrolSpeed && prop.Name == "PatrolSpeed" && prop.PropertyType == typeof(int))
+            else if (obj is Npc npcForPatrolSpeed && prop.Name == PN.PatrolSpeed && prop.PropertyType == typeof(int))
             {
                 var currentValue = prop.GetValue(npcForPatrolSpeed) is int v ? v : 1;
                 if (currentValue < 1) currentValue = 1;
@@ -1835,7 +1868,7 @@ public partial class PropertyEditor : UserControl
                 editor = panel;
             }
             // NPC: Velocidad de seguimiento (1-3) con RadioButtons igual que patrulla
-            else if (obj is Npc npcForFollowSpeed && prop.Name == "FollowSpeed" && prop.PropertyType == typeof(int))
+            else if (obj is Npc npcForFollowSpeed && prop.Name == PN.FollowSpeed && prop.PropertyType == typeof(int))
             {
                 // Convertir valor porcentual antiguo a nuevo sistema 1-3
                 var currentValue = prop.GetValue(npcForFollowSpeed) is int v ? v : 1;
@@ -1870,26 +1903,26 @@ public partial class PropertyEditor : UserControl
                 editor = panel;
             }
             // NPC: Modo de movimiento de patrulla (Turns/Time)
-            else if (obj is Npc npcForPatrolMode && prop.Name == "PatrolMovementMode")
+            else if (obj is Npc npcForPatrolMode && prop.Name == PN.PatrolMovementMode)
             {
                 editor = CreateMovementModeComboBox(npcForPatrolMode, prop, isPatrol: true);
             }
             // NPC: Intervalo de tiempo de patrulla con RadioButtons
-            else if (obj is Npc npcForPatrolTime && prop.Name == "PatrolTimeInterval" && prop.PropertyType == typeof(float))
+            else if (obj is Npc npcForPatrolTime && prop.Name == PN.PatrolTimeInterval && prop.PropertyType == typeof(float))
             {
                 editor = CreateTimeIntervalRadioButtons(npcForPatrolTime, prop);
             }
             // NPC: Modo de movimiento de seguimiento (Turns/Time)
-            else if (obj is Npc npcForFollowMode && prop.Name == "FollowMovementMode")
+            else if (obj is Npc npcForFollowMode && prop.Name == PN.FollowMovementMode)
             {
                 editor = CreateMovementModeComboBox(npcForFollowMode, prop, isPatrol: false);
             }
             // NPC: Intervalo de tiempo de seguimiento con RadioButtons
-            else if (obj is Npc npcForFollowTime && prop.Name == "FollowTimeInterval" && prop.PropertyType == typeof(float))
+            else if (obj is Npc npcForFollowTime && prop.Name == PN.FollowTimeInterval && prop.PropertyType == typeof(float))
             {
                 editor = CreateTimeIntervalRadioButtons(npcForFollowTime, prop);
             }
-            else if (obj is GameInfo gameInfoForParser && prop.Name == "ParserDictionaryJson" && prop.PropertyType == typeof(string))
+            else if (obj is GameInfo gameInfoForParser && prop.Name == PN.ParserDictionaryJson && prop.PropertyType == typeof(string))
             {
                 var currentJson = Convert.ToString(prop.GetValue(obj)) ?? string.Empty;
                 var hasContent = !string.IsNullOrWhiteSpace(currentJson);
@@ -1942,7 +1975,7 @@ public partial class PropertyEditor : UserControl
             }
 
 
-            else if (prop.Name == "WorldMusicId" && prop.PropertyType == typeof(string))
+            else if (prop.Name == PN.WorldMusicId && prop.PropertyType == typeof(string))
             {
                 var valueObj = prop.GetValue(obj);
                 var currentMusicId = Convert.ToString(valueObj) ?? string.Empty;
@@ -1995,7 +2028,7 @@ public partial class PropertyEditor : UserControl
             }
 
 
-            else if (prop.Name == "EndingMusicId" && prop.PropertyType == typeof(string))
+            else if (prop.Name == PN.EndingMusicId && prop.PropertyType == typeof(string))
             {
                 var valueObj = prop.GetValue(obj);
                 var currentMusicId = Convert.ToString(valueObj) ?? string.Empty;
@@ -2036,7 +2069,7 @@ public partial class PropertyEditor : UserControl
 
 
             // ImageId de Room: textbox + botón 🤖 (IA) + botón ... para imagen de sala
-            else if (prop.Name == "ImageId" && prop.PropertyType == typeof(string))
+            else if (prop.Name == PN.ImageId && prop.PropertyType == typeof(string))
             {
                 var valueObj = prop.GetValue(obj);
                 string text = Convert.ToString(valueObj) ?? string.Empty;
@@ -2178,7 +2211,7 @@ public partial class PropertyEditor : UserControl
 
 
             // MusicId de Room: ComboBox con las músicas disponibles
-            else if (prop.Name == "MusicId" && prop.PropertyType == typeof(string))
+            else if (prop.Name == PN.MusicId && prop.PropertyType == typeof(string))
             {
                 var valueObj = prop.GetValue(obj);
                 var currentMusicId = Convert.ToString(valueObj) ?? string.Empty;
@@ -2290,21 +2323,36 @@ public partial class PropertyEditor : UserControl
 
                 editor = pb;
             }
-            // Selector múltiple de objetos para ShopInventory e InventoryObjectIds de NPC
+            // Selector múltiple de objetos para InventoryObjectIds de NPC
             else if (obj is Npc npcForObjectList &&
                      prop.PropertyType == typeof(List<string>) &&
-                     (prop.Name == "ShopInventory" || prop.Name == "InventoryObjectIds") &&
+                     prop.Name == PN.InventoryObjectIds &&
                      GetObjects != null)
             {
                 editor = CreateMultiSelectObjectPicker(npcForObjectList, prop);
             }
+            // Editor de inventario de tienda con cantidades para ShopInventory de NPC
+            else if (obj is Npc npcForShop &&
+                     prop.Name == PN.ShopInventory &&
+                     prop.PropertyType == typeof(List<ShopItem>) &&
+                     GetObjects != null)
+            {
+                editor = CreateShopInventoryEditor(npcForShop, prop);
+            }
             // Editor de receta de fabricación para GameObject
             else if (obj is GameObject gameObjForCrafting &&
-                     prop.Name == "CraftingRecipe" &&
+                     prop.Name == PN.CraftingRecipe &&
                      prop.PropertyType == typeof(List<CraftingIngredient>) &&
                      GetObjects != null)
             {
                 editor = CreateCraftingRecipeEditor(gameObjForCrafting, prop);
+            }
+            // Editor de requisitos de misiones para Room y Exit
+            else if (prop.Name == PN.RequiredQuests &&
+                     prop.PropertyType == typeof(List<QuestRequirement>) &&
+                     GetQuests != null)
+            {
+                editor = CreateRequiredQuestsEditor(obj, prop);
             }
             else
             {
@@ -2563,8 +2611,7 @@ public partial class PropertyEditor : UserControl
         ["Tags"] = "Etiquetas",
         ["StartHour"] = "Hora inicial",
         ["StartWeather"] = "Clima inicial",
-        ["RequiredQuestId"] = "Misión requerida",
-        ["RequiredQuestStatus"] = "Estado de misión requerido",
+        ["RequiredQuests"] = "Requisitos de misión",
         ["Visible"] = "Visible",
         ["CanTake"] = "Se puede coger",
         ["Type"] = "Tipo de objeto",
@@ -2598,7 +2645,7 @@ public partial class PropertyEditor : UserControl
         ["Intelligence"] = "Inteligencia",
         ["MaxHealth"] = "Salud máxima",
         ["CurrentHealth"] = "Salud actual",
-        ["Gold"] = "Dinero",
+        ["Money"] = "Dinero",
         ["Objectives"] = "Objetivos",
 
         // Juego
@@ -2615,15 +2662,18 @@ public partial class PropertyEditor : UserControl
         ["GameInfo.EndingMusicId"] = "Música de finalización",
         ["GameInfo.TestModeAiEnabled"] = "IA en modo pruebas",
         ["GameInfo.TestModeSoundEnabled"] = "Sonido en modo pruebas",
-        ["GameInfo.CombatEnabled"] = "Combate activo",
-        ["GameInfo.MagicEnabled"] = "Magia activa",
-        ["GameInfo.BasicNeedsEnabled"] = "Necesidades básicas activas",
+        ["GameInfo.CraftingEnabled"] = "Fabricación",
+        ["GameInfo.CombatEnabled"] = "Combate",
+        ["GameInfo.MagicEnabled"] = "Magia",
+        ["GameInfo.BasicNeedsEnabled"] = "Necesidades básicas",
         ["GameInfo.HungerRate"] = "Velocidad de hambre",
         ["GameInfo.ThirstRate"] = "Velocidad de sed",
         ["GameInfo.SleepRate"] = "Velocidad de sueño",
         ["GameInfo.HungerDeathText"] = "Texto de muerte por hambre",
         ["GameInfo.ThirstDeathText"] = "Texto de muerte por sed",
         ["GameInfo.SleepDeathText"] = "Texto de muerte por agotamiento",
+        ["GameInfo.HealthDeathText"] = "Texto de muerte por heridas",
+        ["GameInfo.SanityDeathText"] = "Texto de muerte por locura",
 
         // Sala
         ["Room.Name"] = "Nombre",
@@ -2631,8 +2681,7 @@ public partial class PropertyEditor : UserControl
         ["Room.ImageBase64"] = "Imagen (Base64)",
         ["Room.MusicId"] = "Música",
         ["Room.ImageId"] = "Imagen (id)",
-        ["Room.RequiredQuestId"] = "Misión requerida",
-        ["Room.RequiredQuestStatus"] = "Estado de misión requerido",
+        ["Room.RequiredQuests"] = "Requisitos de misión",
         ["Room.Tags"] = "Etiquetas",
 
         // Objeto
@@ -2659,6 +2708,7 @@ public partial class PropertyEditor : UserControl
         ["GameObject.CanExtinguish"] = "Se puede apagar",
         ["GameObject.CanIgnite"] = "Se puede encender",
         ["GameObject.IgniterObjectId"] = "Objeto encendedor",
+        ["GameObject.CraftingRecipe"] = "Se fabrica con",
 
         // NPC
         ["Npc.RoomId"] = "Sala",
@@ -2676,6 +2726,7 @@ public partial class PropertyEditor : UserControl
         ["Npc.PatrolSpeed"] = "Velocidad patrulla",
         ["Npc.IsFollowingPlayer"] = "Sigue al jugador",
         ["Npc.FollowSpeed"] = "Velocidad seguimiento",
+        ["Npc.IsCorpse"] = "Es un cadáver",
         ["ConversationId"] = "Conversación",
         ["IsShopkeeper"] = "Es comerciante",
         ["ShopInventory"] = "Inventario de tienda",
@@ -2689,14 +2740,15 @@ public partial class PropertyEditor : UserControl
         ["FollowMovementMode"] = "Modo de movimiento",
         ["FollowSpeed"] = "Velocidad",
         ["FollowTimeInterval"] = "Intervalo",
+        ["IsCorpse"] = "Es un cadáver",
 
         // Puerta
         ["Door.RoomIdA"] = "Sala A",
         ["Door.RoomIdB"] = "Sala B",
         ["Door.IsOpen"] = "Está abierta",
         ["Door.IsLocked"] = "Cerradura",
-        ["Door.RequiredQuestId"] = "Misión requerida",
-        ["Door.RequiredQuestStatus"] = "Estado de misión requerido",
+        ["Door.Visible"] = "Visible",
+        ["Door.RequiredQuests"] = "Requisitos de misión",
         ["Door.Tags"] = "Etiquetas",
 
         // Quest
@@ -2719,12 +2771,14 @@ public partial class PropertyEditor : UserControl
         ["PlayerDefinition.Intelligence"] = "Inteligencia",
         ["PlayerDefinition.Dexterity"] = "Destreza",
         ["PlayerDefinition.Charisma"] = "Carisma",
-        ["PlayerDefinition.InitialGold"] = "Dinero inicial",
+        ["PlayerDefinition.InitialMoney"] = "Dinero inicial",
+        ["PlayerDefinition.MaxInventoryWeight"] = "Peso máx. inventario (g)",
+        ["PlayerDefinition.MaxInventoryVolume"] = "Volumen máx. inventario (cm³)",
         ["Constitution"] = "Constitución",
         ["Charisma"] = "Carisma",
         ["Age"] = "Edad",
         ["Height"] = "Altura",
-        ["InitialGold"] = "Dinero inicial",
+        ["InitialMoney"] = "Dinero inicial",
     };
 
     private static string GetDisplayLabel(PropertyInfo prop)
@@ -2806,10 +2860,10 @@ public partial class PropertyEditor : UserControl
     {
         if (_currentObject is PlayerDefinition playerDef)
         {
-            // Validar y corregir InitialGold si es negativo
-            if (playerDef.InitialGold < 0)
+            // Validar y corregir InitialMoney si es negativo
+            if (playerDef.InitialMoney < 0)
             {
-                playerDef.InitialGold = 0;
+                playerDef.InitialMoney = 0;
             }
         }
 
@@ -2883,11 +2937,16 @@ public partial class PropertyEditor : UserControl
         // Propiedades de patrulla/seguimiento de NPC (subpropiedades)
         if (obj is Npc)
         {
-            if (name is "PatrolSpeed" or "FollowSpeed")
+            // Subpropiedades de IsPatrolling
+            if (name == PN.PatrolMovementMode || name == PN.PatrolSpeed || name == PN.PatrolTimeInterval)
+                return true;
+
+            // Subpropiedades de IsFollowingPlayer
+            if (name == PN.FollowMovementMode || name == PN.FollowSpeed || name == PN.FollowTimeInterval)
                 return true;
 
             // Propiedades de tienda (subpropiedades de IsShopkeeper)
-            if (name is "ShopInventory" or "BuyPriceMultiplier" or "SellPriceMultiplier")
+            if (name == PN.ShopInventory || name == PN.BuyPriceMultiplier || name == PN.SellPriceMultiplier)
                 return true;
         }
 
@@ -2899,6 +2958,13 @@ public partial class PropertyEditor : UserControl
                 return true;
             if (name is "HungerRate" or "ThirstRate" or "SleepRate"
                 or "HungerDeathText" or "ThirstDeathText" or "SleepDeathText")
+                return true;
+        }
+
+        // Propiedades de visibilidad de Door (subpropiedades de Visible)
+        if (obj is Door)
+        {
+            if (name == PN.RequiredQuests)
                 return true;
         }
 
@@ -2915,127 +2981,163 @@ public partial class PropertyEditor : UserControl
         // Condiciones para GameObject
         if (obj is GameObject gameObject)
         {
-            return name switch
-            {
-                // TextContent solo visible si Type = Texto
-                "TextContent" => () => gameObject.Type == ObjectType.Texto,
+            // TextContent solo visible si Type = Texto
+            if (name == PN.TextContent)
+                return () => gameObject.Type == ObjectType.Texto;
 
-                // IsOpen solo visible si IsContainer = true Y IsOpenable = true
-                "IsOpen" => () => gameObject.IsContainer && gameObject.IsOpenable,
+            // IsOpen solo visible si IsContainer = true Y IsOpenable = true
+            if (name == PN.IsOpen)
+                return () => gameObject.IsContainer && gameObject.IsOpenable;
 
-                // KeyId solo visible si IsContainer = true Y IsLocked = true
-                "KeyId" => () => gameObject.IsContainer && gameObject.IsLocked,
+            // KeyId solo visible si IsContainer = true Y IsLocked = true
+            if (name == PN.KeyId)
+                return () => gameObject.IsContainer && gameObject.IsLocked;
 
-                // Propiedades de contenedor solo visibles si IsContainer = true
-                "IsOpenable" or "IsLocked" or "ContentsVisible" or "MaxCapacity" or "ContainedObjectIds"
-                    => () => gameObject.IsContainer,
+            // Propiedades de contenedor solo visibles si IsContainer = true
+            if (name == PN.IsOpenable || name == PN.IsLocked || name == PN.ContentsVisible
+                || name == PN.MaxCapacity || name == PN.ContainedObjectIds)
+                return () => gameObject.IsContainer;
 
-                // === PROPIEDADES DE CONSUMIBLES ===
-                // NutritionAmount solo visible si Type = Comida o Bebida
-                "NutritionAmount" => () => gameObject.Type == ObjectType.Comida || gameObject.Type == ObjectType.Bebida,
+            // === PROPIEDADES DE CONSUMIBLES ===
+            // NutritionAmount solo visible si Type = Comida o Bebida
+            if (name == PN.NutritionAmount)
+                return () => gameObject.Type == ObjectType.Comida || gameObject.Type == ObjectType.Bebida;
 
-                // === PROPIEDADES DE COMBATE ===
-                // AttackBonus solo visible si Type = Arma
-                "AttackBonus" => () => gameObject.Type == ObjectType.Arma,
+            // === PROPIEDADES DE COMBATE ===
+            // AttackBonus solo visible si Type = Arma
+            if (name == PN.AttackBonus)
+                return () => gameObject.Type == ObjectType.Arma;
 
-                // DefenseBonus solo visible si Type = Armadura
-                "DefenseBonus" => () => gameObject.Type == ObjectType.Armadura,
+            // DefenseBonus solo visible si Type = Armadura
+            if (name == PN.DefenseBonus)
+                return () => gameObject.Type == ObjectType.Armadura;
 
-                // DamageType solo visible si Type = Arma
-                "DamageType" => () => gameObject.Type == ObjectType.Arma,
+            // DamageType solo visible si Type = Arma
+            if (name == PN.DamageType)
+                return () => gameObject.Type == ObjectType.Arma;
 
-                // MaxDurability y CurrentDurability visibles si Type = Arma o Armadura
-                "MaxDurability" or "CurrentDurability"
-                    => () => gameObject.Type == ObjectType.Arma || gameObject.Type == ObjectType.Armadura,
+            // MaxDurability y CurrentDurability visibles si Type = Arma o Armadura
+            if (name == PN.MaxDurability || name == PN.CurrentDurability)
+                return () => gameObject.Type == ObjectType.Arma || gameObject.Type == ObjectType.Armadura;
 
-                // InitiativeBonus visible si Type = Arma o Armadura
-                "InitiativeBonus"
-                    => () => gameObject.Type == ObjectType.Arma || gameObject.Type == ObjectType.Armadura,
+            // InitiativeBonus visible si Type = Arma o Armadura
+            if (name == PN.InitiativeBonus)
+                return () => gameObject.Type == ObjectType.Arma || gameObject.Type == ObjectType.Armadura;
 
-                // === PROPIEDADES DE ILUMINACIÓN ===
-                // IsLit solo visible si IsLightSource = true
-                "IsLit" => () => gameObject.IsLightSource,
+            // === PROPIEDADES DE ILUMINACIÓN ===
+            // IsLit solo visible si IsLightSource = true
+            if (name == PN.IsLit)
+                return () => gameObject.IsLightSource;
 
-                // LightTurnsRemaining solo visible si IsLightSource = true
-                "LightTurnsRemaining" => () => gameObject.IsLightSource,
+            // LightTurnsRemaining solo visible si IsLightSource = true
+            if (name == PN.LightTurnsRemaining)
+                return () => gameObject.IsLightSource;
 
-                // CanExtinguish solo visible si IsLightSource = true
-                "CanExtinguish" => () => gameObject.IsLightSource,
+            // CanExtinguish solo visible si IsLightSource = true
+            if (name == PN.CanExtinguish)
+                return () => gameObject.IsLightSource;
 
-                // CanIgnite solo visible si IsLightSource = true
-                "CanIgnite" => () => gameObject.IsLightSource,
+            // CanIgnite solo visible si IsLightSource = true
+            if (name == PN.CanIgnite)
+                return () => gameObject.IsLightSource;
 
-                // IgniterObjectId solo visible si IsLightSource = true Y CanIgnite = true
-                "IgniterObjectId" => () => gameObject.IsLightSource && gameObject.CanIgnite,
+            // IgniterObjectId solo visible si IsLightSource = true Y CanIgnite = true
+            if (name == PN.IgniterObjectId)
+                return () => gameObject.IsLightSource && gameObject.CanIgnite;
 
-                _ => null
-            };
+            // CraftingRecipe solo visible si CraftingEnabled = true en GameInfo
+            if (name == PN.CraftingRecipe)
+                return () => GetGameInfo?.Invoke()?.CraftingEnabled == true;
+
+            return null;
         }
 
         // Condiciones para Room
         if (obj is Room room)
         {
-            return name switch
-            {
-                // IsIlluminated solo visible si IsInterior = true
-                "IsIlluminated" => () => room.IsInterior,
+            // IsIlluminated solo visible si IsInterior = true
+            if (name == PN.IsIlluminated)
+                return () => room.IsInterior;
 
-                _ => null
-            };
+            return null;
         }
 
         // Condiciones para GameInfo
         if (obj is GameInfo gameInfo)
         {
-            return name switch
-            {
-                // MagicEnabled solo visible si CombatEnabled = true
-                "MagicEnabled" => () => gameInfo.CombatEnabled,
+            // MagicEnabled solo visible si CombatEnabled = true
+            if (name == PN.MagicEnabled)
+                return () => gameInfo.CombatEnabled;
 
-                // Propiedades de necesidades básicas solo visibles si BasicNeedsEnabled = true
-                "HungerRate" or "ThirstRate" or "SleepRate"
-                or "HungerDeathText" or "ThirstDeathText" or "SleepDeathText"
-                    => () => gameInfo.BasicNeedsEnabled,
+            // Propiedades de necesidades básicas solo visibles si BasicNeedsEnabled = true
+            if (name == PN.HungerRate || name == PN.ThirstRate || name == PN.SleepRate
+                || name == PN.HungerDeathText || name == PN.ThirstDeathText || name == PN.SleepDeathText
+                || name == PN.HealthDeathText || name == PN.SanityDeathText)
+                return () => gameInfo.BasicNeedsEnabled;
 
-                _ => null
-            };
+            return null;
         }
 
         // Condiciones para NPC
         if (obj is Npc npc)
         {
-            return name switch
-            {
-                // IsPatrolling solo visible si NO está siguiendo al jugador
-                "IsPatrolling" => () => !npc.IsFollowingPlayer,
+            // IsPatrolling solo visible si NO está siguiendo al jugador
+            if (name == PN.IsPatrolling)
+                return () => !npc.IsFollowingPlayer;
 
-                // PatrolMovementMode solo visible si está patrullando Y NO siguiendo
-                "PatrolMovementMode" => () => npc.IsPatrolling && !npc.IsFollowingPlayer,
+            // PatrolMovementMode solo visible si está patrullando Y NO siguiendo
+            if (name == PN.PatrolMovementMode)
+                return () => npc.IsPatrolling && !npc.IsFollowingPlayer;
 
-                // PatrolSpeed solo visible si está patrullando Y NO siguiendo Y modo Turns
-                "PatrolSpeed" => () => npc.IsPatrolling && !npc.IsFollowingPlayer && npc.PatrolMovementMode == MovementMode.Turns,
+            // PatrolSpeed solo visible si está patrullando Y NO siguiendo Y modo Turns
+            if (name == PN.PatrolSpeed)
+                return () => npc.IsPatrolling && !npc.IsFollowingPlayer && npc.PatrolMovementMode == MovementMode.Turns;
 
-                // PatrolTimeInterval solo visible si está patrullando Y NO siguiendo Y modo Time
-                "PatrolTimeInterval" => () => npc.IsPatrolling && !npc.IsFollowingPlayer && npc.PatrolMovementMode == MovementMode.Time,
+            // PatrolTimeInterval solo visible si está patrullando Y NO siguiendo Y modo Time
+            if (name == PN.PatrolTimeInterval)
+                return () => npc.IsPatrolling && !npc.IsFollowingPlayer && npc.PatrolMovementMode == MovementMode.Time;
 
-                // IsFollowingPlayer solo visible si NO está patrullando
-                "IsFollowingPlayer" => () => !npc.IsPatrolling,
+            // IsFollowingPlayer solo visible si NO está patrullando
+            if (name == PN.IsFollowingPlayer)
+                return () => !npc.IsPatrolling;
 
-                // FollowMovementMode solo visible si está siguiendo Y NO patrullando
-                "FollowMovementMode" => () => npc.IsFollowingPlayer && !npc.IsPatrolling,
+            // FollowMovementMode solo visible si está siguiendo Y NO patrullando
+            if (name == PN.FollowMovementMode)
+                return () => npc.IsFollowingPlayer && !npc.IsPatrolling;
 
-                // FollowSpeed solo visible si está siguiendo Y NO patrullando Y modo Turns
-                "FollowSpeed" => () => npc.IsFollowingPlayer && !npc.IsPatrolling && npc.FollowMovementMode == MovementMode.Turns,
+            // FollowSpeed solo visible si está siguiendo Y NO patrullando Y modo Turns
+            if (name == PN.FollowSpeed)
+                return () => npc.IsFollowingPlayer && !npc.IsPatrolling && npc.FollowMovementMode == MovementMode.Turns;
 
-                // FollowTimeInterval solo visible si está siguiendo Y NO patrullando Y modo Time
-                "FollowTimeInterval" => () => npc.IsFollowingPlayer && !npc.IsPatrolling && npc.FollowMovementMode == MovementMode.Time,
+            // FollowTimeInterval solo visible si está siguiendo Y NO patrullando Y modo Time
+            if (name == PN.FollowTimeInterval)
+                return () => npc.IsFollowingPlayer && !npc.IsPatrolling && npc.FollowMovementMode == MovementMode.Time;
 
-                // Propiedades de tienda solo visibles si IsShopkeeper = true
-                "ShopInventory" or "BuyPriceMultiplier" or "SellPriceMultiplier"
-                    => () => npc.IsShopkeeper,
+            // Propiedades de tienda solo visibles si IsShopkeeper = true
+            if (name == PN.ShopInventory || name == PN.BuyPriceMultiplier || name == PN.SellPriceMultiplier)
+                return () => npc.IsShopkeeper;
 
-                _ => null
-            };
+            return null;
+        }
+
+        // Condiciones para PlayerDefinition
+        if (obj is PlayerDefinition)
+        {
+            // MaxInventoryWeight y MaxInventoryVolume solo visibles si CraftingEnabled = true
+            if (name == PN.MaxInventoryWeight || name == PN.MaxInventoryVolume)
+                return () => GetGameInfo?.Invoke()?.CraftingEnabled == true;
+
+            return null;
+        }
+
+        // Condiciones para Door
+        if (obj is Door door)
+        {
+            // RequiredQuests solo visible si Visible = true
+            if (name == PN.RequiredQuests)
+                return () => door.Visible;
+
+            return null;
         }
 
         return null;
@@ -3090,12 +3192,12 @@ public partial class PropertyEditor : UserControl
 
     /// <summary>
     /// Crea el editor para una característica de PlayerDefinition con slider y validación.
-    /// Cada característica tiene un mínimo de 10 y un máximo de 100.
+    /// Cada característica tiene un mínimo de 10 y un máximo de 60.
     /// </summary>
     private FrameworkElement CreateAttributeEditor(PlayerDefinition playerDef, PropertyInfo prop)
     {
         const int MinValue = 10;
-        const int MaxValue = 100;
+        const int MaxValue = 60;
 
         var panel = new Grid
         {
@@ -3188,7 +3290,7 @@ public partial class PropertyEditor : UserControl
             IsSnapToTickEnabled = true,
             TickFrequency = 1,
             SmallChange = 1,
-            LargeChange = prop.Name == "FollowSpeed" ? 10 : 1,
+            LargeChange = prop.Name == PN.FollowSpeed ? 10 : 1,
             VerticalAlignment = VerticalAlignment.Center
         };
         if (sliderMaxWidth.HasValue)
@@ -3549,6 +3651,463 @@ public partial class PropertyEditor : UserControl
         mainPanel.Children.Add(expander);
 
         return mainPanel;
+    }
+
+    /// <summary>
+    /// Crea un editor de inventario de tienda con objetos y cantidades (-1 = infinito).
+    /// </summary>
+    private FrameworkElement CreateShopInventoryEditor(Npc npc, PropertyInfo prop)
+    {
+        var currentInventory = prop.GetValue(npc) as List<ShopItem> ?? new List<ShopItem>();
+        var allObjects = GetObjects?.Invoke()?.ToList() ?? new List<GameObject>();
+
+        var mainPanel = new StackPanel();
+
+        // Etiqueta de resumen
+        var summaryText = new TextBlock
+        {
+            Text = GetShopInventorySummary(currentInventory, allObjects),
+            Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA)),
+            FontSize = 12,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 4)
+        };
+        mainPanel.Children.Add(summaryText);
+
+        // Expander con objetos y cantidades
+        var expander = new Expander
+        {
+            Header = $"Objetos en tienda ({currentInventory.Count})",
+            IsExpanded = false,
+            Foreground = Brushes.White,
+            Background = new SolidColorBrush(Color.FromRgb(0x2A, 0x2A, 0x2A)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(0x4A, 0x4A, 0x4A)),
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(4)
+        };
+
+        var itemsPanel = new StackPanel { Margin = new Thickness(8, 4, 4, 4) };
+
+        if (!allObjects.Any())
+        {
+            itemsPanel.Children.Add(new TextBlock
+            {
+                Text = "(No hay objetos en el mundo)",
+                Foreground = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88)),
+                FontStyle = FontStyles.Italic
+            });
+        }
+        else
+        {
+            foreach (var obj in allObjects.OrderBy(o => o.Name))
+            {
+                var shopItem = currentInventory.FirstOrDefault(si =>
+                    si.ObjectId.Equals(obj.Id, StringComparison.OrdinalIgnoreCase));
+                var isSelected = shopItem != null;
+                var quantity = shopItem?.Quantity ?? -1;
+
+                var itemPanel = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Margin = new Thickness(0, 2, 0, 2)
+                };
+
+                var checkbox = new CheckBox
+                {
+                    IsChecked = isSelected,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Tag = obj.Id
+                };
+
+                var checkLabel = new TextBlock
+                {
+                    Text = obj.Price > 0 ? $"{obj.Name} ({obj.Price})" : obj.Name,
+                    Foreground = Brushes.White,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(6, 0, 8, 0),
+                    Cursor = Cursors.Hand,
+                    Width = 150
+                };
+
+                var qtyLabel = new TextBlock
+                {
+                    Text = "Cant:",
+                    Foreground = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(0, 0, 4, 0),
+                    Visibility = isSelected ? Visibility.Visible : Visibility.Collapsed
+                };
+
+                var qtyInput = new TextBox
+                {
+                    Text = quantity.ToString(),
+                    Width = 50,
+                    Background = new SolidColorBrush(Color.FromRgb(0x3A, 0x3A, 0x3A)),
+                    Foreground = Brushes.White,
+                    BorderBrush = new SolidColorBrush(Color.FromRgb(0x5A, 0x5A, 0x5A)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Tag = obj.Id,
+                    Visibility = isSelected ? Visibility.Visible : Visibility.Collapsed
+                };
+
+                var infiniteHint = new TextBlock
+                {
+                    Text = "(-1 = ∞)",
+                    Foreground = new SolidColorBrush(Color.FromRgb(0x66, 0x66, 0x66)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(4, 0, 0, 0),
+                    FontSize = 10,
+                    Visibility = isSelected ? Visibility.Visible : Visibility.Collapsed
+                };
+
+                checkLabel.MouseLeftButtonDown += (_, _) => checkbox.IsChecked = !checkbox.IsChecked;
+
+                checkbox.Checked += (_, _) =>
+                {
+                    try
+                    {
+                        if (_currentObject is not Npc targetNpc) return;
+                        var inventory = prop.GetValue(targetNpc) as List<ShopItem> ?? new List<ShopItem>();
+                        var objId = checkbox.Tag as string;
+                        if (!string.IsNullOrEmpty(objId) && !inventory.Any(si =>
+                            si.ObjectId.Equals(objId, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            inventory.Add(new ShopItem { ObjectId = objId, Quantity = -1 });
+                            prop.SetValue(targetNpc, inventory);
+                            PropertyEdited?.Invoke(targetNpc, prop.Name);
+
+                            // Actualizar UI
+                            expander.Header = $"Objetos en tienda ({inventory.Count})";
+                            summaryText.Text = GetShopInventorySummary(inventory, allObjects);
+                            qtyInput.Text = "-1";
+                            qtyLabel.Visibility = Visibility.Visible;
+                            qtyInput.Visibility = Visibility.Visible;
+                            infiniteHint.Visibility = Visibility.Visible;
+                        }
+                    }
+                    catch { /* Ignorar errores */ }
+                };
+
+                checkbox.Unchecked += (_, _) =>
+                {
+                    try
+                    {
+                        if (_currentObject is not Npc targetNpc) return;
+                        var inventory = prop.GetValue(targetNpc) as List<ShopItem> ?? new List<ShopItem>();
+                        var objId = checkbox.Tag as string;
+                        if (!string.IsNullOrEmpty(objId))
+                        {
+                            inventory.RemoveAll(si =>
+                                si.ObjectId.Equals(objId, StringComparison.OrdinalIgnoreCase));
+                            prop.SetValue(targetNpc, inventory);
+                            PropertyEdited?.Invoke(targetNpc, prop.Name);
+
+                            // Actualizar UI
+                            expander.Header = $"Objetos en tienda ({inventory.Count})";
+                            summaryText.Text = GetShopInventorySummary(inventory, allObjects);
+                            qtyLabel.Visibility = Visibility.Collapsed;
+                            qtyInput.Visibility = Visibility.Collapsed;
+                            infiniteHint.Visibility = Visibility.Collapsed;
+                        }
+                    }
+                    catch { /* Ignorar errores */ }
+                };
+
+                qtyInput.LostFocus += (_, _) =>
+                {
+                    try
+                    {
+                        if (_currentObject is not Npc targetNpc) return;
+                        var inventory = prop.GetValue(targetNpc) as List<ShopItem> ?? new List<ShopItem>();
+                        var objId = qtyInput.Tag as string;
+                        var item = inventory.FirstOrDefault(si =>
+                            si.ObjectId.Equals(objId, StringComparison.OrdinalIgnoreCase));
+                        if (item != null && int.TryParse(qtyInput.Text, out var newQty))
+                        {
+                            item.Quantity = newQty;
+                            PropertyEdited?.Invoke(targetNpc, prop.Name);
+                            summaryText.Text = GetShopInventorySummary(inventory, allObjects);
+                        }
+                    }
+                    catch { /* Ignorar errores */ }
+                };
+
+                itemPanel.Children.Add(checkbox);
+                itemPanel.Children.Add(checkLabel);
+                itemPanel.Children.Add(qtyLabel);
+                itemPanel.Children.Add(qtyInput);
+                itemPanel.Children.Add(infiniteHint);
+                itemsPanel.Children.Add(itemPanel);
+            }
+        }
+
+        // Wrap en ScrollViewer
+        var scrollViewer = new ScrollViewer
+        {
+            MaxHeight = 250,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            Content = itemsPanel
+        };
+
+        expander.Content = scrollViewer;
+        mainPanel.Children.Add(expander);
+
+        return mainPanel;
+    }
+
+    /// <summary>
+    /// Genera un resumen del inventario de tienda.
+    /// </summary>
+    private string GetShopInventorySummary(List<ShopItem> inventory, List<GameObject> allObjects)
+    {
+        if (inventory == null || !inventory.Any())
+            return "(Vacío)";
+
+        var names = inventory
+            .Select(si =>
+            {
+                var obj = allObjects.FirstOrDefault(o =>
+                    o.Id.Equals(si.ObjectId, StringComparison.OrdinalIgnoreCase));
+                var qtyText = si.Quantity < 0 ? "∞" : si.Quantity.ToString();
+                return obj != null ? $"{obj.Name} x{qtyText}" : $"{si.ObjectId} x{qtyText}";
+            })
+            .ToList();
+
+        return string.Join(", ", names);
+    }
+
+    /// <summary>
+    /// Diccionario de traducciones de estados de misión.
+    /// </summary>
+    private static readonly Dictionary<QuestStatus, string> QuestStatusTranslations = new()
+    {
+        [QuestStatus.NotStarted] = "No iniciada",
+        [QuestStatus.InProgress] = "En progreso",
+        [QuestStatus.Completed] = "Completada",
+        [QuestStatus.Failed] = "Fallida"
+    };
+
+    /// <summary>
+    /// Crea un editor de requisitos de misiones con selección de misiones y estados.
+    /// </summary>
+    private FrameworkElement CreateRequiredQuestsEditor(object obj, PropertyInfo prop)
+    {
+        var currentRequirements = prop.GetValue(obj) as List<QuestRequirement> ?? new List<QuestRequirement>();
+        var allQuests = GetQuests?.Invoke()?.ToList() ?? new List<QuestDefinition>();
+
+        var mainPanel = new StackPanel();
+
+        // Etiqueta de resumen
+        var summaryText = new TextBlock
+        {
+            Text = GetRequiredQuestsSummary(currentRequirements, allQuests),
+            Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA)),
+            FontSize = 12,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 4)
+        };
+        mainPanel.Children.Add(summaryText);
+
+        // Expander con misiones y estados
+        var expander = new Expander
+        {
+            Header = $"Requisitos de misión ({currentRequirements.Count})",
+            IsExpanded = false,
+            Foreground = Brushes.White,
+            Background = new SolidColorBrush(Color.FromRgb(0x2A, 0x2A, 0x2A)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(0x4A, 0x4A, 0x4A)),
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(4)
+        };
+
+        var itemsPanel = new StackPanel { Margin = new Thickness(8, 4, 4, 4) };
+
+        if (!allQuests.Any())
+        {
+            itemsPanel.Children.Add(new TextBlock
+            {
+                Text = "(No hay misiones definidas)",
+                Foreground = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88)),
+                FontStyle = FontStyles.Italic
+            });
+        }
+        else
+        {
+            foreach (var quest in allQuests.OrderBy(q => q.Name))
+            {
+                var requirement = currentRequirements.FirstOrDefault(r =>
+                    r.QuestId.Equals(quest.Id, StringComparison.OrdinalIgnoreCase));
+                var isSelected = requirement != null;
+                var currentStatus = requirement?.RequiredStatus ?? QuestStatus.Completed;
+
+                var itemPanel = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Margin = new Thickness(0, 2, 0, 2)
+                };
+
+                var checkbox = new CheckBox
+                {
+                    IsChecked = isSelected,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Tag = quest.Id
+                };
+
+                var checkLabel = new TextBlock
+                {
+                    Text = quest.Name,
+                    Foreground = Brushes.White,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(6, 0, 8, 0),
+                    Cursor = Cursors.Hand,
+                    Width = 150
+                };
+
+                var statusLabel = new TextBlock
+                {
+                    Text = "Estado:",
+                    Foreground = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(0, 0, 4, 0),
+                    Visibility = isSelected ? Visibility.Visible : Visibility.Collapsed
+                };
+
+                var statusCombo = new ComboBox
+                {
+                    Width = 120,
+                    Background = new SolidColorBrush(Color.FromRgb(0x3A, 0x3A, 0x3A)),
+                    Foreground = Brushes.White,
+                    BorderBrush = new SolidColorBrush(Color.FromRgb(0x5A, 0x5A, 0x5A)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Tag = quest.Id,
+                    Visibility = isSelected ? Visibility.Visible : Visibility.Collapsed
+                };
+
+                // Poblar combo con estados traducidos
+                foreach (var status in Enum.GetValues<QuestStatus>())
+                {
+                    var item = new ComboBoxItem
+                    {
+                        Content = QuestStatusTranslations[status],
+                        Tag = status
+                    };
+                    statusCombo.Items.Add(item);
+                    if (status == currentStatus)
+                        statusCombo.SelectedItem = item;
+                }
+
+                checkLabel.MouseLeftButtonDown += (_, _) => checkbox.IsChecked = !checkbox.IsChecked;
+
+                checkbox.Checked += (_, _) =>
+                {
+                    try
+                    {
+                        if (_currentObject == null) return;
+                        var requirements = prop.GetValue(_currentObject) as List<QuestRequirement> ?? new List<QuestRequirement>();
+                        var questId = checkbox.Tag as string;
+                        if (!string.IsNullOrEmpty(questId) && !requirements.Any(r =>
+                            r.QuestId.Equals(questId, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            requirements.Add(new QuestRequirement { QuestId = questId, RequiredStatus = QuestStatus.Completed });
+                            prop.SetValue(_currentObject, requirements);
+                            PropertyEdited?.Invoke(_currentObject, prop.Name);
+
+                            // Actualizar UI
+                            expander.Header = $"Requisitos de misión ({requirements.Count})";
+                            summaryText.Text = GetRequiredQuestsSummary(requirements, allQuests);
+                            statusCombo.SelectedIndex = (int)QuestStatus.Completed;
+                            statusLabel.Visibility = Visibility.Visible;
+                            statusCombo.Visibility = Visibility.Visible;
+                        }
+                    }
+                    catch { /* Ignorar errores */ }
+                };
+
+                checkbox.Unchecked += (_, _) =>
+                {
+                    try
+                    {
+                        if (_currentObject == null) return;
+                        var requirements = prop.GetValue(_currentObject) as List<QuestRequirement> ?? new List<QuestRequirement>();
+                        var questId = checkbox.Tag as string;
+                        if (!string.IsNullOrEmpty(questId))
+                        {
+                            requirements.RemoveAll(r =>
+                                r.QuestId.Equals(questId, StringComparison.OrdinalIgnoreCase));
+                            prop.SetValue(_currentObject, requirements);
+                            PropertyEdited?.Invoke(_currentObject, prop.Name);
+
+                            // Actualizar UI
+                            expander.Header = $"Requisitos de misión ({requirements.Count})";
+                            summaryText.Text = GetRequiredQuestsSummary(requirements, allQuests);
+                            statusLabel.Visibility = Visibility.Collapsed;
+                            statusCombo.Visibility = Visibility.Collapsed;
+                        }
+                    }
+                    catch { /* Ignorar errores */ }
+                };
+
+                statusCombo.SelectionChanged += (_, _) =>
+                {
+                    try
+                    {
+                        if (_currentObject == null) return;
+                        var requirements = prop.GetValue(_currentObject) as List<QuestRequirement> ?? new List<QuestRequirement>();
+                        var questId = statusCombo.Tag as string;
+                        var req = requirements.FirstOrDefault(r =>
+                            r.QuestId.Equals(questId, StringComparison.OrdinalIgnoreCase));
+                        if (req != null && statusCombo.SelectedItem is ComboBoxItem selectedItem && selectedItem.Tag is QuestStatus newStatus)
+                        {
+                            req.RequiredStatus = newStatus;
+                            PropertyEdited?.Invoke(_currentObject, prop.Name);
+                            summaryText.Text = GetRequiredQuestsSummary(requirements, allQuests);
+                        }
+                    }
+                    catch { /* Ignorar errores */ }
+                };
+
+                itemPanel.Children.Add(checkbox);
+                itemPanel.Children.Add(checkLabel);
+                itemPanel.Children.Add(statusLabel);
+                itemPanel.Children.Add(statusCombo);
+                itemsPanel.Children.Add(itemPanel);
+            }
+        }
+
+        // Wrap en ScrollViewer
+        var scrollViewer = new ScrollViewer
+        {
+            MaxHeight = 250,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            Content = itemsPanel
+        };
+
+        expander.Content = scrollViewer;
+        mainPanel.Children.Add(expander);
+
+        return mainPanel;
+    }
+
+    /// <summary>
+    /// Genera un resumen de los requisitos de misiones.
+    /// </summary>
+    private string GetRequiredQuestsSummary(List<QuestRequirement> requirements, List<QuestDefinition> allQuests)
+    {
+        if (requirements == null || !requirements.Any())
+            return "(Sin requisitos)";
+
+        var descriptions = requirements
+            .Select(r =>
+            {
+                var quest = allQuests.FirstOrDefault(q =>
+                    q.Id.Equals(r.QuestId, StringComparison.OrdinalIgnoreCase));
+                var questName = quest?.Name ?? r.QuestId;
+                var statusText = QuestStatusTranslations.GetValueOrDefault(r.RequiredStatus, r.RequiredStatus.ToString());
+                return $"{questName}: {statusText}";
+            })
+            .ToList();
+
+        return string.Join(", ", descriptions);
     }
 
     /// <summary>

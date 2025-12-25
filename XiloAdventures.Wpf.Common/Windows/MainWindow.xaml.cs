@@ -634,7 +634,7 @@ public partial class MainWindow : Window
     private void UpdateStatusPanel()
     {
         StatsLabel.Text = _engine.DescribePlayerStats();
-        GoldLabel.Text = _engine.DescribePlayerGold();
+        MoneyLabel.Text = _engine.DescribePlayerMoney();
         InventoryLabel.Text = _engine.DescribeInventory();
         ExitsLabel.Text = _engine.DescribeExits();
 
@@ -794,11 +794,27 @@ public partial class MainWindow : Window
                 Owner = this
             };
 
+            // Disparar evento de inicio de comercio
+            _engine.TriggerTradeEvent(merchant.Id, "Event_OnTradeStart");
+
+            tradeWindow.ItemBought += objectId =>
+            {
+                _engine.TriggerTradeEvent(merchant.Id, "Event_OnItemBought");
+            };
+
+            tradeWindow.ItemSold += objectId =>
+            {
+                _engine.TriggerTradeEvent(merchant.Id, "Event_OnItemSold");
+            };
+
             tradeWindow.TradeClosed += () =>
             {
                 // Usar BeginInvoke para asegurar que la actualizacion ocurra despues de cerrar el dialogo
                 Dispatcher.BeginInvoke(() =>
                 {
+                    // Disparar evento de fin de comercio
+                    _engine.TriggerTradeEvent(merchant.Id, "Event_OnTradeEnd");
+
                     // Notificar al ConversationEngine que la tienda cerro
                     _engine.CloseShop();
 
@@ -878,6 +894,9 @@ public partial class MainWindow : Window
                     // Actualizar la UI después del combate
                     UpdateStatusPanel();
                     UpdateRoomVisuals();
+
+                    // Disparar eventos de script de combate
+                    _engine.TriggerCombatEndEvent(enemy.Id, reason);
 
                     switch (reason)
                     {

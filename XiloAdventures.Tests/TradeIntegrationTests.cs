@@ -119,10 +119,10 @@ public class TradeIntegrationTests
                     RoomId = "room1",
                     Visible = true,
                     IsShopkeeper = true,
-                    Gold = 500,
+                    Money = 500,
                     BuyPriceMultiplier = 0.5,
                     SellPriceMultiplier = 1.0,
-                    ShopInventory = new List<string> { "apple", "bread", "potion" }
+                    ShopInventory = new List<ShopItem> { new ShopItem { ObjectId = "apple" }, new ShopItem { ObjectId = "bread" }, new ShopItem { ObjectId = "potion" } }
                 },
                 new Npc
                 {
@@ -132,10 +132,10 @@ public class TradeIntegrationTests
                     RoomId = "room1",
                     Visible = true,
                     IsShopkeeper = true,
-                    Gold = 1000,
+                    Money = 1000,
                     BuyPriceMultiplier = 0.6,
                     SellPriceMultiplier = 0.9,
-                    ShopInventory = new List<string> { "sword" }
+                    ShopInventory = new List<ShopItem> { new ShopItem { ObjectId = "sword" } }
                 }
             },
             Doors = new List<Door>(),
@@ -143,7 +143,7 @@ public class TradeIntegrationTests
         };
 
         var state = WorldLoader.CreateInitialState(world);
-        state.Player.Gold = 300;
+        state.Player.Money = 300;
 
         return (world, state);
     }
@@ -157,7 +157,7 @@ public class TradeIntegrationTests
         var (world, state) = CreateIntegrationTestWorld();
         var engine = new TradeEngine(state);
         var merchant = state.Npcs.First(n => n.Id == "merchant");
-        state.Player.Gold = 100;
+        state.Player.Money = 100;
 
         // Act - Start trade and buy items
         engine.StartTrade(merchant);
@@ -172,7 +172,7 @@ public class TradeIntegrationTests
         Assert.True(result2.Success);
         Assert.Equal(3, state.InventoryObjectIds.Count(id => id == "apple"));
         Assert.Equal(2, state.InventoryObjectIds.Count(id => id == "bread"));
-        Assert.Equal(100 - (5 * 3) - (8 * 2), state.Player.Gold); // 100 - 15 - 16 = 69
+        Assert.Equal(100 - (5 * 3) - (8 * 2), state.Player.Money); // 100 - 15 - 16 = 69
     }
 
     [Fact]
@@ -187,8 +187,8 @@ public class TradeIntegrationTests
 
         var engine = new TradeEngine(state);
         var merchant = state.Npcs.First(n => n.Id == "merchant");
-        var initialGold = state.Player.Gold;
-        var initialMerchantGold = merchant.Gold;
+        var initialMoney = state.Player.Money;
+        var initialMerchantMoney = merchant.Money;
 
         // Act
         engine.StartTrade(merchant);
@@ -199,8 +199,8 @@ public class TradeIntegrationTests
         Assert.True(result.Success);
         Assert.Empty(state.InventoryObjectIds.Where(id => id == "gem"));
         // Gem price 200 * 0.5 = 100 each, sold 2 = 200
-        Assert.Equal(initialGold + 200, state.Player.Gold);
-        Assert.Equal(initialMerchantGold - 200, merchant.Gold);
+        Assert.Equal(initialMoney + 200, state.Player.Money);
+        Assert.Equal(initialMerchantMoney - 200, merchant.Money);
     }
 
     [Fact]
@@ -209,7 +209,7 @@ public class TradeIntegrationTests
         // Arrange
         var (world, state) = CreateIntegrationTestWorld();
         state.InventoryObjectIds.Add("gem");
-        state.Player.Gold = 50;
+        state.Player.Money = 50;
 
         var engine = new TradeEngine(state);
         var merchant = state.Npcs.First(n => n.Id == "merchant");
@@ -231,7 +231,7 @@ public class TradeIntegrationTests
         Assert.Equal(3, state.InventoryObjectIds.Count(id => id == "potion"));
         Assert.Equal(5, state.InventoryObjectIds.Count(id => id == "apple"));
         // 50 (initial) + 100 (sell gem) - 75 (potions) - 25 (apples) = 50
-        Assert.Equal(50, state.Player.Gold);
+        Assert.Equal(50, state.Player.Money);
     }
 
     [Fact]
@@ -247,7 +247,7 @@ public class TradeIntegrationTests
 
         var engine = new TradeEngine(state);
         var merchant = state.Npcs.First(n => n.Id == "merchant");
-        merchant.Gold = 400; // Limited gold
+        merchant.Money = 400; // Limited gold
 
         // Act
         engine.StartTrade(merchant);
@@ -260,7 +260,7 @@ public class TradeIntegrationTests
         // Assert
         Assert.True(result1.Success);
         Assert.False(result2.Success);
-        Assert.Equal(150, merchant.Gold); // 400 - 250 = 150
+        Assert.Equal(150, merchant.Money); // 400 - 250 = 150
         Assert.Equal(2, state.InventoryObjectIds.Count(id => id == "rare_artifact")); // Still has 2
     }
 
@@ -300,7 +300,7 @@ public class TradeIntegrationTests
     {
         // Arrange
         var (world, state) = CreateIntegrationTestWorld();
-        state.Player.Gold = 200;
+        state.Player.Money = 200;
 
         var blacksmith = state.Npcs.First(n => n.Id == "blacksmith");
         var blacksmithEngine = new TradeEngine(state);
@@ -323,10 +323,10 @@ public class TradeIntegrationTests
     {
         // Arrange
         var (world, state) = CreateIntegrationTestWorld();
-        state.Player.Gold = 500;
+        state.Player.Money = 500;
 
         var merchant = state.Npcs.First(n => n.Id == "merchant");
-        var initialMerchantGold = merchant.Gold;
+        var initialMerchantMoney = merchant.Money;
 
         // Act - Multiple trade sessions
         var engine1 = new TradeEngine(state);
@@ -339,12 +339,12 @@ public class TradeIntegrationTests
         engine2.BuyItem("apple", 3);
         engine2.CloseTrade();
 
-        // Assert - Gold calculations are consistent
-        var expectedPlayerGold = 500 - (25 * 2) - (5 * 3); // 500 - 50 - 15 = 435
-        var expectedMerchantGold = initialMerchantGold + (25 * 2) + (5 * 3); // 500 + 50 + 15 = 565
+        // Assert - Money calculations are consistent
+        var expectedPlayerMoney = 500 - (25 * 2) - (5 * 3); // 500 - 50 - 15 = 435
+        var expectedMerchantMoney = initialMerchantMoney + (25 * 2) + (5 * 3); // 500 + 50 + 15 = 565
 
-        Assert.Equal(expectedPlayerGold, state.Player.Gold);
-        Assert.Equal(expectedMerchantGold, merchant.Gold);
+        Assert.Equal(expectedPlayerMoney, state.Player.Money);
+        Assert.Equal(expectedMerchantMoney, merchant.Money);
         Assert.Equal(2, state.InventoryObjectIds.Count(id => id == "potion"));
         Assert.Equal(3, state.InventoryObjectIds.Count(id => id == "apple"));
     }
@@ -354,10 +354,10 @@ public class TradeIntegrationTests
     {
         // Arrange
         var (world, state) = CreateIntegrationTestWorld();
-        var initialPlayerGold = state.Player.Gold;
+        var initialPlayerMoney = state.Player.Money;
 
         var merchant = state.Npcs.First(n => n.Id == "merchant");
-        var initialMerchantGold = merchant.Gold;
+        var initialMerchantMoney = merchant.Money;
 
         // Act - Open and close without buying/selling
         var engine = new TradeEngine(state);
@@ -365,8 +365,8 @@ public class TradeIntegrationTests
         engine.CloseTrade();
 
         // Assert - No changes
-        Assert.Equal(initialPlayerGold, state.Player.Gold);
-        Assert.Equal(initialMerchantGold, merchant.Gold);
+        Assert.Equal(initialPlayerMoney, state.Player.Money);
+        Assert.Equal(initialMerchantMoney, merchant.Money);
         Assert.Empty(state.InventoryObjectIds);
     }
 
@@ -420,7 +420,7 @@ public class TradeIntegrationTests
         state.InventoryObjectIds.Add("rare_artifact");
 
         var merchant = state.Npcs.First(n => n.Id == "merchant");
-        merchant.Gold = -1; // Infinite
+        merchant.Money = -1; // Infinite
 
         var engine = new TradeEngine(state);
         engine.StartTrade(merchant);
@@ -433,7 +433,7 @@ public class TradeIntegrationTests
         // Assert
         Assert.True(result.Success);
         Assert.Empty(state.InventoryObjectIds.Where(id => id == "rare_artifact"));
-        Assert.Equal(-1, merchant.Gold); // Still infinite
+        Assert.Equal(-1, merchant.Money); // Still infinite
     }
 
     [Fact]
@@ -441,7 +441,7 @@ public class TradeIntegrationTests
     {
         // Arrange
         var (world, state) = CreateIntegrationTestWorld();
-        state.Player.Gold = 25; // Exactly enough for one potion
+        state.Player.Money = 25; // Exactly enough for one potion
 
         var engine = new TradeEngine(state);
         var merchant = state.Npcs.First(n => n.Id == "merchant");
@@ -454,7 +454,7 @@ public class TradeIntegrationTests
 
         // Assert
         Assert.True(result.Success);
-        Assert.Equal(0, state.Player.Gold);
+        Assert.Equal(0, state.Player.Money);
         Assert.Contains("potion", state.InventoryObjectIds);
     }
 

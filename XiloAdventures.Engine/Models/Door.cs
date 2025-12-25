@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using XiloAdventures.Engine.Models.Enums;
 
 namespace XiloAdventures.Engine.Models;
@@ -48,6 +49,17 @@ public class Door
 
     /// <summary>Indica si el género y plural fueron establecidos manualmente (no sobrescribir con IA).</summary>
     public bool GenderAndPluralSetManually { get; set; } = false;
+
+    /// <summary>
+    /// Indica si la puerta y sus salidas son visibles para el jugador.
+    /// </summary>
+    public bool Visible { get; set; } = true;
+
+    /// <summary>
+    /// Lista de requisitos de misiones para que la puerta sea visible.
+    /// Si hay requisitos, la puerta solo será visible si se cumplen todos.
+    /// </summary>
+    public List<QuestRequirement> RequiredQuests { get; set; } = new();
 }
 
 /// <summary>

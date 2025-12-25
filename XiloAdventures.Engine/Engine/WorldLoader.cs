@@ -167,7 +167,7 @@ public static class WorldLoader
                 Intelligence = playerDef.Intelligence,
                 Dexterity = playerDef.Dexterity,
                 Charisma = playerDef.Charisma,
-                Gold = playerDef.InitialGold,
+                Money = playerDef.InitialMoney,
                 AbilityIds = new List<string>(playerDef.AbilityIds ?? new List<string>())
             }
         };

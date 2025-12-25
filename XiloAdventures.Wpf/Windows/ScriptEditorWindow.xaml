@@ -679,7 +679,7 @@
                                        FontSize="14"
                                        Foreground="White"
                                        Margin="0,0,0,2"/>
-                            <TextBlock x:Name="TestGoldLabel"
+                            <TextBlock x:Name="TestMoneyLabel"
                                        FontSize="14"
                                        Foreground="#AAAAAA"
                                        Margin="0,0,0,8"/>

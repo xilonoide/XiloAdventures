@@ -30,6 +30,12 @@ public class ScriptEngine
     public event Action<string>? OnPlaySound;
 
     /// <summary>
+    /// Evento disparado cuando cambia la música de una sala.
+    /// Parámetros: roomId, musicId (null para quitar música).
+    /// </summary>
+    public event Action<string, string?>? OnRoomMusicChanged;
+
+    /// <summary>
     /// Evento disparado cuando el jugador es teletransportado.
     /// </summary>
     public event Action<string>? OnPlayerTeleported;
@@ -210,33 +216,78 @@ public class ScriptEngine
         return new Dictionary<string, Func<ScriptNode, ScriptContext, Task>>(StringComparer.OrdinalIgnoreCase)
         {
             // === EVENTOS (no hacen nada, solo son entry points) ===
+            // Game Events
             ["Event_OnGameStart"] = async (node, ctx) => { await Task.CompletedTask; },
             ["Event_OnGameEnd"] = async (node, ctx) => { await Task.CompletedTask; },
             ["Event_EveryMinute"] = async (node, ctx) => { await Task.CompletedTask; },
             ["Event_EveryHour"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnTurnStart"] = async (node, ctx) => { await Task.CompletedTask; },
             ["Event_OnWeatherChange"] = async (node, ctx) => { await Task.CompletedTask; },
+            // Room Events
             ["Event_OnEnter"] = async (node, ctx) => { await Task.CompletedTask; },
             ["Event_OnExit"] = async (node, ctx) => { await Task.CompletedTask; },
             ["Event_OnLook"] = async (node, ctx) => { await Task.CompletedTask; },
+            // Door Events
             ["Event_OnDoorOpen"] = async (node, ctx) => { await Task.CompletedTask; },
             ["Event_OnDoorClose"] = async (node, ctx) => { await Task.CompletedTask; },
             ["Event_OnDoorLock"] = async (node, ctx) => { await Task.CompletedTask; },
             ["Event_OnDoorUnlock"] = async (node, ctx) => { await Task.CompletedTask; },
-            ["Event_OnDoorKnock"] = async (node, ctx) => { await Task.CompletedTask; },
+            // NPC Events
             ["Event_OnTalk"] = async (node, ctx) => { await Task.CompletedTask; },
             ["Event_OnNpcAttack"] = async (node, ctx) => { await Task.CompletedTask; },
             ["Event_OnNpcDeath"] = async (node, ctx) => { await Task.CompletedTask; },
             ["Event_OnNpcSee"] = async (node, ctx) => { await Task.CompletedTask; },
+            // Combat Events
+            ["Event_OnCombatStart"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnCombatVictory"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnCombatDefeat"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnCombatFlee"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnPlayerAttack"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnNpcTurn"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnPlayerDefend"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnCriticalHit"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnMiss"] = async (node, ctx) => { await Task.CompletedTask; },
+            // Trade Events
+            ["Event_OnTradeStart"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnTradeEnd"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnItemBought"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnItemSold"] = async (node, ctx) => { await Task.CompletedTask; },
+            // Object Events
             ["Event_OnTake"] = async (node, ctx) => { await Task.CompletedTask; },
             ["Event_OnDrop"] = async (node, ctx) => { await Task.CompletedTask; },
             ["Event_OnUse"] = async (node, ctx) => { await Task.CompletedTask; },
             ["Event_OnExamine"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnGive"] = async (node, ctx) => { await Task.CompletedTask; },
             ["Event_OnContainerOpen"] = async (node, ctx) => { await Task.CompletedTask; },
             ["Event_OnContainerClose"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnEat"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnDrink"] = async (node, ctx) => { await Task.CompletedTask; },
+            // Quest Events
             ["Event_OnQuestStart"] = async (node, ctx) => { await Task.CompletedTask; },
             ["Event_OnQuestComplete"] = async (node, ctx) => { await Task.CompletedTask; },
             ["Event_OnQuestFail"] = async (node, ctx) => { await Task.CompletedTask; },
             ["Event_OnObjectiveComplete"] = async (node, ctx) => { await Task.CompletedTask; },
+            // Sleep Events
+            ["Event_OnSleep"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnWakeUp"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnWakeUpStartled"] = async (node, ctx) => { await Task.CompletedTask; },
+            // Player State Events
+            ["Event_OnPlayerDeath"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnHealthLow"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnHealthCritical"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnHungerHigh"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnThirstHigh"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnEnergyLow"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnSleepHigh"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnSanityLow"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnManaLow"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnStateThreshold"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnModifierApplied"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnModifierExpired"] = async (node, ctx) => { await Task.CompletedTask; },
+            // Gold Events
+            ["Event_OnGoldGained"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnGoldLost"] = async (node, ctx) => { await Task.CompletedTask; },
+            ["Event_OnGoldThreshold"] = async (node, ctx) => { await Task.CompletedTask; },
 
             // === CONDICIONES ===
             ["Condition_HasItem"] = async (node, ctx) =>
@@ -272,6 +323,16 @@ public class ScriptEngine
                     : QuestStatus.NotStarted;
 
                 ctx.NextOutputPort = currentStatus == expectedStatus ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
+            ["Condition_IsMainQuest"] = async (node, ctx) =>
+            {
+                var questId = GetPropertyValue<string>(node, "QuestId", "") ?? "";
+                var quest = ctx.World.Quests.FirstOrDefault(q =>
+                    string.Equals(q.Id, questId, StringComparison.OrdinalIgnoreCase));
+                var isMain = quest?.IsMainQuest ?? false;
+                ctx.NextOutputPort = isMain ? "True" : "False";
                 await Task.CompletedTask;
             },
 
@@ -335,6 +396,43 @@ public class ScriptEngine
                 await Task.CompletedTask;
             },
 
+            ["Condition_IsDoorVisible"] = async (node, ctx) =>
+            {
+                var doorId = GetPropertyValue<string>(node, "DoorId", "");
+                var door = ctx.GameState.Doors.FirstOrDefault(d =>
+                    string.Equals(d.Id, doorId, StringComparison.OrdinalIgnoreCase));
+
+                // Una puerta es visible si Visible = true y cumple todos los requisitos de misiones
+                var isVisible = false;
+                if (door != null)
+                {
+                    if (!door.Visible)
+                    {
+                        isVisible = false;
+                    }
+                    else if (door.RequiredQuests.Count == 0)
+                    {
+                        isVisible = true;
+                    }
+                    else
+                    {
+                        isVisible = true;
+                        foreach (var requirement in door.RequiredQuests)
+                        {
+                            var quest = ctx.GameState.Quests.Values.FirstOrDefault(q =>
+                                q.QuestId.Equals(requirement.QuestId, StringComparison.OrdinalIgnoreCase));
+                            if (quest == null || quest.Status != requirement.RequiredStatus)
+                            {
+                                isVisible = false;
+                                break;
+                            }
+                        }
+                    }
+                }
+                ctx.NextOutputPort = isVisible ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
             ["Condition_IsNpcVisible"] = async (node, ctx) =>
             {
                 var npcId = GetPropertyValue<string>(node, "NpcId", "");
@@ -342,6 +440,101 @@ public class ScriptEngine
                     string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
                 var isVisible = npc?.Visible ?? false;
                 ctx.NextOutputPort = isVisible ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
+            ["Condition_IsObjectVisible"] = async (node, ctx) =>
+            {
+                var objectId = GetPropertyValue<string>(node, "ObjectId", "");
+                var obj = ctx.GameState.Objects.FirstOrDefault(o =>
+                    string.Equals(o.Id, objectId, StringComparison.OrdinalIgnoreCase));
+                var isVisible = obj?.Visible ?? false;
+                ctx.NextOutputPort = isVisible ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
+            ["Condition_IsObjectTakeable"] = async (node, ctx) =>
+            {
+                var objectId = GetPropertyValue<string>(node, "ObjectId", "");
+                var obj = ctx.GameState.Objects.FirstOrDefault(o =>
+                    string.Equals(o.Id, objectId, StringComparison.OrdinalIgnoreCase));
+                var canTake = obj?.CanTake ?? false;
+                ctx.NextOutputPort = canTake ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
+            ["Condition_IsContainerOpen"] = async (node, ctx) =>
+            {
+                var objectId = GetPropertyValue<string>(node, "ObjectId", "");
+                var obj = ctx.GameState.Objects.FirstOrDefault(o =>
+                    string.Equals(o.Id, objectId, StringComparison.OrdinalIgnoreCase));
+                var isOpen = obj != null && obj.IsContainer && obj.IsOpen;
+                ctx.NextOutputPort = isOpen ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
+            ["Condition_IsContainerLocked"] = async (node, ctx) =>
+            {
+                var objectId = GetPropertyValue<string>(node, "ObjectId", "");
+                var obj = ctx.GameState.Objects.FirstOrDefault(o =>
+                    string.Equals(o.Id, objectId, StringComparison.OrdinalIgnoreCase));
+                var isLocked = obj != null && obj.IsContainer && obj.IsLocked;
+                ctx.NextOutputPort = isLocked ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
+            ["Condition_IsWeather"] = async (node, ctx) =>
+            {
+                var weatherStr = GetPropertyValue<string>(node, "Weather", "Despejado");
+                var isMatch = Enum.TryParse<WeatherType>(weatherStr, out var weather) &&
+                              ctx.GameState.Weather == weather;
+                ctx.NextOutputPort = isMatch ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
+            ["Condition_ObjectInContainer"] = async (node, ctx) =>
+            {
+                var objectId = GetPropertyValue<string>(node, "ObjectId", "");
+                var containerId = GetPropertyValue<string>(node, "ContainerId", "");
+
+                var container = ctx.GameState.Objects.FirstOrDefault(o =>
+                    string.Equals(o.Id, containerId, StringComparison.OrdinalIgnoreCase));
+
+                var isInContainer = container != null && container.IsContainer &&
+                    container.ContainedObjectIds.Any(id =>
+                        string.Equals(id, objectId, StringComparison.OrdinalIgnoreCase));
+
+                ctx.NextOutputPort = isInContainer ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
+            ["Condition_ObjectInRoom"] = async (node, ctx) =>
+            {
+                var objectId = GetPropertyValue<string>(node, "ObjectId", "");
+                var roomId = GetPropertyValue<string>(node, "RoomId", "");
+
+                var room = ctx.GameState.Rooms.FirstOrDefault(r =>
+                    string.Equals(r.Id, roomId, StringComparison.OrdinalIgnoreCase));
+
+                var isInRoom = room != null && room.ObjectIds.Any(id =>
+                    string.Equals(id, objectId, StringComparison.OrdinalIgnoreCase));
+
+                ctx.NextOutputPort = isInRoom ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
+            ["Condition_NpcInRoom"] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                var roomId = GetPropertyValue<string>(node, "RoomId", "");
+
+                var npc = ctx.GameState.Npcs.FirstOrDefault(n =>
+                    string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
+
+                var isInRoom = npc != null &&
+                    string.Equals(npc.RoomId, roomId, StringComparison.OrdinalIgnoreCase);
+
+                ctx.NextOutputPort = isInRoom ? "True" : "False";
                 await Task.CompletedTask;
             },
 
@@ -558,32 +751,32 @@ public class ScriptEngine
                 await Task.CompletedTask;
             },
 
-            ["Condition_PlayerHasGold"] = async (node, ctx) =>
+            ["Condition_PlayerHasMoney"] = async (node, ctx) =>
             {
                 var amount = GetPropertyValue<int>(node, "Amount", 100);
-                var hasEnough = ctx.GameState.Player.Gold >= amount;
+                var hasEnough = ctx.GameState.Player.Money >= amount;
                 ctx.NextOutputPort = hasEnough ? "True" : "False";
                 await Task.CompletedTask;
             },
 
-            ["Condition_NpcHasGold"] = async (node, ctx) =>
+            ["Condition_NpcHasMoney"] = async (node, ctx) =>
             {
                 var npcId = GetPropertyValue<string>(node, "NpcId", "");
                 var amount = GetPropertyValue<int>(node, "Amount", 100);
                 var npc = ctx.GameState.Npcs.FirstOrDefault(n =>
                     string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
-                // NPC con Gold = -1 tiene infinito
-                var hasEnough = npc != null && (npc.Gold < 0 || npc.Gold >= amount);
+                // NPC con Money = -1 tiene infinito
+                var hasEnough = npc != null && (npc.Money < 0 || npc.Money >= amount);
                 ctx.NextOutputPort = hasEnough ? "True" : "False";
                 await Task.CompletedTask;
             },
 
-            ["Condition_NpcHasInfiniteGold"] = async (node, ctx) =>
+            ["Condition_NpcHasInfiniteMoney"] = async (node, ctx) =>
             {
                 var npcId = GetPropertyValue<string>(node, "NpcId", "");
                 var npc = ctx.GameState.Npcs.FirstOrDefault(n =>
                     string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
-                var hasInfinite = npc != null && npc.Gold < 0;
+                var hasInfinite = npc != null && npc.Money < 0;
                 ctx.NextOutputPort = hasInfinite ? "True" : "False";
                 await Task.CompletedTask;
             },
@@ -652,6 +845,78 @@ public class ScriptEngine
                     ctx.GameState.CurrentRoomId = roomId;
                     OnPlayerTeleported?.Invoke(roomId);
                 }
+                await Task.CompletedTask;
+            },
+
+            ["Action_SetRoomIllumination"] = async (node, ctx) =>
+            {
+                var roomId = GetPropertyValue<string>(node, "RoomId", "");
+                var illuminated = GetPropertyValue<bool>(node, "IsIlluminated", true);
+
+                var room = ctx.GameState.Rooms.FirstOrDefault(r =>
+                    string.Equals(r.Id, roomId, StringComparison.OrdinalIgnoreCase));
+                if (room != null)
+                {
+                    room.IsIlluminated = illuminated;
+                }
+                await Task.CompletedTask;
+            },
+
+            ["Action_SetRoomMusic"] = async (node, ctx) =>
+            {
+                var roomId = GetPropertyValue<string>(node, "RoomId", "");
+                var musicId = GetPropertyValue<string>(node, "MusicId", "");
+
+                var room = ctx.GameState.Rooms.FirstOrDefault(r =>
+                    string.Equals(r.Id, roomId, StringComparison.OrdinalIgnoreCase));
+                if (room != null)
+                {
+                    room.MusicId = string.IsNullOrEmpty(musicId) ? null : musicId;
+                    OnRoomMusicChanged?.Invoke(roomId, room.MusicId);
+                }
+                await Task.CompletedTask;
+            },
+
+            ["Action_SetRoomDescription"] = async (node, ctx) =>
+            {
+                var roomId = GetPropertyValue<string>(node, "RoomId", "");
+                var description = GetPropertyValue<string>(node, "Description", "");
+
+                var room = ctx.GameState.Rooms.FirstOrDefault(r =>
+                    string.Equals(r.Id, roomId, StringComparison.OrdinalIgnoreCase));
+                if (room != null)
+                {
+                    room.Description = description;
+                }
+                await Task.CompletedTask;
+            },
+
+            // === GAME STATE HANDLERS ===
+            ["Action_SetWeather"] = async (node, ctx) =>
+            {
+                var weatherStr = GetPropertyValue<string>(node, "Weather", "Despejado");
+                if (Enum.TryParse<WeatherType>(weatherStr, out var weather))
+                {
+                    ctx.GameState.Weather = weather;
+                }
+                await Task.CompletedTask;
+            },
+
+            ["Action_SetGameHour"] = async (node, ctx) =>
+            {
+                var hour = GetPropertyValue<int>(node, "Hour", 12);
+                var clampedHour = Math.Clamp(hour, 0, 23);
+                var currentTime = ctx.GameState.GameTime;
+                ctx.GameState.GameTime = new DateTime(
+                    currentTime.Year, currentTime.Month, currentTime.Day,
+                    clampedHour, currentTime.Minute, currentTime.Second);
+                await Task.CompletedTask;
+            },
+
+            ["Action_AdvanceTime"] = async (node, ctx) =>
+            {
+                var hours = GetPropertyValue<int>(node, "Hours", 1);
+                ctx.GameState.GameTime = ctx.GameState.GameTime.AddHours(hours);
                 await Task.CompletedTask;
             },
 
@@ -748,8 +1013,10 @@ public class ScriptEngine
                         string.Equals(q.Id, questId, StringComparison.OrdinalIgnoreCase));
                     var questName = quest?.Name ?? questId;
                     OnMessage?.Invoke($"[Nueva misión: {questName}]");
+
+                    // Disparar evento de inicio de quest
+                    await TriggerEventAsync("Quest", questId, "Event_OnQuestStart");
                 }
-                await Task.CompletedTask;
             },
 
             ["Action_CompleteQuest"] = async (node, ctx) =>
@@ -762,6 +1029,9 @@ public class ScriptEngine
                         string.Equals(q.Id, questId, StringComparison.OrdinalIgnoreCase));
                     var questName = quest?.Name ?? questId;
                     OnMessage?.Invoke($"[¡Misión completada: {questName}!]");
+
+                    // Disparar evento de quest completada
+                    await TriggerEventAsync("Quest", questId, "Event_OnQuestComplete");
 
                     // Verificar si todas las misiones principales están completadas
                     var mainQuests = ctx.World.Quests.Where(q => q.IsMainQuest).ToList();
@@ -776,7 +1046,6 @@ public class ScriptEngine
                         }
                     }
                 }
-                await Task.CompletedTask;
             },
 
             ["Action_FailQuest"] = async (node, ctx) =>
@@ -789,6 +1058,84 @@ public class ScriptEngine
                         string.Equals(q.Id, questId, StringComparison.OrdinalIgnoreCase));
                     var questName = quest?.Name ?? questId;
                     OnMessage?.Invoke($"[Misión fallida: {questName}]");
+
+                    // Disparar evento de quest fallida
+                    await TriggerEventAsync("Quest", questId, "Event_OnQuestFail");
+                }
+            },
+
+            ["Action_SetQuestStatus"] = async (node, ctx) =>
+            {
+                var questId = GetPropertyValue<string>(node, "QuestId", "");
+                var statusStr = GetPropertyValue<string>(node, "Status", "InProgress");
+
+                if (!string.IsNullOrEmpty(questId) && Enum.TryParse<QuestStatus>(statusStr, out var newStatus))
+                {
+                    // Si la misión no existe en el estado, crearla
+                    if (!ctx.GameState.Quests.TryGetValue(questId, out var state))
+                    {
+                        state = new QuestState
+                        {
+                            QuestId = questId,
+                            Status = newStatus,
+                            CurrentObjectiveIndex = 0
+                        };
+                        ctx.GameState.Quests[questId] = state;
+                    }
+                    else
+                    {
+                        state.Status = newStatus;
+                    }
+
+                    // Mostrar mensaje según el nuevo estado
+                    var quest = ctx.World.Quests.FirstOrDefault(q =>
+                        string.Equals(q.Id, questId, StringComparison.OrdinalIgnoreCase));
+                    var questName = quest?.Name ?? questId;
+
+                    var message = newStatus switch
+                    {
+                        QuestStatus.InProgress => $"[Nueva misión: {questName}]",
+                        QuestStatus.Completed => $"[¡Misión completada: {questName}!]",
+                        QuestStatus.Failed => $"[Misión fallida: {questName}]",
+                        _ => null
+                    };
+
+                    if (message != null)
+                        OnMessage?.Invoke(message);
+
+                    // Si se completa, verificar si todas las principales están completadas
+                    if (newStatus == QuestStatus.Completed)
+                    {
+                        var mainQuests = ctx.World.Quests.Where(q => q.IsMainQuest).ToList();
+                        if (mainQuests.Any())
+                        {
+                            var allMainQuestsCompleted = mainQuests.All(mq =>
+                                ctx.GameState.Quests.TryGetValue(mq.Id, out var qs) &&
+                                qs.Status == QuestStatus.Completed);
+                            if (allMainQuestsCompleted)
+                            {
+                                OnAdventureCompleted?.Invoke();
+                            }
+                        }
+                    }
+                }
+                await Task.CompletedTask;
+            },
+
+            ["Action_AdvanceObjective"] = async (node, ctx) =>
+            {
+                var questId = GetPropertyValue<string>(node, "QuestId", "");
+                if (!string.IsNullOrEmpty(questId) && ctx.GameState.Quests.TryGetValue(questId, out var state))
+                {
+                    var quest = ctx.World.Quests.FirstOrDefault(q =>
+                        string.Equals(q.Id, questId, StringComparison.OrdinalIgnoreCase));
+
+                    if (quest != null && state.CurrentObjectiveIndex < quest.Objectives.Count - 1)
+                    {
+                        state.CurrentObjectiveIndex++;
+                        var newObjective = quest.Objectives[state.CurrentObjectiveIndex];
+                        OnMessage?.Invoke($"[Nuevo objetivo: {newObjective}]");
+                    }
                 }
                 await Task.CompletedTask;
             },
@@ -825,8 +1172,8 @@ public class ScriptEngine
                 if (door != null)
                 {
                     door.IsLocked = true;
+                    await TriggerEventAsync("Door", doorId, "Event_OnDoorLock");
                 }
-                await Task.CompletedTask;
             },
 
             ["Action_UnlockDoor"] = async (node, ctx) =>
@@ -837,6 +1184,20 @@ public class ScriptEngine
                 if (door != null)
                 {
                     door.IsLocked = false;
+                    await TriggerEventAsync("Door", doorId, "Event_OnDoorUnlock");
+                }
+            },
+
+            ["Action_SetDoorVisible"] = async (node, ctx) =>
+            {
+                var doorId = GetPropertyValue<string>(node, "DoorId", "");
+                var visible = GetPropertyValue<bool>(node, "Visible", true);
+
+                var door = ctx.GameState.Doors.FirstOrDefault(d =>
+                    string.Equals(d.Id, doorId, StringComparison.OrdinalIgnoreCase));
+                if (door != null)
+                {
+                    door.Visible = visible;
                 }
                 await Task.CompletedTask;
             },
@@ -865,6 +1226,196 @@ public class ScriptEngine
                 if (obj != null)
                 {
                     obj.Visible = visible;
+                }
+                await Task.CompletedTask;
+            },
+
+            ["Action_SetObjectTakeable"] = async (node, ctx) =>
+            {
+                var objectId = GetPropertyValue<string>(node, "ObjectId", "");
+                var canTake = GetPropertyValue<bool>(node, "CanTake", true);
+
+                var obj = ctx.GameState.Objects.FirstOrDefault(o =>
+                    string.Equals(o.Id, objectId, StringComparison.OrdinalIgnoreCase));
+                if (obj != null)
+                {
+                    obj.CanTake = canTake;
+                }
+                await Task.CompletedTask;
+            },
+
+            ["Action_OpenContainer"] = async (node, ctx) =>
+            {
+                var objectId = GetPropertyValue<string>(node, "ObjectId", "");
+                var obj = ctx.GameState.Objects.FirstOrDefault(o =>
+                    string.Equals(o.Id, objectId, StringComparison.OrdinalIgnoreCase));
+                if (obj != null && obj.IsContainer && obj.IsOpenable)
+                {
+                    obj.IsOpen = true;
+                }
+                await Task.CompletedTask;
+            },
+
+            ["Action_CloseContainer"] = async (node, ctx) =>
+            {
+                var objectId = GetPropertyValue<string>(node, "ObjectId", "");
+                var obj = ctx.GameState.Objects.FirstOrDefault(o =>
+                    string.Equals(o.Id, objectId, StringComparison.OrdinalIgnoreCase));
+                if (obj != null && obj.IsContainer && obj.IsOpenable)
+                {
+                    obj.IsOpen = false;
+                }
+                await Task.CompletedTask;
+            },
+
+            ["Action_LockContainer"] = async (node, ctx) =>
+            {
+                var objectId = GetPropertyValue<string>(node, "ObjectId", "");
+                var obj = ctx.GameState.Objects.FirstOrDefault(o =>
+                    string.Equals(o.Id, objectId, StringComparison.OrdinalIgnoreCase));
+                if (obj != null && obj.IsContainer)
+                {
+                    obj.IsLocked = true;
+                }
+                await Task.CompletedTask;
+            },
+
+            ["Action_UnlockContainer"] = async (node, ctx) =>
+            {
+                var objectId = GetPropertyValue<string>(node, "ObjectId", "");
+                var obj = ctx.GameState.Objects.FirstOrDefault(o =>
+                    string.Equals(o.Id, objectId, StringComparison.OrdinalIgnoreCase));
+                if (obj != null && obj.IsContainer)
+                {
+                    obj.IsLocked = false;
+                }
+                await Task.CompletedTask;
+            },
+
+            ["Action_SetContentsVisible"] = async (node, ctx) =>
+            {
+                var objectId = GetPropertyValue<string>(node, "ObjectId", "");
+                var visible = GetPropertyValue<bool>(node, "Visible", true);
+
+                var obj = ctx.GameState.Objects.FirstOrDefault(o =>
+                    string.Equals(o.Id, objectId, StringComparison.OrdinalIgnoreCase));
+                if (obj != null && obj.IsContainer)
+                {
+                    obj.ContentsVisible = visible;
+                }
+                await Task.CompletedTask;
+            },
+
+            ["Action_SetObjectPrice"] = async (node, ctx) =>
+            {
+                var objectId = GetPropertyValue<string>(node, "ObjectId", "");
+                var price = GetPropertyValue<int>(node, "Price", 0);
+
+                var obj = ctx.GameState.Objects.FirstOrDefault(o =>
+                    string.Equals(o.Id, objectId, StringComparison.OrdinalIgnoreCase));
+                if (obj != null)
+                {
+                    obj.Price = price;
+                }
+                await Task.CompletedTask;
+            },
+
+            ["Action_SetObjectDurability"] = async (node, ctx) =>
+            {
+                var objectId = GetPropertyValue<string>(node, "ObjectId", "");
+                var durability = GetPropertyValue<int>(node, "Durability", 100);
+
+                var obj = ctx.GameState.Objects.FirstOrDefault(o =>
+                    string.Equals(o.Id, objectId, StringComparison.OrdinalIgnoreCase));
+                if (obj != null)
+                {
+                    obj.CurrentDurability = Math.Clamp(durability, 0, obj.MaxDurability);
+                }
+                await Task.CompletedTask;
+            },
+
+            ["Action_MoveObjectToRoom"] = async (node, ctx) =>
+            {
+                var objectId = GetPropertyValue<string>(node, "ObjectId", "");
+                var roomId = GetPropertyValue<string>(node, "RoomId", "");
+
+                var obj = ctx.GameState.Objects.FirstOrDefault(o =>
+                    string.Equals(o.Id, objectId, StringComparison.OrdinalIgnoreCase));
+
+                if (obj != null && !string.IsNullOrEmpty(roomId))
+                {
+                    // Quitar de inventario si está ahí
+                    ctx.GameState.InventoryObjectIds.RemoveAll(id =>
+                        string.Equals(id, objectId, StringComparison.OrdinalIgnoreCase));
+
+                    // Quitar de sala anterior
+                    if (!string.IsNullOrEmpty(obj.RoomId))
+                    {
+                        var oldRoom = ctx.GameState.Rooms.FirstOrDefault(r =>
+                            string.Equals(r.Id, obj.RoomId, StringComparison.OrdinalIgnoreCase));
+                        oldRoom?.ObjectIds.RemoveAll(id =>
+                            string.Equals(id, objectId, StringComparison.OrdinalIgnoreCase));
+                    }
+
+                    // Añadir a nueva sala
+                    obj.RoomId = roomId;
+                    var newRoom = ctx.GameState.Rooms.FirstOrDefault(r =>
+                        string.Equals(r.Id, roomId, StringComparison.OrdinalIgnoreCase));
+                    if (newRoom != null && !newRoom.ObjectIds.Contains(objectId))
+                    {
+                        newRoom.ObjectIds.Add(objectId);
+                    }
+                }
+                await Task.CompletedTask;
+            },
+
+            ["Action_PutObjectInContainer"] = async (node, ctx) =>
+            {
+                var objectId = GetPropertyValue<string>(node, "ObjectId", "");
+                var containerId = GetPropertyValue<string>(node, "ContainerId", "");
+
+                var obj = ctx.GameState.Objects.FirstOrDefault(o =>
+                    string.Equals(o.Id, objectId, StringComparison.OrdinalIgnoreCase));
+                var container = ctx.GameState.Objects.FirstOrDefault(o =>
+                    string.Equals(o.Id, containerId, StringComparison.OrdinalIgnoreCase));
+
+                if (obj != null && container != null && container.IsContainer)
+                {
+                    // Quitar de inventario
+                    ctx.GameState.InventoryObjectIds.RemoveAll(id =>
+                        string.Equals(id, objectId, StringComparison.OrdinalIgnoreCase));
+
+                    // Quitar de sala
+                    if (!string.IsNullOrEmpty(obj.RoomId))
+                    {
+                        var room = ctx.GameState.Rooms.FirstOrDefault(r =>
+                            string.Equals(r.Id, obj.RoomId, StringComparison.OrdinalIgnoreCase));
+                        room?.ObjectIds.RemoveAll(id =>
+                            string.Equals(id, objectId, StringComparison.OrdinalIgnoreCase));
+                        obj.RoomId = null;
+                    }
+
+                    // Añadir al contenedor
+                    if (!container.ContainedObjectIds.Contains(objectId))
+                    {
+                        container.ContainedObjectIds.Add(objectId);
+                    }
+                }
+                await Task.CompletedTask;
+            },
+
+            ["Action_RemoveObjectFromContainer"] = async (node, ctx) =>
+            {
+                var objectId = GetPropertyValue<string>(node, "ObjectId", "");
+                var containerId = GetPropertyValue<string>(node, "ContainerId", "");
+
+                var container = ctx.GameState.Objects.FirstOrDefault(o =>
+                    string.Equals(o.Id, containerId, StringComparison.OrdinalIgnoreCase));
+
+                if (container != null && container.IsContainer)
+                {
+                    container.ContainedObjectIds.RemoveAll(id =>
+                        string.Equals(id, objectId, StringComparison.OrdinalIgnoreCase));
                 }
                 await Task.CompletedTask;
             },
@@ -898,18 +1449,25 @@ public class ScriptEngine
                 await Task.CompletedTask;
             },
 
-            ["Action_AddGold"] = async (node, ctx) =>
+            ["Action_AddMoney"] = async (node, ctx) =>
             {
                 var amount = GetPropertyValue<int>(node, "Amount", 0);
-                ctx.GameState.Player.Gold += amount;
-                await Task.CompletedTask;
+                ctx.GameState.Player.Money += amount;
+                if (amount > 0)
+                {
+                    await TriggerEventAsync("Game", ctx.World.Game?.Id ?? "game", "Event_OnMoneyGained");
+                }
             },
 
-            ["Action_RemoveGold"] = async (node, ctx) =>
+            ["Action_RemoveMoney"] = async (node, ctx) =>
             {
                 var amount = GetPropertyValue<int>(node, "Amount", 0);
-                ctx.GameState.Player.Gold = Math.Max(0, ctx.GameState.Player.Gold - amount);
-                await Task.CompletedTask;
+                var hadMoney = ctx.GameState.Player.Money;
+                ctx.GameState.Player.Money = Math.Max(0, ctx.GameState.Player.Money - amount);
+                if (hadMoney > ctx.GameState.Player.Money)
+                {
+                    await TriggerEventAsync("Game", ctx.World.Game?.Id ?? "game", "Event_OnMoneyLost");
+                }
             },
 
             // === NPC PATROL HANDLERS ===
@@ -1129,7 +1687,7 @@ public class ScriptEngine
                 await Task.CompletedTask;
             },
 
-            ["Variable_GetPlayerGold"] = async (node, ctx) =>
+            ["Variable_GetPlayerMoney"] = async (node, ctx) =>
             {
                 await Task.CompletedTask;
             },
@@ -1364,6 +1922,101 @@ public class ScriptEngine
                 await Task.CompletedTask;
             },
 
+            ["Action_SetNpcMaxHealth"] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                var maxHealth = GetPropertyValue<int>(node, "MaxHealth", 100);
+                var npc = ctx.GameState.Npcs.FirstOrDefault(n =>
+                    string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
+                if (npc != null)
+                {
+                    npc.Stats.MaxHealth = maxHealth;
+                    if (npc.Stats.CurrentHealth > maxHealth)
+                        npc.Stats.CurrentHealth = maxHealth;
+                }
+                await Task.CompletedTask;
+            },
+
+            ["Action_ReviveNpc"] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                var healthPercent = GetPropertyValue<int>(node, "HealthPercent", 100);
+
+                var npc = ctx.GameState.Npcs.FirstOrDefault(n =>
+                    string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
+                if (npc != null)
+                {
+                    npc.IsCorpse = false;
+                    npc.Stats.CurrentHealth = (int)(npc.Stats.MaxHealth * healthPercent / 100.0);
+                    if (npc.Stats.CurrentHealth < 1) npc.Stats.CurrentHealth = 1;
+                }
+                await Task.CompletedTask;
+            },
+
+            ["Action_KillNpc"] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                var npc = ctx.GameState.Npcs.FirstOrDefault(n =>
+                    string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
+                if (npc != null)
+                {
+                    npc.Stats.CurrentHealth = 0;
+                    npc.IsCorpse = true;
+                }
+                await Task.CompletedTask;
+            },
+
+            ["Action_SetPatrolRoute"] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                var routeStr = GetPropertyValue<string>(node, "Route", "");
+
+                var npc = ctx.GameState.Npcs.FirstOrDefault(n =>
+                    string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
+                if (npc != null)
+                {
+                    // La ruta viene como IDs separados por coma
+                    npc.PatrolRoute = string.IsNullOrEmpty(routeStr)
+                        ? new List<string>()
+                        : routeStr.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                            .Select(s => s.Trim())
+                            .ToList();
+                }
+                await Task.CompletedTask;
+            },
+
+            ["Action_AddItemToNpcInventory"] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                var objectId = GetPropertyValue<string>(node, "ObjectId", "");
+
+                var npc = ctx.GameState.Npcs.FirstOrDefault(n =>
+                    string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
+                if (npc != null && !string.IsNullOrEmpty(objectId))
+                {
+                    if (!npc.InventoryObjectIds.Contains(objectId))
+                    {
+                        npc.InventoryObjectIds.Add(objectId);
+                    }
+                }
+                await Task.CompletedTask;
+            },
+
+            ["Action_RemoveItemFromNpcInventory"] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                var objectId = GetPropertyValue<string>(node, "ObjectId", "");
+
+                var npc = ctx.GameState.Npcs.FirstOrDefault(n =>
+                    string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
+                if (npc != null)
+                {
+                    npc.InventoryObjectIds.RemoveAll(id =>
+                        string.Equals(id, objectId, StringComparison.OrdinalIgnoreCase));
+                }
+                await Task.CompletedTask;
+            },
+
             // === ACCIONES DE COMBATE ADICIONALES ===
             ["Action_SetPlayerMaxHealth"] = async (node, ctx) =>
             {
@@ -1446,34 +2099,37 @@ public class ScriptEngine
                 // This action just signals intent - actual close happens in UI layer
                 await Task.CompletedTask;
             },
-            ["Action_AddPlayerGold"] = async (node, ctx) =>
+            ["Action_AddPlayerMoney"] = async (node, ctx) =>
             {
                 var amount = GetPropertyValue<int>(node, "Amount", 100);
-                ctx.GameState.Player.Gold += amount;
-                await Task.CompletedTask;
-            },
-            ["Action_RemovePlayerGold"] = async (node, ctx) =>
-            {
-                var amount = GetPropertyValue<int>(node, "Amount", 100);
-                if (ctx.GameState.Player.Gold >= amount)
+                ctx.GameState.Player.Money += amount;
+                if (amount > 0)
                 {
-                    ctx.GameState.Player.Gold -= amount;
+                    await TriggerEventAsync("Game", ctx.World.Game?.Id ?? "game", "Event_OnMoneyGained");
+                }
+            },
+            ["Action_RemovePlayerMoney"] = async (node, ctx) =>
+            {
+                var amount = GetPropertyValue<int>(node, "Amount", 100);
+                if (ctx.GameState.Player.Money >= amount)
+                {
+                    ctx.GameState.Player.Money -= amount;
+                    await TriggerEventAsync("Game", ctx.World.Game?.Id ?? "game", "Event_OnMoneyLost");
                 }
                 else
                 {
                     ctx.NextOutputPort = "OnInsufficient";
                 }
-                await Task.CompletedTask;
             },
-            ["Action_SetNpcGold"] = async (node, ctx) =>
+            ["Action_SetNpcMoney"] = async (node, ctx) =>
             {
                 var npcId = GetPropertyValue<string>(node, "NpcId", "");
-                var gold = GetPropertyValue<int>(node, "Gold", -1);
+                var money = GetPropertyValue<int>(node, "Money", -1);
                 var npc = ctx.GameState.Npcs.FirstOrDefault(n =>
                     string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
                 if (npc != null)
                 {
-                    npc.Gold = gold;
+                    npc.Money = money;
                 }
                 await Task.CompletedTask;
             },
@@ -1481,12 +2137,13 @@ public class ScriptEngine
             {
                 var npcId = GetPropertyValue<string>(node, "NpcId", "");
                 var objectId = GetPropertyValue<string>(node, "ObjectId", "");
+                var quantity = GetPropertyValue<int>(node, "Quantity", -1);
                 var npc = ctx.GameState.Npcs.FirstOrDefault(n =>
                     string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
                 if (npc != null && !string.IsNullOrEmpty(objectId) &&
-                    !npc.ShopInventory.Contains(objectId, StringComparer.OrdinalIgnoreCase))
+                    !npc.ShopInventory.Any(si => string.Equals(si.ObjectId, objectId, StringComparison.OrdinalIgnoreCase)))
                 {
-                    npc.ShopInventory.Add(objectId);
+                    npc.ShopInventory.Add(new ShopItem { ObjectId = objectId, Quantity = quantity });
                 }
                 await Task.CompletedTask;
             },
@@ -1498,8 +2155,8 @@ public class ScriptEngine
                     string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
                 if (npc != null && !string.IsNullOrEmpty(objectId))
                 {
-                    npc.ShopInventory.RemoveAll(id =>
-                        string.Equals(id, objectId, StringComparison.OrdinalIgnoreCase));
+                    npc.ShopInventory.RemoveAll(si =>
+                        string.Equals(si.ObjectId, objectId, StringComparison.OrdinalIgnoreCase));
                 }
                 await Task.CompletedTask;
             },
@@ -1785,8 +2442,130 @@ public class ScriptEngine
                 };
                 ctx.SetOutputValue(node.Id, "Value", (int)rate);
                 await Task.CompletedTask;
-            }
+            },
+
+            // === ACCESO GENÉRICO A PROPIEDADES ===
+            ["Condition_CompareProperty"] = async (node, ctx) =>
+            {
+                var entityType = GetPropertyValue<string>(node, "EntityType", "");
+                var entityId = GetPropertyValue<string>(node, "EntityId", "");
+                var propertyName = GetPropertyValue<string>(node, "PropertyName", "");
+                var op = GetPropertyValue<string>(node, "Operator", "==");
+                var compareValue = GetPropertyValue<string>(node, "CompareValue", "");
+
+                var currentValue = GetEntityPropertyValue(ctx, entityType ?? "", entityId ?? "", propertyName ?? "");
+                var result = CompareValues(currentValue, op ?? "==", compareValue ?? "");
+
+                ctx.NextOutputPort = result ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
+            ["Action_SetProperty"] = async (node, ctx) =>
+            {
+                var entityType = GetPropertyValue<string>(node, "EntityType", "");
+                var entityId = GetPropertyValue<string>(node, "EntityId", "");
+                var propertyName = GetPropertyValue<string>(node, "PropertyName", "");
+                var value = GetPropertyValue<string>(node, "Value", "");
+
+                var oldValue = GetEntityPropertyValue(ctx, entityType ?? "", entityId ?? "", propertyName ?? "");
+                var success = SetEntityPropertyValue(ctx, entityType ?? "", entityId ?? "", propertyName ?? "", value);
+
+                if (success)
+                {
+                    var newValue = GetEntityPropertyValue(ctx, entityType ?? "", entityId ?? "", propertyName ?? "");
+                    // Si el valor cambió, podemos usar puerto OnChanged
+                    var changed = !Equals(oldValue, newValue);
+                    if (changed)
+                    {
+                        // Disparar evento de cambio de propiedad
+                        await TriggerPropertyChangedEvent(ctx, entityType ?? "", entityId ?? "", propertyName ?? "", oldValue, newValue);
+                    }
+                }
+                await Task.CompletedTask;
+            },
+
+            ["Action_ModifyProperty"] = async (node, ctx) =>
+            {
+                var entityType = GetPropertyValue<string>(node, "EntityType", "");
+                var entityId = GetPropertyValue<string>(node, "EntityId", "");
+                var propertyName = GetPropertyValue<string>(node, "PropertyName", "");
+                var operation = GetPropertyValue<string>(node, "Operation", "Add");
+                var amount = GetPropertyValue<double>(node, "Amount", 0);
+
+                var currentValue = GetEntityPropertyValue(ctx, entityType ?? "", entityId ?? "", propertyName ?? "");
+                if (currentValue != null)
+                {
+                    var currentNum = Convert.ToDouble(currentValue);
+                    var newNum = operation switch
+                    {
+                        "Add" => currentNum + amount,
+                        "Subtract" => currentNum - amount,
+                        "Multiply" => currentNum * amount,
+                        "Divide" when amount != 0 => currentNum / amount,
+                        _ => currentNum
+                    };
+
+                    // Determinar si es int o double
+                    object newValue = currentValue is int || currentValue is long
+                        ? (int)Math.Round(newNum)
+                        : newNum;
+
+                    var oldValue = currentValue;
+                    SetEntityPropertyValue(ctx, entityType ?? "", entityId ?? "", propertyName ?? "", newValue);
+
+                    // Disparar evento de cambio
+                    await TriggerPropertyChangedEvent(ctx, entityType ?? "", entityId ?? "", propertyName ?? "", oldValue, newValue);
+                }
+                await Task.CompletedTask;
+            },
+
+            ["Variable_GetProperty"] = async (node, ctx) =>
+            {
+                var entityType = GetPropertyValue<string>(node, "EntityType", "");
+                var entityId = GetPropertyValue<string>(node, "EntityId", "");
+                var propertyName = GetPropertyValue<string>(node, "PropertyName", "");
+
+                var value = GetEntityPropertyValue(ctx, entityType ?? "", entityId ?? "", propertyName ?? "");
+                ctx.SetOutputValue(node.Id, "Value", value);
+                await Task.CompletedTask;
+            },
+
+            // Evento de cambio de propiedad (entry point)
+            ["Event_OnPropertyChanged"] = async (node, ctx) => { await Task.CompletedTask; }
         };
+    }
+
+    /// <summary>
+    /// Dispara el evento de cambio de propiedad para los scripts que lo escuchen.
+    /// </summary>
+    private async Task TriggerPropertyChangedEvent(ScriptContext ctx, string entityType, string entityId, string propertyName, object? oldValue, object? newValue)
+    {
+        // Buscar scripts que tengan Event_OnPropertyChanged para este tipo de entidad y propiedad
+        var scripts = _world.Scripts.Where(s =>
+            s.Nodes.Any(n =>
+                n.NodeType == "Event_OnPropertyChanged" &&
+                string.Equals(n.Properties.TryGetValue("EntityType", out var et) ? et?.ToString() : "", entityType, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(n.Properties.TryGetValue("PropertyName", out var pn) ? pn?.ToString() : "", propertyName, StringComparison.OrdinalIgnoreCase)
+            )).ToList();
+
+        foreach (var script in scripts)
+        {
+            var eventNode = script.Nodes.FirstOrDefault(n =>
+                n.NodeType == "Event_OnPropertyChanged" &&
+                string.Equals(n.Properties.TryGetValue("EntityType", out var et) ? et?.ToString() : "", entityType, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(n.Properties.TryGetValue("PropertyName", out var pn) ? pn?.ToString() : "", propertyName, StringComparison.OrdinalIgnoreCase));
+
+            if (eventNode != null)
+            {
+                var newContext = new ScriptContext(script, _gameState, _world);
+                // Establecer valores de salida del evento
+                newContext.SetOutputValue(eventNode.Id, "EntityId", entityId);
+                newContext.SetOutputValue(eventNode.Id, "OldValue", oldValue?.ToString() ?? "");
+                newContext.SetOutputValue(eventNode.Id, "NewValue", newValue?.ToString() ?? "");
+
+                await ExecuteFromNodeAsync(eventNode, "Exec", newContext);
+            }
+        }
     }
 
     /// <summary>
@@ -1810,7 +2589,7 @@ public class ScriptEngine
             "Intelligence" => gameState.Player.Intelligence,
             "Dexterity" => gameState.Player.Dexterity,
             "Charisma" => gameState.Player.Charisma,
-            "Gold" => gameState.Player.Gold,
+            "Money" => gameState.Player.Money,
             _ => 0
         };
     }
@@ -1864,11 +2643,397 @@ public class ScriptEngine
             case "Charisma":
                 gameState.Player.Charisma = Math.Max(0, value);
                 break;
-            case "Gold":
-                gameState.Player.Gold = Math.Max(0, value);
+            case "Money":
+                gameState.Player.Money = Math.Max(0, value);
                 break;
         }
     }
+
+    #region Property Access Helper
+
+    /// <summary>
+    /// Diccionario de propiedades accesibles por tipo de entidad.
+    /// </summary>
+    private static readonly Dictionary<string, string[]> AccessibleProperties = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Room"] = new[] { "Name", "Description", "IsInterior", "IsIlluminated", "MusicId" },
+        ["Door"] = new[] { "Name", "Description", "IsOpen", "IsLocked", "Visible", "KeyObjectId" },
+        ["Npc"] = new[] { "Name", "Description", "RoomId", "Visible", "IsPatrolling", "IsFollowingPlayer", "Money", "IsCorpse", "IsShopkeeper", "CurrentHealth", "MaxHealth" },
+        ["GameObject"] = new[] { "Name", "Description", "RoomId", "Visible", "CanTake", "IsOpen", "IsLocked", "Price", "Weight", "Volume", "AttackBonus", "DefenseBonus", "IsLit" },
+        ["Player"] = new[] { "Name", "Strength", "Constitution", "Intelligence", "Dexterity", "Charisma", "Money", "Health", "MaxHealth", "Hunger", "Thirst", "Energy", "Sleep", "Sanity", "Mana", "MaxMana" },
+        ["Game"] = new[] { "Weather", "Title", "GameHour", "GameMinute", "TurnCounter" }
+    };
+
+    /// <summary>
+    /// Obtiene las propiedades accesibles para un tipo de entidad.
+    /// </summary>
+    public static string[] GetAccessibleProperties(string entityType)
+    {
+        return AccessibleProperties.TryGetValue(entityType, out var props) ? props : Array.Empty<string>();
+    }
+
+    /// <summary>
+    /// Resuelve una entidad por tipo e ID.
+    /// </summary>
+    private object? ResolveEntity(ScriptContext ctx, string entityType, string entityId)
+    {
+        return entityType.ToLowerInvariant() switch
+        {
+            "room" => ctx.GameState.Rooms.FirstOrDefault(r => string.Equals(r.Id, entityId, StringComparison.OrdinalIgnoreCase)),
+            "door" => ctx.GameState.Doors.FirstOrDefault(d => string.Equals(d.Id, entityId, StringComparison.OrdinalIgnoreCase)),
+            "npc" => ctx.GameState.Npcs.FirstOrDefault(n => string.Equals(n.Id, entityId, StringComparison.OrdinalIgnoreCase)),
+            "gameobject" => ctx.GameState.Objects.FirstOrDefault(o => string.Equals(o.Id, entityId, StringComparison.OrdinalIgnoreCase)),
+            "player" => ctx.GameState.Player,
+            "game" => ctx.World.Game,
+            _ => null
+        };
+    }
+
+    /// <summary>
+    /// Obtiene el valor de una propiedad de una entidad.
+    /// </summary>
+    private object? GetEntityPropertyValue(ScriptContext ctx, string entityType, string entityId, string propertyName)
+    {
+        var entity = ResolveEntity(ctx, entityType, entityId);
+        if (entity == null) return null;
+
+        return entityType.ToLowerInvariant() switch
+        {
+            "room" => GetRoomPropertyValue((Room)entity, propertyName),
+            "door" => GetDoorPropertyValue((Door)entity, propertyName),
+            "npc" => GetNpcPropertyValue((Npc)entity, propertyName),
+            "gameobject" => GetGameObjectPropertyValue((GameObject)entity, propertyName),
+            "player" => GetPlayerPropertyValue(ctx.GameState, propertyName),
+            "game" => GetGamePropertyValue(ctx, propertyName),
+            _ => null
+        };
+    }
+
+    /// <summary>
+    /// Establece el valor de una propiedad de una entidad.
+    /// </summary>
+    private bool SetEntityPropertyValue(ScriptContext ctx, string entityType, string entityId, string propertyName, object? value)
+    {
+        var entity = ResolveEntity(ctx, entityType, entityId);
+        if (entity == null) return false;
+
+        return entityType.ToLowerInvariant() switch
+        {
+            "room" => SetRoomPropertyValue((Room)entity, propertyName, value),
+            "door" => SetDoorPropertyValue((Door)entity, propertyName, value),
+            "npc" => SetNpcPropertyValue((Npc)entity, propertyName, value),
+            "gameobject" => SetGameObjectPropertyValue((GameObject)entity, propertyName, value),
+            "player" => SetPlayerPropertyValue(ctx.GameState, propertyName, value),
+            "game" => SetGamePropertyValue(ctx, propertyName, value),
+            _ => false
+        };
+    }
+
+    private object? GetRoomPropertyValue(Room room, string propertyName)
+    {
+        return propertyName switch
+        {
+            "Name" => room.Name,
+            "Description" => room.Description,
+            "IsInterior" => room.IsInterior,
+            "IsIlluminated" => room.IsIlluminated,
+            "MusicId" => room.MusicId,
+            _ => null
+        };
+    }
+
+    private bool SetRoomPropertyValue(Room room, string propertyName, object? value)
+    {
+        switch (propertyName)
+        {
+            case "Name": room.Name = value?.ToString() ?? ""; return true;
+            case "Description": room.Description = value?.ToString() ?? ""; return true;
+            case "IsInterior": room.IsInterior = ConvertToBool(value); return true;
+            case "IsIlluminated": room.IsIlluminated = ConvertToBool(value); return true;
+            case "MusicId": room.MusicId = value?.ToString(); return true;
+            default: return false;
+        }
+    }
+
+    private object? GetDoorPropertyValue(Door door, string propertyName)
+    {
+        return propertyName switch
+        {
+            "Name" => door.Name,
+            "Description" => door.Description,
+            "IsOpen" => door.IsOpen,
+            "IsLocked" => door.IsLocked,
+            "Visible" => door.Visible,
+            "KeyObjectId" => door.KeyObjectId,
+            _ => null
+        };
+    }
+
+    private bool SetDoorPropertyValue(Door door, string propertyName, object? value)
+    {
+        switch (propertyName)
+        {
+            case "Name": door.Name = value?.ToString() ?? ""; return true;
+            case "Description": door.Description = value?.ToString() ?? ""; return true;
+            case "IsOpen": door.IsOpen = ConvertToBool(value); return true;
+            case "IsLocked": door.IsLocked = ConvertToBool(value); return true;
+            case "Visible": door.Visible = ConvertToBool(value); return true;
+            case "KeyObjectId": door.KeyObjectId = value?.ToString(); return true;
+            default: return false;
+        }
+    }
+
+    private object? GetNpcPropertyValue(Npc npc, string propertyName)
+    {
+        return propertyName switch
+        {
+            "Name" => npc.Name,
+            "Description" => npc.Description,
+            "RoomId" => npc.RoomId,
+            "Visible" => npc.Visible,
+            "IsPatrolling" => npc.IsPatrolling,
+            "IsFollowingPlayer" => npc.IsFollowingPlayer,
+            "Money" => npc.Money,
+            "IsCorpse" => npc.IsCorpse,
+            "IsShopkeeper" => npc.IsShopkeeper,
+            "CurrentHealth" => npc.Stats.CurrentHealth,
+            "MaxHealth" => npc.Stats.MaxHealth,
+            _ => null
+        };
+    }
+
+    private bool SetNpcPropertyValue(Npc npc, string propertyName, object? value)
+    {
+        switch (propertyName)
+        {
+            case "Name": npc.Name = value?.ToString() ?? ""; return true;
+            case "Description": npc.Description = value?.ToString() ?? ""; return true;
+            case "RoomId": npc.RoomId = value?.ToString() ?? ""; return true;
+            case "Visible": npc.Visible = ConvertToBool(value); return true;
+            case "IsPatrolling": npc.IsPatrolling = ConvertToBool(value); return true;
+            case "IsFollowingPlayer": npc.IsFollowingPlayer = ConvertToBool(value); return true;
+            case "Money": npc.Money = ConvertToInt(value); return true;
+            case "IsCorpse": npc.IsCorpse = ConvertToBool(value); return true;
+            case "IsShopkeeper": npc.IsShopkeeper = ConvertToBool(value); return true;
+            case "CurrentHealth": npc.Stats.CurrentHealth = ConvertToInt(value); return true;
+            case "MaxHealth": npc.Stats.MaxHealth = ConvertToInt(value); return true;
+            default: return false;
+        }
+    }
+
+    private object? GetGameObjectPropertyValue(GameObject obj, string propertyName)
+    {
+        return propertyName switch
+        {
+            "Name" => obj.Name,
+            "Description" => obj.Description,
+            "RoomId" => obj.RoomId,
+            "Visible" => obj.Visible,
+            "CanTake" => obj.CanTake,
+            "IsOpen" => obj.IsOpen,
+            "IsLocked" => obj.IsLocked,
+            "Price" => obj.Price,
+            "Weight" => obj.Weight,
+            "Volume" => obj.Volume,
+            "AttackBonus" => obj.AttackBonus,
+            "DefenseBonus" => obj.DefenseBonus,
+            "IsLit" => obj.IsLit,
+            _ => null
+        };
+    }
+
+    private bool SetGameObjectPropertyValue(GameObject obj, string propertyName, object? value)
+    {
+        switch (propertyName)
+        {
+            case "Name": obj.Name = value?.ToString() ?? ""; return true;
+            case "Description": obj.Description = value?.ToString() ?? ""; return true;
+            case "RoomId": obj.RoomId = value?.ToString(); return true;
+            case "Visible": obj.Visible = ConvertToBool(value); return true;
+            case "CanTake": obj.CanTake = ConvertToBool(value); return true;
+            case "IsOpen": obj.IsOpen = ConvertToBool(value); return true;
+            case "IsLocked": obj.IsLocked = ConvertToBool(value); return true;
+            case "Price": obj.Price = ConvertToInt(value); return true;
+            case "Weight": obj.Weight = ConvertToInt(value); return true;
+            case "Volume": obj.Volume = ConvertToDouble(value); return true;
+            case "AttackBonus": obj.AttackBonus = ConvertToInt(value); return true;
+            case "DefenseBonus": obj.DefenseBonus = ConvertToInt(value); return true;
+            case "IsLit": obj.IsLit = ConvertToBool(value); return true;
+            default: return false;
+        }
+    }
+
+    private object? GetPlayerPropertyValue(GameState gameState, string propertyName)
+    {
+        return propertyName switch
+        {
+            "Name" => gameState.Player.Name,
+            "Strength" => gameState.Player.Strength,
+            "Constitution" => gameState.Player.Constitution,
+            "Intelligence" => gameState.Player.Intelligence,
+            "Dexterity" => gameState.Player.Dexterity,
+            "Charisma" => gameState.Player.Charisma,
+            "Money" => gameState.Player.Money,
+            "Health" => gameState.Player.DynamicStats.Health,
+            "MaxHealth" => gameState.Player.DynamicStats.MaxHealth,
+            "Hunger" => gameState.Player.DynamicStats.Hunger,
+            "Thirst" => gameState.Player.DynamicStats.Thirst,
+            "Energy" => gameState.Player.DynamicStats.Energy,
+            "Sleep" => gameState.Player.DynamicStats.Sleep,
+            "Sanity" => gameState.Player.DynamicStats.Sanity,
+            "Mana" => gameState.Player.DynamicStats.Mana,
+            "MaxMana" => gameState.Player.DynamicStats.MaxMana,
+            _ => null
+        };
+    }
+
+    private bool SetPlayerPropertyValue(GameState gameState, string propertyName, object? value)
+    {
+        switch (propertyName)
+        {
+            case "Name": gameState.Player.Name = value?.ToString() ?? ""; return true;
+            case "Strength": gameState.Player.Strength = ConvertToInt(value); return true;
+            case "Constitution": gameState.Player.Constitution = ConvertToInt(value); return true;
+            case "Intelligence": gameState.Player.Intelligence = ConvertToInt(value); return true;
+            case "Dexterity": gameState.Player.Dexterity = ConvertToInt(value); return true;
+            case "Charisma": gameState.Player.Charisma = ConvertToInt(value); return true;
+            case "Money": gameState.Player.Money = ConvertToInt(value); return true;
+            case "Health": gameState.Player.DynamicStats.Health = Math.Clamp(ConvertToInt(value), 0, gameState.Player.DynamicStats.MaxHealth); return true;
+            case "MaxHealth": gameState.Player.DynamicStats.MaxHealth = Math.Max(1, ConvertToInt(value)); return true;
+            case "Hunger": gameState.Player.DynamicStats.Hunger = Math.Clamp(ConvertToInt(value), 0, 100); return true;
+            case "Thirst": gameState.Player.DynamicStats.Thirst = Math.Clamp(ConvertToInt(value), 0, 100); return true;
+            case "Energy": gameState.Player.DynamicStats.Energy = Math.Clamp(ConvertToInt(value), 0, 100); return true;
+            case "Sleep": gameState.Player.DynamicStats.Sleep = Math.Clamp(ConvertToInt(value), 0, 100); return true;
+            case "Sanity": gameState.Player.DynamicStats.Sanity = Math.Clamp(ConvertToInt(value), 0, 100); return true;
+            case "Mana": gameState.Player.DynamicStats.Mana = Math.Clamp(ConvertToInt(value), 0, gameState.Player.DynamicStats.MaxMana); return true;
+            case "MaxMana": gameState.Player.DynamicStats.MaxMana = Math.Max(0, ConvertToInt(value)); return true;
+            default: return false;
+        }
+    }
+
+    private object? GetGamePropertyValue(ScriptContext ctx, string propertyName)
+    {
+        return propertyName switch
+        {
+            "Weather" => ctx.GameState.Weather.ToString(),
+            "Title" => ctx.World.Game?.Title ?? "",
+            "GameHour" => ctx.GameState.GameTime.Hour,
+            "GameMinute" => ctx.GameState.GameTime.Minute,
+            "TurnCounter" => ctx.GameState.TurnCounter,
+            _ => null
+        };
+    }
+
+    private bool SetGamePropertyValue(ScriptContext ctx, string propertyName, object? value)
+    {
+        switch (propertyName)
+        {
+            case "Weather":
+                if (Enum.TryParse<WeatherType>(value?.ToString() ?? "Despejado", true, out var weather))
+                {
+                    ctx.GameState.Weather = weather;
+                    return true;
+                }
+                return false;
+            case "GameHour":
+                var clampedHour = Math.Clamp(ConvertToInt(value), 0, 23);
+                var currentTime = ctx.GameState.GameTime;
+                ctx.GameState.GameTime = new DateTime(
+                    currentTime.Year, currentTime.Month, currentTime.Day,
+                    clampedHour, currentTime.Minute, currentTime.Second);
+                return true;
+            case "GameMinute":
+                var clampedMinute = Math.Clamp(ConvertToInt(value), 0, 59);
+                var currentTimeForMinute = ctx.GameState.GameTime;
+                ctx.GameState.GameTime = new DateTime(
+                    currentTimeForMinute.Year, currentTimeForMinute.Month, currentTimeForMinute.Day,
+                    currentTimeForMinute.Hour, clampedMinute, currentTimeForMinute.Second);
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static bool ConvertToBool(object? value)
+    {
+        if (value == null) return false;
+        if (value is bool b) return b;
+        if (value is JsonElement je && je.ValueKind == JsonValueKind.True) return true;
+        if (value is JsonElement je2 && je2.ValueKind == JsonValueKind.False) return false;
+        var str = value.ToString()?.ToLowerInvariant();
+        return str == "true" || str == "1" || str == "yes" || str == "si";
+    }
+
+    private static int ConvertToInt(object? value)
+    {
+        if (value == null) return 0;
+        if (value is int i) return i;
+        if (value is long l) return (int)l;
+        if (value is double d) return (int)d;
+        if (value is JsonElement je && je.TryGetInt32(out var jint)) return jint;
+        if (int.TryParse(value.ToString(), out var parsed)) return parsed;
+        return 0;
+    }
+
+    private static double ConvertToDouble(object? value)
+    {
+        if (value == null) return 0;
+        if (value is double d) return d;
+        if (value is int i) return i;
+        if (value is float f) return f;
+        if (value is JsonElement je && je.TryGetDouble(out var jd)) return jd;
+        if (double.TryParse(value.ToString(), out var parsed)) return parsed;
+        return 0;
+    }
+
+    /// <summary>
+    /// Compara dos valores según un operador.
+    /// </summary>
+    private static bool CompareValues(object? leftValue, string op, string rightValueStr)
+    {
+        if (leftValue == null) return false;
+
+        // Para booleanos
+        if (leftValue is bool leftBool)
+        {
+            var rightBool = rightValueStr.ToLowerInvariant() == "true" || rightValueStr == "1" || rightValueStr.ToLowerInvariant() == "yes";
+            return op switch
+            {
+                "==" => leftBool == rightBool,
+                "!=" => leftBool != rightBool,
+                _ => false
+            };
+        }
+
+        // Para números
+        if (leftValue is int || leftValue is long || leftValue is double || leftValue is float)
+        {
+            var leftNum = Convert.ToDouble(leftValue);
+            if (!double.TryParse(rightValueStr, out var rightNum)) return false;
+
+            return op switch
+            {
+                "==" => Math.Abs(leftNum - rightNum) < 0.0001,
+                "!=" => Math.Abs(leftNum - rightNum) >= 0.0001,
+                "<" => leftNum < rightNum,
+                "<=" => leftNum <= rightNum,
+                ">" => leftNum > rightNum,
+                ">=" => leftNum >= rightNum,
+                _ => false
+            };
+        }
+
+        // Para strings
+        var leftStr = leftValue.ToString() ?? "";
+        return op switch
+        {
+            "==" => string.Equals(leftStr, rightValueStr, StringComparison.OrdinalIgnoreCase),
+            "!=" => !string.Equals(leftStr, rightValueStr, StringComparison.OrdinalIgnoreCase),
+            _ => false
+        };
+    }
+
+    #endregion
 }
 
 /// <summary>

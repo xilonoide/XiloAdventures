@@ -43,7 +43,7 @@ public class PlayerStats
     /// <summary>
     /// Dinero del jugador en monedas.
     /// </summary>
-    public int Gold { get; set; } = 0;
+    public int Money { get; set; } = 0;
 
     #region Inventory Capacity
 
@@ -206,7 +206,7 @@ public class PlayerDefinition
     /// <summary>
     /// Dinero inicial en monedas (mínimo 0).
     /// </summary>
-    public int InitialGold { get; set; } = 0;
+    public int InitialMoney { get; set; } = 0;
 
     /// <summary>
     /// Peso máximo que puede cargar el jugador en gramos. -1 = ilimitado.

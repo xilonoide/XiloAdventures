@@ -287,8 +287,8 @@ public class NodeTypeRegistryTests
     [InlineData("Action_SetCounter")]
     [InlineData("Action_StartQuest")]
     [InlineData("Action_CompleteQuest")]
-    [InlineData("Action_AddGold")]
-    [InlineData("Action_RemoveGold")]
+    [InlineData("Action_AddMoney")]
+    [InlineData("Action_RemoveMoney")]
     public void ActionNodes_Exist(string typeId)
     {
         var node = NodeTypeRegistry.GetNodeType(typeId);
@@ -566,9 +566,9 @@ public class NodeTypeRegistryTests
     }
 
     [Theory]
-    [InlineData("Action_SetGold")]
-    [InlineData("Action_AddGoldData")]
-    [InlineData("Action_RemoveGoldData")]
+    [InlineData("Action_SetMoney")]
+    [InlineData("Action_AddMoneyData")]
+    [InlineData("Action_RemoveMoneyData")]
     [InlineData("Action_SetCounterData")]
     [InlineData("Action_IncrementCounterData")]
     public void DataDrivenActionNodes_Exist(string typeId)
@@ -594,7 +594,7 @@ public class NodeTypeRegistryTests
 
     [Theory]
     [InlineData("Variable_GetGameHour")]
-    [InlineData("Variable_GetPlayerGold")]
+    [InlineData("Variable_GetPlayerMoney")]
     [InlineData("Variable_GetCurrentRoom")]
     [InlineData("Variable_GetCurrentWeather")]
     public void GameStateVariableNodes_Exist(string typeId)
@@ -641,7 +641,7 @@ public class NodeTypeRegistryTests
 
     [Theory]
     [InlineData("Compare_Int")]
-    [InlineData("Compare_PlayerGold")]
+    [InlineData("Compare_PlayerMoney")]
     [InlineData("Compare_Counter")]
     public void CompareNodes_Exist(string typeId)
     {

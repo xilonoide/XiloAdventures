@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using XiloAdventures.Engine.Models.Enums;
@@ -69,18 +70,30 @@ public class Room
     public List<string> NpcIds { get; set; } = new();
 
     /// <summary>
-    /// ID de la misión requerida para acceder a esta sala.
+    /// Lista de requisitos de misiones para acceder a esta sala.
     /// </summary>
+    public List<QuestRequirement> RequiredQuests { get; set; } = new();
+
+    /// <summary>
+    /// ID de la misión requerida para acceder a esta sala.
+    /// Obsoleto: usar RequiredQuests en su lugar.
+    /// </summary>
+    [Browsable(false)]
+    [Obsolete("Use RequiredQuests instead")]
     public string? RequiredQuestId { get; set; }
 
     /// <summary>
     /// Estado requerido de la misión para acceder a esta sala.
+    /// Obsoleto: usar RequiredQuests en su lugar.
     /// </summary>
+    [Browsable(false)]
+    [Obsolete("Use RequiredQuests instead")]
     public QuestStatus? RequiredQuestStatus { get; set; }
 
     /// <summary>
     /// Tags arbitrarios para lógica de scripts y eventos.
     /// </summary>
+    [Browsable(false)]
     public List<string> Tags { get; set; } = new();
 }
 
@@ -116,17 +129,29 @@ public class Exit
     public string? DoorId { get; set; }
 
     /// <summary>
-    /// ID de la misión requerida para usar esta salida.
+    /// Lista de requisitos de misiones para usar esta salida.
     /// </summary>
+    public List<QuestRequirement> RequiredQuests { get; set; } = new();
+
+    /// <summary>
+    /// ID de la misión requerida para usar esta salida.
+    /// Obsoleto: usar RequiredQuests en su lugar.
+    /// </summary>
+    [Browsable(false)]
+    [Obsolete("Use RequiredQuests instead")]
     public string? RequiredQuestId { get; set; }
 
     /// <summary>
     /// Estado requerido de la misión para usar esta salida.
+    /// Obsoleto: usar RequiredQuests en su lugar.
     /// </summary>
+    [Browsable(false)]
+    [Obsolete("Use RequiredQuests instead")]
     public QuestStatus? RequiredQuestStatus { get; set; }
 
     /// <summary>
     /// Tags arbitrarios para lógica de scripts y eventos.
     /// </summary>
+    [Browsable(false)]
     public List<string> Tags { get; set; } = new();
 }

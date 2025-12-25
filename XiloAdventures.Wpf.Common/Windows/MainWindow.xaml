@@ -249,7 +249,7 @@
                     <TextBlock Text="Dinero"
                                FontWeight="Bold"
                                Margin="0,4,0,0"/>
-                    <TextBlock x:Name="GoldLabel"
+                    <TextBlock x:Name="MoneyLabel"
                                TextWrapping="Wrap"
                                Margin="0,0,0,4"/>
                     <TextBlock Text="Hora"

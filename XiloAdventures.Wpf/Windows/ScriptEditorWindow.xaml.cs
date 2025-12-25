@@ -1630,7 +1630,7 @@ public partial class ScriptEditorWindow : Window
         }
 
         // Dinero
-        TestGoldLabel.Text = state.Player.Gold.ToString("N0");
+        TestMoneyLabel.Text = state.Player.Money.ToString("N0");
 
         // Inventario
         if (state.InventoryObjectIds.Count == 0)

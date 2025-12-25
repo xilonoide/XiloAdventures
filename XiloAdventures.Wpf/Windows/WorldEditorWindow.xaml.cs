@@ -84,6 +84,8 @@ public partial class WorldEditorWindow : Window
         PropertyEditor.GetMusics = () => _world.Musics;
         PropertyEditor.GetObjects = () => _world.Objects;
         PropertyEditor.GetAbilities = () => _world.Abilities;
+        PropertyEditor.GetQuests = () => _world.Quests;
+        PropertyEditor.GetGameInfo = () => _world.Game;
         PropertyEditor.GetParserDictionary = () => _world.Game.ParserDictionaryJson;
         PropertyEditor.SetParserDictionary = json =>
         {
@@ -1570,7 +1572,7 @@ public partial class WorldEditorWindow : Window
         TestStatsLabel.Text = string.Join("\n", statsLines);
 
         // Dinero
-        TestGoldLabel.Text = playerStats.Gold.ToString("N0");
+        TestMoneyLabel.Text = playerStats.Money.ToString("N0");
 
         // Hora del juego
         var gameTime = state.GameTime;
@@ -2037,9 +2039,9 @@ public partial class WorldEditorWindow : Window
         }
 
         // Validar y corregir dinero inicial si es negativo
-        if (_world.Player.InitialGold < 0)
+        if (_world.Player.InitialMoney < 0)
         {
-            _world.Player.InitialGold = 0;
+            _world.Player.InitialMoney = 0;
         }
 
         return true;

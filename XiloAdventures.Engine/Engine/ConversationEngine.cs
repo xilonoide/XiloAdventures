@@ -378,7 +378,7 @@ public class ConversationEngine
         {
             "HasFlag" => EvaluateHasFlag(node),
             "HasItem" => EvaluateHasItem(node),
-            "HasGold" => EvaluateHasGold(node),
+            "HasMoney" => EvaluateHasMoney(node),
             "QuestStatus" => EvaluateQuestStatus(node),
             "VisitedNode" => _gameState.ActiveConversation?.VisitedNodeIds.Contains(node.Id) ?? false,
             _ => false
@@ -400,10 +400,10 @@ public class ConversationEngine
                    string.Equals(id, itemId, StringComparison.OrdinalIgnoreCase));
     }
 
-    private bool EvaluateHasGold(ScriptNode node)
+    private bool EvaluateHasMoney(ScriptNode node)
     {
-        var amount = GetProperty<int>(node, "GoldAmount", 0);
-        return _gameState.Player.Gold >= amount;
+        var amount = GetProperty<int>(node, "MoneyAmount", 0);
+        return _gameState.Player.Money >= amount;
     }
 
     private bool EvaluateQuestStatus(ScriptNode node)
@@ -435,9 +435,9 @@ public class ConversationEngine
         var objectId = GetProperty<string>(node, "ObjectId", "");
         var price = GetProperty<int>(node, "Price", 0);
 
-        if (_gameState.Player.Gold >= price)
+        if (_gameState.Player.Money >= price)
         {
-            _gameState.Player.Gold -= price;
+            _gameState.Player.Money -= price;
             if (!_gameState.InventoryObjectIds.Contains(objectId))
                 _gameState.InventoryObjectIds.Add(objectId);
 
@@ -450,7 +450,7 @@ public class ConversationEngine
         else
         {
             OnSystemMessage?.Invoke("No tienes suficiente dinero.");
-            await FollowConnectionAsync(conversation, node, "NotEnoughGold");
+            await FollowConnectionAsync(conversation, node, "NotEnoughMoney");
         }
     }
 
@@ -464,7 +464,7 @@ public class ConversationEngine
         {
             _gameState.InventoryObjectIds.RemoveAll(id =>
                 string.Equals(id, objectId, StringComparison.OrdinalIgnoreCase));
-            _gameState.Player.Gold += price;
+            _gameState.Player.Money += price;
 
             var obj = _gameState.Objects.FirstOrDefault(o =>
                 string.Equals(o.Id, objectId, StringComparison.OrdinalIgnoreCase));
@@ -503,16 +503,16 @@ public class ConversationEngine
                     string.Equals(id, removeId, StringComparison.OrdinalIgnoreCase));
                 break;
 
-            case "AddGold":
+            case "AddMoney":
                 var addAmount = GetProperty<int>(node, "Amount", 0);
-                _gameState.Player.Gold += addAmount;
+                _gameState.Player.Money += addAmount;
                 if (addAmount > 0)
                     OnSystemMessage?.Invoke($"Has recibido {addAmount} de dinero.");
                 break;
 
-            case "RemoveGold":
+            case "RemoveMoney":
                 var removeAmount = GetProperty<int>(node, "Amount", 0);
-                _gameState.Player.Gold = Math.Max(0, _gameState.Player.Gold - removeAmount);
+                _gameState.Player.Money = Math.Max(0, _gameState.Player.Money - removeAmount);
                 break;
 
             case "SetFlag":

@@ -24,11 +24,11 @@ public class TradeState
     /// <summary>Items del jugador disponibles para vender.</summary>
     public List<TradeItem> PlayerItems { get; set; } = new();
 
-    /// <summary>Oro del NPC (-1 = infinito).</summary>
-    public int NpcGold { get; set; } = -1;
+    /// <summary>Dinero del NPC (-1 = infinito).</summary>
+    public int NpcMoney { get; set; } = -1;
 
-    /// <summary>Oro del jugador.</summary>
-    public int PlayerGold { get; set; }
+    /// <summary>Dinero del jugador.</summary>
+    public int PlayerMoney { get; set; }
 
     /// <summary>Multiplicador de precio al comprar del jugador (ej: 0.5 = 50%).</summary>
     public double BuyMultiplier { get; set; } = 0.5;
@@ -145,8 +145,8 @@ public class TradeResult
     /// <summary>Mensaje descriptivo del resultado.</summary>
     public string Message { get; set; } = string.Empty;
 
-    /// <summary>Cantidad de oro transferida.</summary>
-    public int GoldTransferred { get; set; }
+    /// <summary>Cantidad de dinero transferida.</summary>
+    public int MoneyTransferred { get; set; }
 
     /// <summary>Cantidad de items transferidos.</summary>
     public int ItemsTransferred { get; set; }

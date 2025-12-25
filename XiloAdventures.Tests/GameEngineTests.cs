@@ -1017,7 +1017,7 @@ public class GameEngineTests
                     Description = "Un pequeño goblin verde con ojos maliciosos.",
                     RoomId = "room1",
                     Visible = true,
-                    Gold = 10,
+                    Money = 10,
                     Stats = new CombatStats
                     {
                         Level = 1,

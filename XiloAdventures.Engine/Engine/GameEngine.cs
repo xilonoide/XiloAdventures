@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using XiloAdventures.Engine.Engine;
 using XiloAdventures.Engine.Models;
 using XiloAdventures.Engine.Models.Enums;
@@ -29,6 +30,8 @@ public class GameEngine
     private ScriptEngine? _scriptEngine;
     private ConversationEngine? _conversationEngine;
     private bool _initialScriptsReady;
+    private int _lastEventMinute = -1;
+    private int _lastEventHour = -1;
 
     /// <summary>
     /// Loads a new game state into the engine, replacing the current state.
@@ -161,6 +164,77 @@ public class GameEngine
         if (room != null)
         {
             _ = TriggerRoomScriptsAsync(room.Id, "Event_OnEnter");
+        }
+    }
+
+    /// <summary>
+    /// Dispara un evento de script para una entidad específica.
+    /// Usado para eventos externos que se originan fuera de GameEngine (combat, trade, etc.).
+    /// </summary>
+    /// <param name="ownerType">Tipo de entidad: "Game", "Room", "Door", "Npc", "GameObject", "Player", "Quest"</param>
+    /// <param name="ownerId">ID de la entidad</param>
+    /// <param name="eventType">Tipo de evento (ej: "Event_OnCombatVictory")</param>
+    public void TriggerScriptEvent(string ownerType, string ownerId, string eventType)
+    {
+        _ = TriggerEntityScriptAsync(ownerType, ownerId, eventType);
+    }
+
+    /// <summary>
+    /// Dispara un evento de combate (victoria, derrota, huida).
+    /// </summary>
+    /// <param name="npcId">ID del NPC enemigo</param>
+    /// <param name="reason">Razón del fin del combate</param>
+    public void TriggerCombatEndEvent(string npcId, CombatEndReason reason)
+    {
+        var eventType = reason switch
+        {
+            CombatEndReason.Victory => "Event_OnCombatVictory",
+            CombatEndReason.Defeat => "Event_OnCombatDefeat",
+            CombatEndReason.Fled => "Event_OnCombatFlee",
+            CombatEndReason.EnemyFled => "Event_OnCombatFlee",
+            _ => null
+        };
+
+        if (eventType != null)
+        {
+            // Disparar en el NPC
+            _ = TriggerEntityScriptAsync("Npc", npcId, eventType);
+            // También disparar como evento global del juego
+            _ = TriggerEntityScriptAsync("Game", _world.Game?.Id ?? "game", eventType);
+        }
+
+        // Si el jugador murió, disparar Event_OnPlayerDeath
+        if (reason == CombatEndReason.Defeat)
+        {
+            _ = TriggerEntityScriptAsync("Player", "player", "Event_OnPlayerDeath");
+        }
+    }
+
+    /// <summary>
+    /// Dispara eventos de comercio.
+    /// </summary>
+    /// <param name="npcId">ID del NPC comerciante</param>
+    /// <param name="eventType">Tipo de evento: "Event_OnTradeStart", "Event_OnTradeEnd", "Event_OnItemBought", "Event_OnItemSold"</param>
+    public void TriggerTradeEvent(string npcId, string eventType)
+    {
+        _ = TriggerEntityScriptAsync("Npc", npcId, eventType);
+    }
+
+    /// <summary>
+    /// Dispara eventos relacionados con el oro del jugador.
+    /// </summary>
+    /// <param name="amount">Cantidad de oro ganada (positivo) o perdida (negativo)</param>
+    /// <param name="newTotal">Nuevo total de oro del jugador</param>
+    public void TriggerGoldChangeEvent(int amount, int newTotal)
+    {
+        var gameId = _world.Game?.Id ?? "game";
+        if (amount > 0)
+        {
+            _ = TriggerEntityScriptAsync("Game", gameId, "Event_OnGoldGained");
+        }
+        else if (amount < 0)
+        {
+            _ = TriggerEntityScriptAsync("Game", gameId, "Event_OnGoldLost");
         }
     }
 
@@ -539,12 +613,34 @@ public class GameEngine
         if (minutesPerGameHour <= 0) minutesPerGameHour = 6;
         if (minutesPerGameHour > 10) minutesPerGameHour = 10;
 
+        var previousMinute = _state.GameTime.Minute;
+        var previousHour = _state.GameTime.Hour;
+
         double factor = 60.0 / minutesPerGameHour;
         var scaledTicks = (long)(realDelta.Ticks * factor);
         if (scaledTicks != 0)
         {
             _state.GameTime = _state.GameTime.Add(TimeSpan.FromTicks(scaledTicks));
             _lastRealTime = now;
+
+            // Disparar eventos de tiempo si cambiaron
+            var currentMinute = _state.GameTime.Minute;
+            var currentHour = _state.GameTime.Hour;
+            var gameId = _world.Game?.Id ?? "game";
+
+            // Event_EveryMinute - disparar si cambió el minuto
+            if (currentMinute != _lastEventMinute)
+            {
+                _lastEventMinute = currentMinute;
+                _ = TriggerEntityScriptAsync("Game", gameId, "Event_EveryMinute");
+            }
+
+            // Event_EveryHour - disparar si cambió la hora
+            if (currentHour != _lastEventHour)
+            {
+                _lastEventHour = currentHour;
+                _ = TriggerEntityScriptAsync("Game", gameId, "Event_EveryHour");
+            }
         }
     }
 
@@ -561,6 +657,10 @@ public class GameEngine
     {
         _state.TurnCounter++;
         UpdateGameTimeFromReal();
+
+        // Disparar evento de inicio de turno
+        var gameId = _world.Game?.Id ?? "game";
+        _ = TriggerEntityScriptAsync("Game", gameId, "Event_OnTurnStart");
 
         // Usar el parser para detectar comandos compuestos y resolver pronombres
         // Ej: "coger el vaso y meterlo en el baul" -> [take vaso, put vaso in baul]
@@ -930,7 +1030,10 @@ public class GameEngine
         if (room == null)
             return "No hay información de puertas.";
 
-        var doors = GetAllDoorsInRoom(room);
+        var doors = GetAllDoorsInRoom(room)
+            .Where(d => IsDoorVisible(d.Door))
+            .ToList();
+
         if (doors.Count == 0)
             return "No hay puertas en esta sala.";
 
@@ -962,9 +1065,9 @@ public class GameEngine
         return sb.ToString().TrimEnd();
     }
 
-    public string DescribePlayerGold()
+    public string DescribePlayerMoney()
     {
-        return _state.Player.Gold.ToString("N0");
+        return _state.Player.Money.ToString("N0");
     }
 
     /// <summary>
@@ -982,12 +1085,28 @@ public class GameEngine
         // Salidas directas definidas en esta sala
         foreach (var exit in room.Exits)
         {
+            // Si hay puerta asociada, verificar si es visible
+            if (!string.IsNullOrEmpty(exit.DoorId))
+            {
+                var door = _state.Doors.FirstOrDefault(d =>
+                    d.Id.Equals(exit.DoorId, StringComparison.OrdinalIgnoreCase));
+                if (door != null && !IsDoorVisible(door))
+                    continue; // Saltar salida con puerta invisible
+            }
             allExits.Add((exit.Direction, exit.DoorId, exit.IsLocked));
         }
 
         // Salidas inversas: otras salas que tienen salidas apuntando a esta sala
         var directDirections = new HashSet<string>(
-            room.Exits.Select(e => NormalizeDirection(e.Direction)),
+            room.Exits
+                .Where(e =>
+                {
+                    if (string.IsNullOrEmpty(e.DoorId)) return true;
+                    var door = _state.Doors.FirstOrDefault(d =>
+                        d.Id.Equals(e.DoorId, StringComparison.OrdinalIgnoreCase));
+                    return door == null || IsDoorVisible(door);
+                })
+                .Select(e => NormalizeDirection(e.Direction)),
             StringComparer.OrdinalIgnoreCase);
 
         foreach (var candidateRoom in _state.Rooms)
@@ -999,6 +1118,15 @@ public class GameEngine
             {
                 if (!candidateExit.TargetRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
                     continue;
+
+                // Si hay puerta asociada, verificar si es visible
+                if (!string.IsNullOrEmpty(candidateExit.DoorId))
+                {
+                    var door = _state.Doors.FirstOrDefault(d =>
+                        d.Id.Equals(candidateExit.DoorId, StringComparison.OrdinalIgnoreCase));
+                    if (door != null && !IsDoorVisible(door))
+                        continue; // Saltar salida con puerta invisible
+                }
 
                 var normCandidate = NormalizeDirection(candidateExit.Direction);
                 var opposite = GetOppositeDirectionCode(normCandidate);
@@ -1113,16 +1241,35 @@ public class GameEngine
         if (exit == null || targetRoom == null)
             return CommandResult.Error(RandomMessages.CannotGoThatWay);
 
-        // Si la salida está asociada a una puerta, usamos el estado de la puerta.
+        // Si la salida está asociada a una puerta, verificar visibilidad y estado.
         if (!string.IsNullOrEmpty(exit.DoorId))
         {
             var door = _state.Doors.FirstOrDefault(d => d.Id.Equals(exit.DoorId, StringComparison.OrdinalIgnoreCase));
-            if (door != null && !door.IsOpen)
-                return CommandResult.Error(RandomMessages.DoorIsLocked);
+            if (door != null)
+            {
+                if (!IsDoorVisible(door))
+                    return CommandResult.Error(RandomMessages.CannotGoThatWay);
+                if (!door.IsOpen)
+                    return CommandResult.Error(RandomMessages.DoorIsLocked);
+            }
         }
         else if (exit.IsLocked)
         {
             return CommandResult.Error(RandomMessages.ExitBlocked);
+        }
+
+        // Verificar requisitos de misiones de la sala destino
+        if (targetRoom.RequiredQuests.Count > 0)
+        {
+            foreach (var requirement in targetRoom.RequiredQuests)
+            {
+                var quest = _state.Quests.Values.FirstOrDefault(q =>
+                    q.QuestId.Equals(requirement.QuestId, StringComparison.OrdinalIgnoreCase));
+                if (quest == null || quest.Status != requirement.RequiredStatus)
+                {
+                    return CommandResult.Error("No puedes acceder a esta zona todavía.");
+                }
+            }
         }
 
         // Disparar Event_OnExit de la sala actual antes de salir
@@ -1387,6 +1534,15 @@ public class GameEngine
     {
         var known = new[] { "norte", "sur", "este", "oeste", "noreste", "noroeste", "sureste", "suroeste", "arriba", "abajo", "subir", "bajar", "n", "s", "e", "o", "ne", "no", "se", "so", "up", "down" };
         return known.Contains(dir.ToLowerInvariant());
+    }
+
+    /// <summary>
+    /// Determina si el objetivo de "mirar" se refiere a la sala/habitación/alrededor.
+    /// </summary>
+    private static bool IsRoomLookTarget(string target)
+    {
+        var roomWords = new[] { "sala", "habitacion", "habitación", "cuarto", "lugar", "alrededor", "entorno", "aqui", "aquí", "room" };
+        return roomWords.Contains(target.ToLowerInvariant());
     }
 
     /// <summary>
@@ -1684,8 +1840,13 @@ public class GameEngine
 
         var target = (parsed.DirectObject ?? string.Empty).Trim();
         var originalTarget = parsed.OriginalDirectObject;
-        if (string.IsNullOrEmpty(target))
-            return CommandResult.Error(RandomMessages.WhatToExamine);
+
+        // Si no hay objetivo o se mira la sala, disparar Event_OnLook y mostrar descripción
+        if (string.IsNullOrEmpty(target) || IsRoomLookTarget(target))
+        {
+            _ = TriggerRoomScriptsAsync(room.Id, "Event_OnLook");
+            return CommandResult.Success(""); // La descripción se muestra en el área fija superior
+        }
 
         // Buscar objeto en la sala o inventario
         var obj = FindObjectInRoomOrInventory(room, target, originalTarget);
@@ -2375,6 +2536,12 @@ public class GameEngine
             if (_initialScriptsReady)
             {
                 _ = TriggerRoomScriptsAsync(room.Id, "Event_OnEnter");
+
+                // Disparar Event_OnNpcSee para cada NPC en la sala (el NPC ve al jugador)
+                foreach (var npcId in room.NpcIds)
+                {
+                    _ = TriggerEntityScriptAsync("Npc", npcId, "Event_OnNpcSee");
+                }
             }
 
             RoomChanged?.Invoke(room);
@@ -2467,6 +2634,29 @@ public class GameEngine
             if (first != null)
                 _state.CurrentRoomId = first.Id;
         }
+    }
+
+    /// <summary>
+    /// Comprueba si una puerta es visible para el jugador.
+    /// Una puerta es visible si Visible = true y todos los requisitos de misiones se cumplen.
+    /// </summary>
+    private bool IsDoorVisible(Door door)
+    {
+        if (!door.Visible)
+            return false;
+
+        if (door.RequiredQuests.Count == 0)
+            return true;
+
+        foreach (var requirement in door.RequiredQuests)
+        {
+            var quest = _state.Quests.Values.FirstOrDefault(q =>
+                q.QuestId.Equals(requirement.QuestId, StringComparison.OrdinalIgnoreCase));
+            if (quest == null || quest.Status != requirement.RequiredStatus)
+                return false;
+        }
+
+        return true;
     }
 
     private static string NormalizeDirection(string dir)
@@ -2980,12 +3170,12 @@ public class GameEngine
             }
         }
 
-        // Añadir oro del NPC
-        if (npc.Gold > 0)
+        // Añadir dinero del NPC
+        if (npc.Money > 0)
         {
-            _state.Player.Gold += npc.Gold;
-            sb.AppendLine($"  - {npc.Gold} de dinero");
-            npc.Gold = 0;
+            _state.Player.Money += npc.Money;
+            sb.AppendLine($"  - {npc.Money} de dinero");
+            npc.Money = 0;
         }
 
         return CommandResult.Success(sb.ToString().TrimEnd());
@@ -3096,6 +3286,10 @@ public class GameEngine
     /// </summary>
     private CommandResult HandleCraft(ParsedCommand parsed)
     {
+        // Verificar si el sistema de fabricación está activo
+        if (!_world.Game.CraftingEnabled)
+            return CommandResult.Error("No puedes fabricar nada aquí.");
+
         var room = CurrentRoom;
         if (room == null)
             return CommandResult.Error(RandomMessages.PlayerLost);

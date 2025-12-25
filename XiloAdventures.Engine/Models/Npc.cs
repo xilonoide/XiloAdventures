@@ -47,9 +47,9 @@ public class Npc
     public bool IsShopkeeper { get; set; }
 
     /// <summary>
-    /// IDs de objetos que el NPC vende (si es comerciante).
+    /// Objetos que el NPC vende (si es comerciante), con cantidad disponible.
     /// </summary>
-    public List<string> ShopInventory { get; set; } = new();
+    public List<ShopItem> ShopInventory { get; set; } = new();
 
     /// <summary>
     /// Multiplicador de precio al comprar del jugador (ej: 0.5 = compra al 50%).
@@ -62,9 +62,9 @@ public class Npc
     public double SellPriceMultiplier { get; set; } = 1.0;
 
     /// <summary>
-    /// Oro que lleva el NPC. Para comerciantes: -1 = oro infinito, 0+ = cantidad limitada.
+    /// Dinero que lleva el NPC. Para comerciantes: -1 = dinero infinito, 0+ = cantidad limitada.
     /// </summary>
-    public int Gold { get; set; }
+    public int Money { get; set; }
 
     #endregion
 
@@ -199,6 +199,7 @@ public class Npc
     /// <summary>
     /// Tags arbitrarios para lógica de eventos, etc.
     /// </summary>
+    [Browsable(false)]
     public List<string> Tags { get; set; } = new();
 
     /// <summary>
@@ -241,4 +242,16 @@ public class CombatStats
     /// Salud actual del NPC.
     /// </summary>
     public int CurrentHealth { get; set; } = 10;
+}
+
+/// <summary>
+/// Representa un objeto en el inventario de tienda de un NPC.
+/// </summary>
+public class ShopItem
+{
+    /// <summary>ID del objeto que se vende.</summary>
+    public string ObjectId { get; set; } = string.Empty;
+
+    /// <summary>Cantidad disponible. -1 = infinito.</summary>
+    public int Quantity { get; set; } = -1;
 }
