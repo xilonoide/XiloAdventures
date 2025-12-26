@@ -61,7 +61,7 @@ public static partial class RandomMessages
             "{0} no arde.",
             "No puedes encender {0}.",
             "{0} no es inflamable.",
-            "Eso no se enciende.",
+            "{0} no se enciende.",
             "{0} no tiene forma de encenderse.",
             "No es posible prender {0}."
         );

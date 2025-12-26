@@ -536,7 +536,7 @@ public class ScriptEngineTradeTests
     {
         // Arrange
         var (world, state) = CreateScriptTestWorld();
-        state.Player.EquippedArmorId = "armor";
+        state.Player.EquippedTorsoId = "armor";
         var engine = new ScriptEngine(world, state);
 
         var node = new ScriptNode
@@ -555,7 +555,7 @@ public class ScriptEngineTradeTests
     {
         // Arrange
         var (world, state) = CreateScriptTestWorld();
-        state.Player.EquippedWeaponId = "magic_wand";
+        state.Player.EquippedRightHandId = "magic_wand";
         var engine = new ScriptEngine(world, state);
 
         var node = new ScriptNode

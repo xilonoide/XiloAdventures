@@ -9,8 +9,10 @@ public enum ObjectType
     Ninguno,
     /// <summary>Arma equipable para combate.</summary>
     Arma,
-    /// <summary>Armadura equipable para defensa.</summary>
+    /// <summary>Armadura equipable para defensa (torso).</summary>
     Armadura,
+    /// <summary>Escudo equipable para defensa (mano izquierda).</summary>
+    Escudo,
     /// <summary>Alimento consumible que reduce el hambre.</summary>
     Comida,
     /// <summary>Bebida consumible que reduce la sed.</summary>

@@ -2420,7 +2420,10 @@ public partial class MapPanel : Control
     {
         if (e.Data.GetDataPresent("GameObject") || e.Data.GetDataPresent("Npc"))
         {
-            e.Effects = DragDropEffects.Move;
+            // Solo permitir drop si hay una sala bajo el cursor
+            var point = e.GetPosition(this);
+            var room = HitTestRoom(point);
+            e.Effects = room != null ? DragDropEffects.Move : DragDropEffects.None;
         }
         else
         {

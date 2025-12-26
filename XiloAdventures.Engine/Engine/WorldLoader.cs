@@ -168,10 +168,24 @@ public static class WorldLoader
                 Dexterity = playerDef.Dexterity,
                 Charisma = playerDef.Charisma,
                 Money = playerDef.InitialMoney,
-                AbilityIds = new List<string>(playerDef.AbilityIds ?? new List<string>())
+                AbilityIds = new List<string>(playerDef.AbilityIds ?? new List<string>()),
+                BodyWeight = playerDef.Weight,
+                EquippedRightHandId = playerDef.InitialRightHandId,
+                EquippedLeftHandId = playerDef.InitialLeftHandId,
+                EquippedTorsoId = playerDef.InitialTorsoId
             }
         };
 
+        // Añadir objetos del inventario inicial según cantidades
+        foreach (var item in playerDef.InitialInventory ?? new List<InventoryItem>())
+        {
+            if (string.IsNullOrEmpty(item.ObjectId) || item.Quantity <= 0) continue;
+
+            for (int i = 0; i < item.Quantity; i++)
+            {
+                state.InventoryObjectIds.Add(item.ObjectId);
+            }
+        }
 
         // Inicializar hora y clima de la partida según la configuración del juego.
         var startHour = world.Game.StartHour;

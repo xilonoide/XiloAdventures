@@ -2335,8 +2335,11 @@ public class GameEngine
 
         // Transferir el objeto del jugador al NPC
         _state.InventoryObjectIds.RemoveAll(id => id.Equals(obj.Id, StringComparison.OrdinalIgnoreCase));
-        if (!targetNpc.InventoryObjectIds.Contains(obj.Id))
-            targetNpc.InventoryObjectIds.Add(obj.Id);
+        var existingItem = targetNpc.Inventory.FirstOrDefault(i => i.ObjectId.Equals(obj.Id, StringComparison.OrdinalIgnoreCase));
+        if (existingItem != null)
+            existingItem.Quantity++;
+        else
+            targetNpc.Inventory.Add(new InventoryItem { ObjectId = obj.Id, Quantity = 1 });
 
         // Disparar evento Event_OnGive del objeto (si existe)
         _ = TriggerEntityScriptAsync("GameObject", obj.Id, "Event_OnGive");
@@ -2746,8 +2749,8 @@ public class GameEngine
                 if (!string.IsNullOrEmpty(door.KeyObjectId))
                 {
                     // Verificar si el NPC tiene la llave
-                    var hasKey = npc.InventoryObjectIds.Any(id =>
-                        string.Equals(id, door.KeyObjectId, StringComparison.OrdinalIgnoreCase));
+                    var hasKey = npc.Inventory.Any(i =>
+                        string.Equals(i.ObjectId, door.KeyObjectId, StringComparison.OrdinalIgnoreCase));
 
                     if (!hasKey)
                     {
@@ -3052,36 +3055,173 @@ public class GameEngine
         // Verificar que es un arma o armadura
         if (obj.Type == ObjectType.Arma)
         {
-            var previousWeapon = _state.Player.EquippedWeaponId;
-            _state.Player.EquippedWeaponId = obj.Id;
+            // Quitar el objeto del inventario antes de equipar
+            _state.InventoryObjectIds.Remove(obj.Id);
 
-            if (previousWeapon != null)
+            if (obj.HandsRequired >= 2)
             {
-                var prevObj = _state.Objects.FirstOrDefault(o => o.Id == previousWeapon);
-                if (prevObj != null)
-                    return CommandResult.Success($"Guardas {WithArticle(prevObj)} y empuñas {WithArticle(obj)}.");
-            }
+                // Arma de 2 manos: ocupar ambas manos
+                var messages = new List<string>();
 
-            return CommandResult.Success($"Empuñas {WithArticle(obj)}.");
+                // Desequipar lo que haya en ambas manos y devolverlo al inventario
+                if (_state.Player.EquippedRightHandId != null)
+                {
+                    var prevRight = _state.Objects.FirstOrDefault(o => o.Id == _state.Player.EquippedRightHandId);
+                    if (prevRight != null)
+                    {
+                        _state.InventoryObjectIds.Add(prevRight.Id);
+                        messages.Add($"Guardas {WithArticle(prevRight)}");
+                    }
+                }
+                if (_state.Player.EquippedLeftHandId != null && _state.Player.EquippedLeftHandId != _state.Player.EquippedRightHandId)
+                {
+                    var prevLeft = _state.Objects.FirstOrDefault(o => o.Id == _state.Player.EquippedLeftHandId);
+                    if (prevLeft != null)
+                    {
+                        _state.InventoryObjectIds.Add(prevLeft.Id);
+                        messages.Add($"guardas {WithArticle(prevLeft)}");
+                    }
+                }
+
+                _state.Player.EquippedRightHandId = obj.Id;
+                _state.Player.EquippedLeftHandId = obj.Id; // Mismo ID en ambas manos para arma de 2 manos
+
+                var result = messages.Count > 0
+                    ? string.Join(", ", messages) + $" y empuñas {WithArticle(obj)} con ambas manos."
+                    : $"Empuñas {WithArticle(obj)} con ambas manos.";
+                return CommandResult.Success(result);
+            }
+            else
+            {
+                // Arma de 1 mano: preferir mano derecha si está libre
+                if (_state.Player.EquippedRightHandId == null)
+                {
+                    _state.Player.EquippedRightHandId = obj.Id;
+                    return CommandResult.Success($"Empuñas {WithArticle(obj)} en tu mano derecha.");
+                }
+                else if (_state.Player.EquippedLeftHandId == null)
+                {
+                    _state.Player.EquippedLeftHandId = obj.Id;
+                    return CommandResult.Success($"Empuñas {WithArticle(obj)} en tu mano izquierda.");
+                }
+                else
+                {
+                    // Ambas manos ocupadas: reemplazar mano derecha
+                    var prevRight = _state.Objects.FirstOrDefault(o => o.Id == _state.Player.EquippedRightHandId);
+                    // Si la mano izquierda tenía la misma arma (arma de 2 manos), liberarla
+                    if (_state.Player.EquippedLeftHandId == _state.Player.EquippedRightHandId)
+                        _state.Player.EquippedLeftHandId = null;
+
+                    // Devolver arma anterior al inventario
+                    if (prevRight != null)
+                        _state.InventoryObjectIds.Add(prevRight.Id);
+
+                    _state.Player.EquippedRightHandId = obj.Id;
+
+                    if (prevRight != null)
+                        return CommandResult.Success($"Guardas {WithArticle(prevRight)} y empuñas {WithArticle(obj)}.");
+                    return CommandResult.Success($"Empuñas {WithArticle(obj)}.");
+                }
+            }
         }
         else if (obj.Type == ObjectType.Armadura)
         {
-            var previousArmor = _state.Player.EquippedArmorId;
-            _state.Player.EquippedArmorId = obj.Id;
+            // Verificar restricción de peso de armadura
+            var totalArmorWeight = GetEquippedArmorWeight();
+            var currentTorsoArmor = _state.Player.EquippedTorsoId != null
+                ? _state.Objects.FirstOrDefault(o => o.Id == _state.Player.EquippedTorsoId)
+                : null;
+            if (currentTorsoArmor != null)
+                totalArmorWeight -= currentTorsoArmor.Weight;
+            totalArmorWeight += obj.Weight;
 
-            if (previousArmor != null)
+            var maxArmorWeight = _state.Player.BodyWeight * 1000; // kg a gramos
+            if (totalArmorWeight > maxArmorWeight)
+                return CommandResult.Error($"No puedes llevar tanta armadura. Tu peso corporal ({_state.Player.BodyWeight} kg) no lo permite.");
+
+            // Quitar el objeto del inventario antes de equipar
+            _state.InventoryObjectIds.Remove(obj.Id);
+
+            var previousArmorId = _state.Player.EquippedTorsoId;
+            _state.Player.EquippedTorsoId = obj.Id;
+
+            if (previousArmorId != null)
             {
-                var prevObj = _state.Objects.FirstOrDefault(o => o.Id == previousArmor);
+                // Devolver armadura anterior al inventario
+                _state.InventoryObjectIds.Add(previousArmorId);
+                var prevObj = _state.Objects.FirstOrDefault(o => o.Id == previousArmorId);
                 if (prevObj != null)
                     return CommandResult.Success($"Te quitas {WithArticle(prevObj)} y te pones {WithArticle(obj)}.");
             }
 
             return CommandResult.Success($"Te pones {WithArticle(obj)}.");
         }
+        else if (obj.Type == ObjectType.Escudo)
+        {
+            // Verificar si la mano izquierda está ocupada por un arma de 2 manos
+            if (_state.Player.EquippedLeftHandId != null &&
+                _state.Player.EquippedLeftHandId == _state.Player.EquippedRightHandId)
+            {
+                var twoHandedWeapon = _state.Objects.FirstOrDefault(o => o.Id == _state.Player.EquippedRightHandId);
+                if (twoHandedWeapon != null)
+                    return CommandResult.Error($"No puedes equipar {WithArticle(obj)} mientras empuñas {WithArticle(twoHandedWeapon)} con ambas manos.");
+            }
+
+            // Quitar el objeto del inventario antes de equipar
+            _state.InventoryObjectIds.Remove(obj.Id);
+
+            var previousShieldId = _state.Player.EquippedLeftHandId;
+            _state.Player.EquippedLeftHandId = obj.Id;
+
+            if (previousShieldId != null)
+            {
+                // Devolver escudo/objeto anterior al inventario
+                _state.InventoryObjectIds.Add(previousShieldId);
+                var prevObj = _state.Objects.FirstOrDefault(o => o.Id == previousShieldId);
+                if (prevObj != null)
+                    return CommandResult.Success($"Guardas {WithArticle(prevObj)} y equipas {WithArticle(obj)} en tu mano izquierda.");
+            }
+
+            return CommandResult.Success($"Equipas {WithArticle(obj)} en tu mano izquierda.");
+        }
         else
         {
             return CommandResult.Error($"No puedes equipar {WithArticle(obj)}.");
         }
+    }
+
+    /// <summary>
+    /// Calcula el peso total de armaduras equipadas en todos los slots.
+    /// </summary>
+    private int GetEquippedArmorWeight()
+    {
+        int total = 0;
+
+        // Mano derecha (si es armadura/escudo)
+        if (_state.Player.EquippedRightHandId != null)
+        {
+            var obj = _state.Objects.FirstOrDefault(o => o.Id == _state.Player.EquippedRightHandId);
+            if (obj?.Type == ObjectType.Armadura)
+                total += obj.Weight;
+        }
+
+        // Mano izquierda (si es armadura/escudo y no es el mismo que mano derecha)
+        if (_state.Player.EquippedLeftHandId != null && _state.Player.EquippedLeftHandId != _state.Player.EquippedRightHandId)
+        {
+            var obj = _state.Objects.FirstOrDefault(o => o.Id == _state.Player.EquippedLeftHandId);
+            if (obj?.Type == ObjectType.Armadura)
+                total += obj.Weight;
+        }
+
+        // Torso
+        if (_state.Player.EquippedTorsoId != null)
+        {
+            var obj = _state.Objects.FirstOrDefault(o => o.Id == _state.Player.EquippedTorsoId);
+            if (obj?.Type == ObjectType.Armadura)
+                total += obj.Weight;
+        }
+
+        return total;
     }
 
     /// <summary>
@@ -3092,39 +3232,70 @@ public class GameEngine
         if (string.IsNullOrEmpty(parsed.DirectObject))
             return CommandResult.Error(RandomMessages.WhatToUnequip);
 
-        // Buscar el objeto equipado
-        var weaponId = _state.Player.EquippedWeaponId;
-        var armorId = _state.Player.EquippedArmorId;
-
+        // Buscar el objeto equipado en cualquier slot
         GameObject? obj = null;
+        string? slot = null;
 
-        if (weaponId != null)
+        // Mano derecha
+        if (_state.Player.EquippedRightHandId != null)
         {
-            var weapon = _state.Objects.FirstOrDefault(o => o.Id == weaponId);
-            if (weapon != null && MatchesName(weapon.Name, parsed.DirectObject, parsed.OriginalDirectObject))
-                obj = weapon;
+            var rightHand = _state.Objects.FirstOrDefault(o => o.Id == _state.Player.EquippedRightHandId);
+            if (rightHand != null && MatchesName(rightHand.Name, parsed.DirectObject, parsed.OriginalDirectObject))
+            {
+                obj = rightHand;
+                slot = "right";
+            }
         }
 
-        if (obj == null && armorId != null)
+        // Mano izquierda (si no es el mismo objeto que mano derecha)
+        if (obj == null && _state.Player.EquippedLeftHandId != null && _state.Player.EquippedLeftHandId != _state.Player.EquippedRightHandId)
         {
-            var armor = _state.Objects.FirstOrDefault(o => o.Id == armorId);
-            if (armor != null && MatchesName(armor.Name, parsed.DirectObject, parsed.OriginalDirectObject))
-                obj = armor;
+            var leftHand = _state.Objects.FirstOrDefault(o => o.Id == _state.Player.EquippedLeftHandId);
+            if (leftHand != null && MatchesName(leftHand.Name, parsed.DirectObject, parsed.OriginalDirectObject))
+            {
+                obj = leftHand;
+                slot = "left";
+            }
+        }
+
+        // Torso
+        if (obj == null && _state.Player.EquippedTorsoId != null)
+        {
+            var torso = _state.Objects.FirstOrDefault(o => o.Id == _state.Player.EquippedTorsoId);
+            if (torso != null && MatchesName(torso.Name, parsed.DirectObject, parsed.OriginalDirectObject))
+            {
+                obj = torso;
+                slot = "torso";
+            }
         }
 
         if (obj == null)
             return CommandResult.Error($"No tienes '{parsed.OriginalDirectObject ?? parsed.DirectObject}' equipado.");
 
+        // Desequipar según el slot
+        if (slot == "right")
+        {
+            // Si es arma de 2 manos, liberar ambas manos
+            if (_state.Player.EquippedLeftHandId == _state.Player.EquippedRightHandId)
+                _state.Player.EquippedLeftHandId = null;
+            _state.Player.EquippedRightHandId = null;
+        }
+        else if (slot == "left")
+        {
+            _state.Player.EquippedLeftHandId = null;
+        }
+        else if (slot == "torso")
+        {
+            _state.Player.EquippedTorsoId = null;
+        }
+
+        // Devolver el objeto al inventario
+        _state.InventoryObjectIds.Add(obj.Id);
+
         if (obj.Type == ObjectType.Arma)
-        {
-            _state.Player.EquippedWeaponId = null;
             return CommandResult.Success($"Guardas {WithArticle(obj)}.");
-        }
         else
-        {
-            _state.Player.EquippedArmorId = null;
             return CommandResult.Success($"Te quitas {WithArticle(obj)}.");
-        }
     }
 
     /// <summary>
@@ -3159,23 +3330,50 @@ public class GameEngine
         if (!npc.IsCorpse)
             return CommandResult.Error($"{npc.Name} no está muerto.");
 
-        // Listar y transferir inventario
-        if (npc.InventoryObjectIds.Count == 0)
+        // Verificar si hay algo que saquear
+        var hasInventory = npc.Inventory.Count > 0;
+        var hasEquipment = npc.EquippedRightHandId != null || npc.EquippedLeftHandId != null || npc.EquippedTorsoId != null;
+        var hasMoney = npc.Money > 0;
+
+        if (!hasInventory && !hasEquipment && !hasMoney)
             return CommandResult.Success($"El cadáver de {npc.Name} no tiene nada de valor.");
 
         var sb = new StringBuilder();
         sb.AppendLine($"Saqueas el cadáver de {npc.Name} y encuentras:");
 
-        foreach (var objId in npc.InventoryObjectIds.ToList())
+        // Transferir equipamiento
+        var equippedIds = new HashSet<string>();
+        if (npc.EquippedRightHandId != null)
+            equippedIds.Add(npc.EquippedRightHandId);
+        if (npc.EquippedLeftHandId != null && npc.EquippedLeftHandId != npc.EquippedRightHandId)
+            equippedIds.Add(npc.EquippedLeftHandId);
+        if (npc.EquippedTorsoId != null)
+            equippedIds.Add(npc.EquippedTorsoId);
+
+        foreach (var eqId in equippedIds)
         {
-            var obj = _state.Objects.FirstOrDefault(o => o.Id == objId);
+            var obj = _state.Objects.FirstOrDefault(o => o.Id == eqId);
             if (obj != null)
             {
-                _state.InventoryObjectIds.Add(objId);
-                npc.InventoryObjectIds.Remove(objId);
+                _state.InventoryObjectIds.Add(obj.Id);
                 sb.AppendLine($"  - {obj.Name}");
             }
         }
+        npc.EquippedRightHandId = null;
+        npc.EquippedLeftHandId = null;
+        npc.EquippedTorsoId = null;
+
+        // Transferir inventario
+        foreach (var item in npc.Inventory.ToList())
+        {
+            var obj = _state.Objects.FirstOrDefault(o => o.Id == item.ObjectId);
+            if (obj != null)
+            {
+                _state.InventoryObjectIds.Add(item.ObjectId);
+                sb.AppendLine(item.Quantity > 1 ? $"  - {obj.Name} x{item.Quantity}" : $"  - {obj.Name}");
+            }
+        }
+        npc.Inventory.Clear();
 
         // Añadir dinero del NPC
         if (npc.Money > 0)
@@ -3410,38 +3608,72 @@ public class GameEngine
         var sb = new StringBuilder();
         sb.AppendLine("Tu equipamiento:");
 
-        var weaponId = _state.Player.EquippedWeaponId;
-        if (weaponId != null)
+        // Mano derecha
+        var rightHandId = _state.Player.EquippedRightHandId;
+        var leftHandId = _state.Player.EquippedLeftHandId;
+
+        // Verificar si es arma de 2 manos (mismo ID en ambas manos)
+        var isTwoHanded = rightHandId != null && rightHandId == leftHandId;
+
+        if (isTwoHanded)
         {
-            var weapon = _state.Objects.FirstOrDefault(o => o.Id == weaponId);
+            var weapon = _state.Objects.FirstOrDefault(o => o.Id == rightHandId);
             if (weapon != null)
             {
-                var durability = weapon.MaxDurability < 0
-                    ? ""
-                    : $" ({weapon.CurrentDurability}/{weapon.MaxDurability})";
-                sb.AppendLine($"  Arma: {weapon.Name} (+{weapon.AttackBonus} ataque){durability}");
+                var durability = weapon.MaxDurability < 0 ? "" : $" ({weapon.CurrentDurability}/{weapon.MaxDurability})";
+                var bonus = weapon.Type == ObjectType.Arma ? $"+{weapon.AttackBonus} ataque" : $"+{weapon.DefenseBonus} defensa";
+                sb.AppendLine($"  Manos: {weapon.Name} ({bonus}){durability} [2 manos]");
             }
         }
         else
         {
-            sb.AppendLine("  Arma: (ninguna)");
+            // Mano derecha
+            if (rightHandId != null)
+            {
+                var rightHand = _state.Objects.FirstOrDefault(o => o.Id == rightHandId);
+                if (rightHand != null)
+                {
+                    var durability = rightHand.MaxDurability < 0 ? "" : $" ({rightHand.CurrentDurability}/{rightHand.MaxDurability})";
+                    var bonus = rightHand.Type == ObjectType.Arma ? $"+{rightHand.AttackBonus} ataque" : $"+{rightHand.DefenseBonus} defensa";
+                    sb.AppendLine($"  Mano derecha: {rightHand.Name} ({bonus}){durability}");
+                }
+            }
+            else
+            {
+                sb.AppendLine("  Mano derecha: (vacía)");
+            }
+
+            // Mano izquierda
+            if (leftHandId != null)
+            {
+                var leftHand = _state.Objects.FirstOrDefault(o => o.Id == leftHandId);
+                if (leftHand != null)
+                {
+                    var durability = leftHand.MaxDurability < 0 ? "" : $" ({leftHand.CurrentDurability}/{leftHand.MaxDurability})";
+                    var bonus = leftHand.Type == ObjectType.Arma ? $"+{leftHand.AttackBonus} ataque" : $"+{leftHand.DefenseBonus} defensa";
+                    sb.AppendLine($"  Mano izquierda: {leftHand.Name} ({bonus}){durability}");
+                }
+            }
+            else
+            {
+                sb.AppendLine("  Mano izquierda: (vacía)");
+            }
         }
 
-        var armorId = _state.Player.EquippedArmorId;
-        if (armorId != null)
+        // Torso
+        var torsoId = _state.Player.EquippedTorsoId;
+        if (torsoId != null)
         {
-            var armor = _state.Objects.FirstOrDefault(o => o.Id == armorId);
-            if (armor != null)
+            var torso = _state.Objects.FirstOrDefault(o => o.Id == torsoId);
+            if (torso != null)
             {
-                var durability = armor.MaxDurability < 0
-                    ? ""
-                    : $" ({armor.CurrentDurability}/{armor.MaxDurability})";
-                sb.AppendLine($"  Armadura: {armor.Name} (+{armor.DefenseBonus} defensa){durability}");
+                var durability = torso.MaxDurability < 0 ? "" : $" ({torso.CurrentDurability}/{torso.MaxDurability})";
+                sb.AppendLine($"  Torso: {torso.Name} (+{torso.DefenseBonus} defensa){durability}");
             }
         }
         else
         {
-            sb.AppendLine("  Armadura: (ninguna)");
+            sb.AppendLine("  Torso: (vacío)");
         }
 
         return sb.ToString().TrimEnd();

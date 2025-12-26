@@ -148,9 +148,18 @@ public partial class CombatWindow : Window
         var statBonus = _gameState.Player.Strength / 5;
         var equipBonus = 0;
 
-        if (!string.IsNullOrEmpty(_gameState.Player.EquippedWeaponId))
+        // Buscar arma equipada en ambas manos
+        var rightHandId = _gameState.Player.EquippedRightHandId;
+        var leftHandId = _gameState.Player.EquippedLeftHandId;
+        if (!string.IsNullOrEmpty(rightHandId))
         {
-            var weapon = _playerInventory.FirstOrDefault(o => o.Id == _gameState.Player.EquippedWeaponId);
+            var weapon = _playerInventory.FirstOrDefault(o => o.Id == rightHandId && o.Type == ObjectType.Arma);
+            if (weapon != null)
+                equipBonus = weapon.AttackBonus;
+        }
+        if (equipBonus == 0 && !string.IsNullOrEmpty(leftHandId) && leftHandId != rightHandId)
+        {
+            var weapon = _playerInventory.FirstOrDefault(o => o.Id == leftHandId && o.Type == ObjectType.Arma);
             if (weapon != null)
                 equipBonus = weapon.AttackBonus;
         }
@@ -212,18 +221,41 @@ public partial class CombatWindow : Window
     {
         var parts = new List<string>();
 
-        if (!string.IsNullOrEmpty(_gameState.Player.EquippedWeaponId))
+        // Mano derecha
+        var rightHandId = _gameState.Player.EquippedRightHandId;
+        if (!string.IsNullOrEmpty(rightHandId))
         {
-            var weapon = _playerInventory.FirstOrDefault(o => o.Id == _gameState.Player.EquippedWeaponId);
-            if (weapon != null)
-                parts.Add($"Arma: {weapon.Name} (+{weapon.AttackBonus})");
+            var item = _playerInventory.FirstOrDefault(o => o.Id == rightHandId);
+            if (item != null)
+            {
+                if (item.Type == ObjectType.Arma)
+                    parts.Add($"MD: {item.Name} (+{item.AttackBonus})");
+                else if (item.Type == ObjectType.Armadura)
+                    parts.Add($"MD: {item.Name} (+{item.DefenseBonus})");
+            }
         }
 
-        if (!string.IsNullOrEmpty(_gameState.Player.EquippedArmorId))
+        // Mano izquierda (solo si es diferente de mano derecha - arma de 2 manos muestra solo una vez)
+        var leftHandId = _gameState.Player.EquippedLeftHandId;
+        if (!string.IsNullOrEmpty(leftHandId) && leftHandId != rightHandId)
         {
-            var armor = _playerInventory.FirstOrDefault(o => o.Id == _gameState.Player.EquippedArmorId);
+            var item = _playerInventory.FirstOrDefault(o => o.Id == leftHandId);
+            if (item != null)
+            {
+                if (item.Type == ObjectType.Arma)
+                    parts.Add($"MI: {item.Name} (+{item.AttackBonus})");
+                else if (item.Type == ObjectType.Armadura)
+                    parts.Add($"MI: {item.Name} (+{item.DefenseBonus})");
+            }
+        }
+
+        // Torso
+        var torsoId = _gameState.Player.EquippedTorsoId;
+        if (!string.IsNullOrEmpty(torsoId))
+        {
+            var armor = _playerInventory.FirstOrDefault(o => o.Id == torsoId);
             if (armor != null)
-                parts.Add($"Armadura: {armor.Name} (+{armor.DefenseBonus})");
+                parts.Add($"Torso: {armor.Name} (+{armor.DefenseBonus})");
         }
 
         PlayerEquipText.Text = parts.Count > 0 ? string.Join(" | ", parts) : "Sin equipo";

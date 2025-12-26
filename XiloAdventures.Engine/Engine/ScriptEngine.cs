@@ -724,11 +724,19 @@ public class ScriptEngine
                 var expectedType = Enum.TryParse<DamageType>(damageTypeStr, out var dt) ? dt : DamageType.Physical;
 
                 var hasWeaponType = false;
-                var equippedWeaponId = ctx.GameState.Player.EquippedWeaponId;
-                if (!string.IsNullOrEmpty(equippedWeaponId))
+                // Verificar armas en ambas manos
+                var rightHandId = ctx.GameState.Player.EquippedRightHandId;
+                var leftHandId = ctx.GameState.Player.EquippedLeftHandId;
+                if (!string.IsNullOrEmpty(rightHandId))
                 {
                     var weapon = ctx.GameState.Objects.FirstOrDefault(o =>
-                        string.Equals(o.Id, equippedWeaponId, StringComparison.OrdinalIgnoreCase));
+                        string.Equals(o.Id, rightHandId, StringComparison.OrdinalIgnoreCase) && o.Type == ObjectType.Arma);
+                    hasWeaponType = weapon?.DamageType == expectedType;
+                }
+                if (!hasWeaponType && !string.IsNullOrEmpty(leftHandId) && leftHandId != rightHandId)
+                {
+                    var weapon = ctx.GameState.Objects.FirstOrDefault(o =>
+                        string.Equals(o.Id, leftHandId, StringComparison.OrdinalIgnoreCase) && o.Type == ObjectType.Arma);
                     hasWeaponType = weapon?.DamageType == expectedType;
                 }
                 ctx.NextOutputPort = hasWeaponType ? "True" : "False";
@@ -737,7 +745,12 @@ public class ScriptEngine
 
             [NodeTypeId.Condition_PlayerHasArmor] = async (node, ctx) =>
             {
-                var hasArmor = !string.IsNullOrEmpty(ctx.GameState.Player.EquippedArmorId);
+                // Verificar armadura en cualquier slot
+                var hasArmor = !string.IsNullOrEmpty(ctx.GameState.Player.EquippedTorsoId) ||
+                               (!string.IsNullOrEmpty(ctx.GameState.Player.EquippedRightHandId) &&
+                                ctx.GameState.Objects.Any(o => o.Id == ctx.GameState.Player.EquippedRightHandId && o.Type == ObjectType.Armadura)) ||
+                               (!string.IsNullOrEmpty(ctx.GameState.Player.EquippedLeftHandId) &&
+                                ctx.GameState.Objects.Any(o => o.Id == ctx.GameState.Player.EquippedLeftHandId && o.Type == ObjectType.Armadura));
                 ctx.NextOutputPort = hasArmor ? "True" : "False";
                 await Task.CompletedTask;
             },
@@ -2002,10 +2015,12 @@ public class ScriptEngine
                     string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
                 if (npc != null && !string.IsNullOrEmpty(objectId))
                 {
-                    if (!npc.InventoryObjectIds.Contains(objectId))
-                    {
-                        npc.InventoryObjectIds.Add(objectId);
-                    }
+                    var existingItem = npc.Inventory.FirstOrDefault(i =>
+                        string.Equals(i.ObjectId, objectId, StringComparison.OrdinalIgnoreCase));
+                    if (existingItem != null)
+                        existingItem.Quantity++;
+                    else
+                        npc.Inventory.Add(new InventoryItem { ObjectId = objectId, Quantity = 1 });
                 }
                 await Task.CompletedTask;
             },
@@ -2019,8 +2034,15 @@ public class ScriptEngine
                     string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
                 if (npc != null)
                 {
-                    npc.InventoryObjectIds.RemoveAll(id =>
-                        string.Equals(id, objectId, StringComparison.OrdinalIgnoreCase));
+                    var item = npc.Inventory.FirstOrDefault(i =>
+                        string.Equals(i.ObjectId, objectId, StringComparison.OrdinalIgnoreCase));
+                    if (item != null)
+                    {
+                        if (item.Quantity > 1)
+                            item.Quantity--;
+                        else
+                            npc.Inventory.Remove(item);
+                    }
                 }
                 await Task.CompletedTask;
             },
@@ -2535,6 +2557,271 @@ public class ScriptEngine
 
                 var value = GetEntityPropertyValue(ctx, entityType ?? "", entityId ?? "", propertyName ?? "");
                 ctx.SetOutputValue(node.Id, "Value", value);
+                await Task.CompletedTask;
+            },
+
+            // === EQUIPAMIENTO E INVENTARIO ===
+            [NodeTypeId.Condition_PlayerHasEquipped] = async (node, ctx) =>
+            {
+                var objectId = GetPropertyValue<string>(node, "ObjectId", "");
+                var slot = GetPropertyValue<string>(node, "Slot", "Any");
+
+                bool hasEquipped = false;
+                if (!string.IsNullOrEmpty(objectId))
+                {
+                    var checkSlot = (string slotToCheck) =>
+                    {
+                        var equippedId = slotToCheck switch
+                        {
+                            "RightHand" => ctx.GameState.Player.EquippedRightHandId,
+                            "LeftHand" => ctx.GameState.Player.EquippedLeftHandId,
+                            "Torso" => ctx.GameState.Player.EquippedTorsoId,
+                            _ => null
+                        };
+                        return string.Equals(equippedId, objectId, StringComparison.OrdinalIgnoreCase);
+                    };
+
+                    hasEquipped = slot == "Any"
+                        ? checkSlot("RightHand") || checkSlot("LeftHand") || checkSlot("Torso")
+                        : checkSlot(slot ?? "Any");
+                }
+                ctx.NextOutputPort = hasEquipped ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
+            [NodeTypeId.Condition_NpcHasEquipped] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                var objectId = GetPropertyValue<string>(node, "ObjectId", "");
+                var slot = GetPropertyValue<string>(node, "Slot", "Any");
+
+                var npc = ctx.GameState.Npcs.FirstOrDefault(n =>
+                    string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
+
+                bool hasEquipped = false;
+                if (npc != null && !string.IsNullOrEmpty(objectId))
+                {
+                    var checkSlot = (string slotToCheck) =>
+                    {
+                        var equippedId = slotToCheck switch
+                        {
+                            "RightHand" => npc.EquippedRightHandId,
+                            "LeftHand" => npc.EquippedLeftHandId,
+                            "Torso" => npc.EquippedTorsoId,
+                            _ => null
+                        };
+                        return string.Equals(equippedId, objectId, StringComparison.OrdinalIgnoreCase);
+                    };
+
+                    hasEquipped = slot == "Any"
+                        ? checkSlot("RightHand") || checkSlot("LeftHand") || checkSlot("Torso")
+                        : checkSlot(slot ?? "Any");
+                }
+                ctx.NextOutputPort = hasEquipped ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
+            [NodeTypeId.Condition_IsPlayerSlotEmpty] = async (node, ctx) =>
+            {
+                var slot = GetPropertyValue<string>(node, "Slot", "RightHand");
+
+                var equippedId = slot switch
+                {
+                    "RightHand" => ctx.GameState.Player.EquippedRightHandId,
+                    "LeftHand" => ctx.GameState.Player.EquippedLeftHandId,
+                    "Torso" => ctx.GameState.Player.EquippedTorsoId,
+                    _ => null
+                };
+
+                ctx.NextOutputPort = string.IsNullOrEmpty(equippedId) ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
+            [NodeTypeId.Condition_IsNpcSlotEmpty] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                var slot = GetPropertyValue<string>(node, "Slot", "RightHand");
+
+                var npc = ctx.GameState.Npcs.FirstOrDefault(n =>
+                    string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
+
+                bool isEmpty = true;
+                if (npc != null)
+                {
+                    var equippedId = slot switch
+                    {
+                        "RightHand" => npc.EquippedRightHandId,
+                        "LeftHand" => npc.EquippedLeftHandId,
+                        "Torso" => npc.EquippedTorsoId,
+                        _ => null
+                    };
+                    isEmpty = string.IsNullOrEmpty(equippedId);
+                }
+                ctx.NextOutputPort = isEmpty ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
+            [NodeTypeId.Condition_NpcHasItem] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                var objectId = GetPropertyValue<string>(node, "ObjectId", "");
+
+                var npc = ctx.GameState.Npcs.FirstOrDefault(n =>
+                    string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
+
+                bool hasItem = npc?.Inventory.Any(i =>
+                    string.Equals(i.ObjectId, objectId, StringComparison.OrdinalIgnoreCase) &&
+                    i.Quantity > 0) ?? false;
+
+                ctx.NextOutputPort = hasItem ? "True" : "False";
+                await Task.CompletedTask;
+            },
+
+            [NodeTypeId.Action_EquipPlayerItem] = async (node, ctx) =>
+            {
+                var objectId = GetPropertyValue<string>(node, "ObjectId", "");
+                var slot = GetPropertyValue<string>(node, "Slot", "RightHand");
+
+                if (!string.IsNullOrEmpty(objectId))
+                {
+                    switch (slot)
+                    {
+                        case "RightHand":
+                            ctx.GameState.Player.EquippedRightHandId = objectId;
+                            break;
+                        case "LeftHand":
+                            ctx.GameState.Player.EquippedLeftHandId = objectId;
+                            break;
+                        case "Torso":
+                            ctx.GameState.Player.EquippedTorsoId = objectId;
+                            break;
+                    }
+                    // Quitar del inventario si estaba ahí
+                    ctx.GameState.InventoryObjectIds.RemoveAll(id =>
+                        string.Equals(id, objectId, StringComparison.OrdinalIgnoreCase));
+                }
+                await Task.CompletedTask;
+            },
+
+            [NodeTypeId.Action_UnequipPlayerSlot] = async (node, ctx) =>
+            {
+                var slot = GetPropertyValue<string>(node, "Slot", "RightHand");
+
+                string? equippedId = slot switch
+                {
+                    "RightHand" => ctx.GameState.Player.EquippedRightHandId,
+                    "LeftHand" => ctx.GameState.Player.EquippedLeftHandId,
+                    "Torso" => ctx.GameState.Player.EquippedTorsoId,
+                    _ => null
+                };
+
+                if (!string.IsNullOrEmpty(equippedId))
+                {
+                    // Devolver al inventario
+                    if (!ctx.GameState.InventoryObjectIds.Any(id =>
+                        string.Equals(id, equippedId, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        ctx.GameState.InventoryObjectIds.Add(equippedId);
+                    }
+
+                    // Limpiar slot
+                    switch (slot)
+                    {
+                        case "RightHand":
+                            ctx.GameState.Player.EquippedRightHandId = null;
+                            break;
+                        case "LeftHand":
+                            ctx.GameState.Player.EquippedLeftHandId = null;
+                            break;
+                        case "Torso":
+                            ctx.GameState.Player.EquippedTorsoId = null;
+                            break;
+                    }
+                }
+                await Task.CompletedTask;
+            },
+
+            [NodeTypeId.Action_EquipNpcItem] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                var objectId = GetPropertyValue<string>(node, "ObjectId", "");
+                var slot = GetPropertyValue<string>(node, "Slot", "RightHand");
+
+                var npc = ctx.GameState.Npcs.FirstOrDefault(n =>
+                    string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
+
+                if (npc != null && !string.IsNullOrEmpty(objectId))
+                {
+                    switch (slot)
+                    {
+                        case "RightHand":
+                            npc.EquippedRightHandId = objectId;
+                            break;
+                        case "LeftHand":
+                            npc.EquippedLeftHandId = objectId;
+                            break;
+                        case "Torso":
+                            npc.EquippedTorsoId = objectId;
+                            break;
+                    }
+
+                    // Quitar del inventario del NPC si estaba ahí
+                    var item = npc.Inventory.FirstOrDefault(i =>
+                        string.Equals(i.ObjectId, objectId, StringComparison.OrdinalIgnoreCase));
+                    if (item != null)
+                    {
+                        if (item.Quantity > 1)
+                            item.Quantity--;
+                        else
+                            npc.Inventory.Remove(item);
+                    }
+                }
+                await Task.CompletedTask;
+            },
+
+            [NodeTypeId.Action_UnequipNpcSlot] = async (node, ctx) =>
+            {
+                var npcId = GetPropertyValue<string>(node, "NpcId", "");
+                var slot = GetPropertyValue<string>(node, "Slot", "RightHand");
+
+                var npc = ctx.GameState.Npcs.FirstOrDefault(n =>
+                    string.Equals(n.Id, npcId, StringComparison.OrdinalIgnoreCase));
+
+                if (npc != null)
+                {
+                    string? equippedId = slot switch
+                    {
+                        "RightHand" => npc.EquippedRightHandId,
+                        "LeftHand" => npc.EquippedLeftHandId,
+                        "Torso" => npc.EquippedTorsoId,
+                        _ => null
+                    };
+
+                    if (!string.IsNullOrEmpty(equippedId))
+                    {
+                        // Devolver al inventario del NPC
+                        var existingItem = npc.Inventory.FirstOrDefault(i =>
+                            string.Equals(i.ObjectId, equippedId, StringComparison.OrdinalIgnoreCase));
+                        if (existingItem != null)
+                            existingItem.Quantity++;
+                        else
+                            npc.Inventory.Add(new InventoryItem { ObjectId = equippedId, Quantity = 1 });
+
+                        // Limpiar slot
+                        switch (slot)
+                        {
+                            case "RightHand":
+                                npc.EquippedRightHandId = null;
+                                break;
+                            case "LeftHand":
+                                npc.EquippedLeftHandId = null;
+                                break;
+                            case "Torso":
+                                npc.EquippedTorsoId = null;
+                                break;
+                        }
+                    }
+                }
                 await Task.CompletedTask;
             },
 

@@ -89,6 +89,12 @@ public class WorldModel
     public Dictionary<string, MapPosition> RoomPositions { get; set; } = new();
 
     /// <summary>
+    /// Carpetas para organizar elementos en el editor.
+    /// Solo afectan la visualización, no el comportamiento del juego.
+    /// </summary>
+    public List<EditorFolder> Folders { get; set; } = new();
+
+    /// <summary>
     /// Estado del grid en el editor (visible/oculto).
     /// </summary>
     public bool ShowGrid { get; set; } = false;

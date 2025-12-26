@@ -90,7 +90,7 @@ internal static class WorldEditorHelpers
 
         foreach (var npc in world.Npcs)
         {
-            npc.InventoryObjectIds.Remove(obj.Id);
+            npc.Inventory.RemoveAll(i => i.ObjectId == obj.Id);
         }
 
         return true;

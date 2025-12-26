@@ -76,7 +76,7 @@ public class ConversationIntegrationTests
                     Visible = true,
                     IsShopkeeper = true,
                     Money = 200,
-                    InventoryObjectIds = new List<string> { "ale" }
+                    Inventory = new List<InventoryItem> { new() { ObjectId = "ale", Quantity = 1 } }
                 },
                 new Npc
                 {

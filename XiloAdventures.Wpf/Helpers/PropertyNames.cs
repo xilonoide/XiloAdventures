@@ -79,6 +79,7 @@ public static class PropertyNames
 
     // === Combate (GameObject) ===
     public static readonly string AttackBonus = nameof(GameObject.AttackBonus);
+    public static readonly string HandsRequired = nameof(GameObject.HandsRequired);
     public static readonly string DefenseBonus = nameof(GameObject.DefenseBonus);
     public static readonly string DamageType = nameof(GameObject.DamageType);
     public static readonly string MaxDurability = nameof(GameObject.MaxDurability);
@@ -121,7 +122,10 @@ public static class PropertyNames
     public static readonly string FollowMovementMode = nameof(Npc.FollowMovementMode);
     public static readonly string FollowSpeed = nameof(Npc.FollowSpeed);
     public static readonly string FollowTimeInterval = nameof(Npc.FollowTimeInterval);
-    public static readonly string InventoryObjectIds = nameof(Npc.InventoryObjectIds);
+    public static readonly string Inventory = nameof(Npc.Inventory);
+    public static readonly string EquippedRightHandId = nameof(Npc.EquippedRightHandId);
+    public static readonly string EquippedLeftHandId = nameof(Npc.EquippedLeftHandId);
+    public static readonly string EquippedTorsoId = nameof(Npc.EquippedTorsoId);
     public static readonly string Stats = nameof(Npc.Stats);
     public static readonly string IsCorpse = nameof(Npc.IsCorpse);
 
@@ -137,6 +141,10 @@ public static class PropertyNames
     public static readonly string MaxInventoryWeight = nameof(PlayerDefinition.MaxInventoryWeight);
     public static readonly string MaxInventoryVolume = nameof(PlayerDefinition.MaxInventoryVolume);
     public static readonly string AbilityIds = nameof(PlayerDefinition.AbilityIds);
+    public static readonly string InitialInventory = nameof(PlayerDefinition.InitialInventory);
+    public static readonly string InitialRightHandId = nameof(PlayerDefinition.InitialRightHandId);
+    public static readonly string InitialLeftHandId = nameof(PlayerDefinition.InitialLeftHandId);
+    public static readonly string InitialTorsoId = nameof(PlayerDefinition.InitialTorsoId);
 
     // === Stats (CombatStats/PlayerStats) ===
     public static readonly string MaxHealth = nameof(CombatStats.MaxHealth);

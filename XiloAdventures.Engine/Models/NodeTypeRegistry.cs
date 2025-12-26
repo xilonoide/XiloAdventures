@@ -520,6 +520,28 @@ public static class NodeTypeRegistry
 
         Register(new NodeTypeDefinition
         {
+            TypeId = NodeTypeId.Event_OnEquip,
+            DisplayName = "Al Equipar",
+            Description = "Se ejecuta cuando el jugador equipa el objeto",
+            Category = NodeCategory.Event,
+            Subgroup = NodeSubgroup.Objetos,
+            OwnerTypes = NodeOwnerType.GameObject,
+            OutputPorts = new[] { new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" } }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = NodeTypeId.Event_OnUnequip,
+            DisplayName = "Al Desequipar",
+            Description = "Se ejecuta cuando el jugador desequipa el objeto",
+            Category = NodeCategory.Event,
+            Subgroup = NodeSubgroup.Objetos,
+            OwnerTypes = NodeOwnerType.GameObject,
+            OutputPorts = new[] { new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" } }
+        });
+
+        Register(new NodeTypeDefinition
+        {
             TypeId = NodeTypeId.Event_OnExamine,
             DisplayName = "Al Examinar",
             Description = "Se ejecuta cuando el jugador examina el objeto",
@@ -1800,6 +1822,127 @@ public static class NodeTypeRegistry
             {
                 new NodePort { Name = "True", PortType = PortType.Execution, Label = "Sí" },
                 new NodePort { Name = "False", PortType = PortType.Execution, Label = "No" }
+            }
+        });
+
+        // === SUBGRUPO: EQUIPAMIENTO ===
+        Register(new NodeTypeDefinition
+        {
+            TypeId = NodeTypeId.Condition_PlayerHasEquipped,
+            DisplayName = "Jugador Tiene Equipado",
+            Description = "Verifica si el jugador tiene un objeto específico equipado en un slot",
+            Category = NodeCategory.Condition,
+            OwnerTypes = NodeOwnerType.All,
+            Subgroup = NodeSubgroup.Equipamiento,
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "True", PortType = PortType.Execution, Label = "Sí" },
+                new NodePort { Name = "False", PortType = PortType.Execution, Label = "No" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "ObjectId", DisplayName = "Objeto", DataType = "object" },
+                new NodePropertyDefinition { Name = "Slot", DisplayName = "Slot", DataType = "select", Options = new[] { "RightHand", "LeftHand", "Torso", "Any" }, DefaultValue = "Any" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = NodeTypeId.Condition_NpcHasEquipped,
+            DisplayName = "NPC Tiene Equipado",
+            Description = "Verifica si un NPC tiene un objeto específico equipado en un slot",
+            Category = NodeCategory.Condition,
+            OwnerTypes = NodeOwnerType.All,
+            Subgroup = NodeSubgroup.Equipamiento,
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "True", PortType = PortType.Execution, Label = "Sí" },
+                new NodePort { Name = "False", PortType = PortType.Execution, Label = "No" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "NpcId", DisplayName = "NPC", DataType = "npc" },
+                new NodePropertyDefinition { Name = "ObjectId", DisplayName = "Objeto", DataType = "object" },
+                new NodePropertyDefinition { Name = "Slot", DisplayName = "Slot", DataType = "select", Options = new[] { "RightHand", "LeftHand", "Torso", "Any" }, DefaultValue = "Any" }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = NodeTypeId.Condition_IsPlayerSlotEmpty,
+            DisplayName = "Slot Jugador Vacío",
+            Description = "Verifica si un slot de equipamiento del jugador está vacío",
+            Category = NodeCategory.Condition,
+            OwnerTypes = NodeOwnerType.All,
+            Subgroup = NodeSubgroup.Equipamiento,
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "True", PortType = PortType.Execution, Label = "Sí" },
+                new NodePort { Name = "False", PortType = PortType.Execution, Label = "No" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "Slot", DisplayName = "Slot", DataType = "select", Options = new[] { "RightHand", "LeftHand", "Torso" } }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = NodeTypeId.Condition_IsNpcSlotEmpty,
+            DisplayName = "Slot NPC Vacío",
+            Description = "Verifica si un slot de equipamiento de un NPC está vacío",
+            Category = NodeCategory.Condition,
+            OwnerTypes = NodeOwnerType.All,
+            Subgroup = NodeSubgroup.Equipamiento,
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "True", PortType = PortType.Execution, Label = "Sí" },
+                new NodePort { Name = "False", PortType = PortType.Execution, Label = "No" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "NpcId", DisplayName = "NPC", DataType = "npc" },
+                new NodePropertyDefinition { Name = "Slot", DisplayName = "Slot", DataType = "select", Options = new[] { "RightHand", "LeftHand", "Torso" } }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = NodeTypeId.Condition_NpcHasItem,
+            DisplayName = "NPC Tiene Objeto",
+            Description = "Verifica si un NPC tiene un objeto específico en su inventario",
+            Category = NodeCategory.Condition,
+            OwnerTypes = NodeOwnerType.All,
+            Subgroup = NodeSubgroup.Equipamiento,
+            InputPorts = new[]
+            {
+                new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" }
+            },
+            OutputPorts = new[]
+            {
+                new NodePort { Name = "True", PortType = PortType.Execution, Label = "Sí" },
+                new NodePort { Name = "False", PortType = PortType.Execution, Label = "No" }
+            },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "NpcId", DisplayName = "NPC", DataType = "npc" },
+                new NodePropertyDefinition { Name = "ObjectId", DisplayName = "Objeto", DataType = "object" }
             }
         });
 
@@ -3349,6 +3492,75 @@ public static class NodeTypeRegistry
             {
                 new NodePropertyDefinition { Name = "NpcId", DisplayName = "NPC", DataType = "string", EntityType = "Npc" },
                 new NodePropertyDefinition { Name = "ObjectId", DisplayName = "Objeto", DataType = "string", EntityType = "GameObject" }
+            }
+        });
+
+        // === SUBGRUPO: EQUIPAMIENTO (Acciones) ===
+        Register(new NodeTypeDefinition
+        {
+            TypeId = NodeTypeId.Action_EquipPlayerItem,
+            DisplayName = "Equipar Jugador",
+            Description = "Equipa un objeto al jugador en el slot especificado",
+            Category = NodeCategory.Action,
+            OwnerTypes = NodeOwnerType.All,
+            Subgroup = NodeSubgroup.Equipamiento,
+            InputPorts = new[] { new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" } },
+            OutputPorts = new[] { new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" } },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "ObjectId", DisplayName = "Objeto", DataType = "string", EntityType = "GameObject" },
+                new NodePropertyDefinition { Name = "Slot", DisplayName = "Slot", DataType = "select", Options = new[] { "RightHand", "LeftHand", "Torso" } }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = NodeTypeId.Action_UnequipPlayerSlot,
+            DisplayName = "Desequipar Jugador",
+            Description = "Desequipa el objeto del slot especificado del jugador",
+            Category = NodeCategory.Action,
+            OwnerTypes = NodeOwnerType.All,
+            Subgroup = NodeSubgroup.Equipamiento,
+            InputPorts = new[] { new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" } },
+            OutputPorts = new[] { new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" } },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "Slot", DisplayName = "Slot", DataType = "select", Options = new[] { "RightHand", "LeftHand", "Torso" } }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = NodeTypeId.Action_EquipNpcItem,
+            DisplayName = "Equipar NPC",
+            Description = "Equipa un objeto a un NPC en el slot especificado",
+            Category = NodeCategory.Action,
+            OwnerTypes = NodeOwnerType.All,
+            Subgroup = NodeSubgroup.Equipamiento,
+            InputPorts = new[] { new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" } },
+            OutputPorts = new[] { new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" } },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "NpcId", DisplayName = "NPC", DataType = "string", EntityType = "Npc" },
+                new NodePropertyDefinition { Name = "ObjectId", DisplayName = "Objeto", DataType = "string", EntityType = "GameObject" },
+                new NodePropertyDefinition { Name = "Slot", DisplayName = "Slot", DataType = "select", Options = new[] { "RightHand", "LeftHand", "Torso" } }
+            }
+        });
+
+        Register(new NodeTypeDefinition
+        {
+            TypeId = NodeTypeId.Action_UnequipNpcSlot,
+            DisplayName = "Desequipar NPC",
+            Description = "Desequipa el objeto del slot especificado de un NPC",
+            Category = NodeCategory.Action,
+            OwnerTypes = NodeOwnerType.All,
+            Subgroup = NodeSubgroup.Equipamiento,
+            InputPorts = new[] { new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" } },
+            OutputPorts = new[] { new NodePort { Name = "Exec", PortType = PortType.Execution, Label = "" } },
+            Properties = new[]
+            {
+                new NodePropertyDefinition { Name = "NpcId", DisplayName = "NPC", DataType = "string", EntityType = "Npc" },
+                new NodePropertyDefinition { Name = "Slot", DisplayName = "Slot", DataType = "select", Options = new[] { "RightHand", "LeftHand", "Torso" } }
             }
         });
 

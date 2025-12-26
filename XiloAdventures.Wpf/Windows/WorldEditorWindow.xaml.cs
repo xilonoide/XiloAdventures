@@ -90,6 +90,8 @@ public partial class WorldEditorWindow : Window
         PropertyEditor.GetObjects = () => _world.Objects;
         PropertyEditor.GetAbilities = () => _world.Abilities;
         PropertyEditor.GetQuests = () => _world.Quests;
+        PropertyEditor.GetNpcs = () => _world.Npcs;
+        PropertyEditor.GetPlayerDefinition = () => _world.Player;
         PropertyEditor.GetGameInfo = () => _world.Game;
         PropertyEditor.GetParserDictionary = () => _world.Game.ParserDictionaryJson;
         PropertyEditor.SetParserDictionary = json =>
@@ -338,21 +340,15 @@ public partial class WorldEditorWindow : Window
     private void BuildTree()
     {
         // Guardar el estado expandido de los nodos antes de reconstruir
-        // Extraer solo el nombre base (sin contador) para comparación
         var expandedNodes = new HashSet<string>();
-        foreach (TreeViewItem root in WorldTree.Items)
-        {
-            if (root.IsExpanded && root.Header is string header)
-            {
-                var baseName = header.Contains(" (") ? header[..header.IndexOf(" (")] : header;
-                expandedNodes.Add(baseName);
-            }
-        }
+        var expandedFolderIds = new HashSet<string>();
+        CollectExpandedNodes(WorldTree.Items, expandedNodes, expandedFolderIds);
 
         WorldTree.Items.Clear();
         _gameTreeNode = null;
 
         _world.Doors ??= new List<Door>();
+        _world.Folders ??= new List<EditorFolder>();
 
         var gameNode = new TreeViewItem { Header = "Juego", Tag = _world.Game, Foreground = Brushes.White };
         _gameTreeNode = gameNode;
@@ -360,48 +356,49 @@ public partial class WorldEditorWindow : Window
         // Nodo Jugador como hijo de Juego
         _world.Player ??= new PlayerDefinition();
         var playerNode = new TreeViewItem { Header = "Jugador", Tag = _world.Player, Foreground = Brushes.White };
-        gameNode.Items.Add(playerNode);
 
+        // Añadir subnodo Objetos para el jugador si tiene objetos asignados
+        AddAssignedObjectsNode(playerNode, GetPlayerAssignedObjectIds());
+
+        gameNode.Items.Add(playerNode);
         WorldTree.Items.Add(gameNode);
 
         // Orden: Juego, Misiones, Conversaciones, NPCs, Salas, Objetos
         var questsRoot = new TreeViewItem { Header = $"Misiones ({_world.Quests.Count})", Foreground = Brushes.White };
-        foreach (var q in _world.Quests)
+        BuildFolderTree(questsRoot, EditorFolderType.Quests, null, expandedFolderIds);
+        var questIdsInFolders = GetItemIdsInFolders(EditorFolderType.Quests);
+        foreach (var q in _world.Quests.Where(q => !questIdsInFolders.Contains(q.Id)))
         {
             questsRoot.Items.Add(new TreeViewItem { Header = q.Name, Tag = q, Foreground = Brushes.White });
         }
         WorldTree.Items.Add(questsRoot);
 
         var npcsRoot = new TreeViewItem { Header = $"NPCs ({_world.Npcs.Count})", Foreground = Brushes.White };
-        foreach (var npc in _world.Npcs)
+        BuildFolderTree(npcsRoot, EditorFolderType.Npcs, null, expandedFolderIds);
+        var npcIdsInFolders = GetItemIdsInFolders(EditorFolderType.Npcs);
+        foreach (var npc in _world.Npcs.Where(n => !npcIdsInFolders.Contains(n.Id)))
         {
-            npcsRoot.Items.Add(new TreeViewItem { Header = npc.Name, Tag = npc, Foreground = Brushes.White });
+            var npcNode = new TreeViewItem { Header = npc.Name, Tag = npc, Foreground = Brushes.White };
+            AddAssignedObjectsNode(npcNode, GetNpcAssignedObjectIds(npc));
+            npcsRoot.Items.Add(npcNode);
         }
         WorldTree.Items.Add(npcsRoot);
 
         var roomsRoot = new TreeViewItem { Header = $"Salas ({_world.Rooms.Count})", Foreground = Brushes.White };
-        foreach (var room in _world.Rooms)
+        BuildFolderTree(roomsRoot, EditorFolderType.Rooms, null, expandedFolderIds);
+        var roomIdsInFolders = GetItemIdsInFolders(EditorFolderType.Rooms);
+        foreach (var room in _world.Rooms.Where(r => !roomIdsInFolders.Contains(r.Id)))
         {
-            var roomNode = new TreeViewItem { Header = room.Name, Tag = room, Foreground = Brushes.White };
-
-            // Añadir puertas que conectan con esta sala como hijas
-            foreach (var door in _world.Doors.Where(d => d.RoomIdA == room.Id || d.RoomIdB == room.Id))
-            {
-                // Buscar la dirección de la puerta en las salidas de esta sala
-                var exit = room.Exits?.FirstOrDefault(e => e.DoorId == door.Id);
-                var dirAbbrev = exit != null ? GetDirectionAbbreviation(exit.Direction) : null;
-                var header = !string.IsNullOrEmpty(dirAbbrev) ? $"({dirAbbrev}) {door.Name}" : door.Name;
-                roomNode.Items.Add(new TreeViewItem { Header = header, Tag = door, Foreground = Brushes.White });
-            }
-
+            var roomNode = BuildRoomNode(room);
             roomsRoot.Items.Add(roomNode);
         }
         WorldTree.Items.Add(roomsRoot);
 
         var objsRoot = new TreeViewItem { Header = $"Objetos ({_world.Objects.Count})", Foreground = Brushes.White };
-        foreach (var obj in _world.Objects)
+        BuildFolderTree(objsRoot, EditorFolderType.Objects, null, expandedFolderIds);
+        var objIdsInFolders = GetItemIdsInFolders(EditorFolderType.Objects);
+        foreach (var obj in _world.Objects.Where(o => !objIdsInFolders.Contains(o.Id)))
         {
-            // Solo añadir objetos que NO están contenidos en otros
             if (!IsObjectContainedInAnother(obj))
             {
                 BuildObjectTreeRecursive(objsRoot, obj);
@@ -410,18 +407,207 @@ public partial class WorldEditorWindow : Window
         WorldTree.Items.Add(objsRoot);
 
         // Restaurar el estado expandido de los nodos
-        foreach (TreeViewItem root in WorldTree.Items)
+        RestoreExpandedNodes(WorldTree.Items, expandedNodes, expandedFolderIds);
+    }
+
+    private void CollectExpandedNodes(ItemCollection items, HashSet<string> expandedNodes, HashSet<string> expandedFolderIds)
+    {
+        foreach (TreeViewItem item in items.OfType<TreeViewItem>())
         {
-            if (root.Header is string header)
+            if (item.IsExpanded)
+            {
+                if (item.Tag is EditorFolder folder)
+                    expandedFolderIds.Add(folder.Id);
+                else if (item.Header is string header)
+                {
+                    var baseName = header.Contains(" (") ? header[..header.IndexOf(" (")] : header;
+                    expandedNodes.Add(baseName);
+                }
+            }
+            CollectExpandedNodes(item.Items, expandedNodes, expandedFolderIds);
+        }
+    }
+
+    private void RestoreExpandedNodes(ItemCollection items, HashSet<string> expandedNodes, HashSet<string> expandedFolderIds)
+    {
+        foreach (TreeViewItem item in items.OfType<TreeViewItem>())
+        {
+            if (item.Tag is EditorFolder folder && expandedFolderIds.Contains(folder.Id))
+                item.IsExpanded = true;
+            else if (item.Header is string header)
             {
                 var baseName = header.Contains(" (") ? header[..header.IndexOf(" (")] : header;
                 if (expandedNodes.Contains(baseName))
+                    item.IsExpanded = true;
+            }
+            RestoreExpandedNodes(item.Items, expandedNodes, expandedFolderIds);
+        }
+    }
+
+    private void BuildFolderTree(TreeViewItem parent, EditorFolderType folderType, string? parentFolderId, HashSet<string> expandedFolderIds)
+    {
+        var folders = _world.Folders
+            .Where(f => f.FolderType == folderType && f.ParentFolderId == parentFolderId)
+            .OrderBy(f => f.Name)
+            .ToList();
+
+        foreach (var folder in folders)
+        {
+            var folderNode = new TreeViewItem
+            {
+                Header = $"📁 {folder.Name}",
+                Tag = folder,
+                Foreground = Brushes.White
+            };
+
+            // Añadir subcarpetas recursivamente
+            BuildFolderTree(folderNode, folderType, folder.Id, expandedFolderIds);
+
+            // Añadir items de la carpeta
+            foreach (var itemId in folder.ItemIds)
+            {
+                var itemNode = CreateItemNodeById(folderType, itemId);
+                if (itemNode != null)
+                    folderNode.Items.Add(itemNode);
+            }
+
+            if (expandedFolderIds.Contains(folder.Id))
+                folderNode.IsExpanded = true;
+
+            parent.Items.Insert(0, folderNode); // Carpetas al inicio
+        }
+    }
+
+    private TreeViewItem? CreateItemNodeById(EditorFolderType folderType, string itemId)
+    {
+        return folderType switch
+        {
+            EditorFolderType.Objects => _world.Objects.FirstOrDefault(o => o.Id == itemId) is GameObject obj
+                ? CreateObjectNode(obj) : null,
+            EditorFolderType.Npcs => _world.Npcs.FirstOrDefault(n => n.Id == itemId) is Npc npc
+                ? CreateNpcNode(npc) : null,
+            EditorFolderType.Rooms => _world.Rooms.FirstOrDefault(r => r.Id == itemId) is Room room
+                ? BuildRoomNode(room) : null,
+            EditorFolderType.Quests => _world.Quests.FirstOrDefault(q => q.Id == itemId) is QuestDefinition quest
+                ? new TreeViewItem { Header = quest.Name, Tag = quest, Foreground = Brushes.White } : null,
+            _ => null
+        };
+    }
+
+    private TreeViewItem CreateObjectNode(GameObject obj)
+    {
+        var node = new TreeViewItem { Header = obj.Name, Tag = obj, Foreground = Brushes.White };
+        // Añadir objetos contenidos recursivamente
+        if (obj.IsContainer)
+        {
+            foreach (var containedId in obj.ContainedObjectIds)
+            {
+                var contained = _world.Objects.FirstOrDefault(o => o.Id == containedId);
+                if (contained != null)
                 {
-                    root.IsExpanded = true;
+                    node.Items.Add(CreateObjectNode(contained));
                 }
             }
         }
+        return node;
+    }
 
+    private TreeViewItem CreateNpcNode(Npc npc)
+    {
+        var npcNode = new TreeViewItem { Header = npc.Name, Tag = npc, Foreground = Brushes.White };
+        AddAssignedObjectsNode(npcNode, GetNpcAssignedObjectIds(npc));
+        return npcNode;
+    }
+
+    private TreeViewItem BuildRoomNode(Room room)
+    {
+        var roomNode = new TreeViewItem { Header = room.Name, Tag = room, Foreground = Brushes.White };
+
+        // Añadir puertas que conectan con esta sala como hijas
+        foreach (var door in _world.Doors.Where(d => d.RoomIdA == room.Id || d.RoomIdB == room.Id))
+        {
+            var exit = room.Exits?.FirstOrDefault(e => e.DoorId == door.Id);
+            var dirAbbrev = exit != null ? GetDirectionAbbreviation(exit.Direction) : null;
+            var header = !string.IsNullOrEmpty(dirAbbrev) ? $"({dirAbbrev}) {door.Name}" : door.Name;
+            roomNode.Items.Add(new TreeViewItem { Header = header, Tag = door, Foreground = Brushes.White });
+        }
+
+        // Añadir subnodo Objetos para la sala
+        AddAssignedObjectsNode(roomNode, GetRoomAssignedObjectIds(room));
+
+        return roomNode;
+    }
+
+    private HashSet<string> GetItemIdsInFolders(EditorFolderType folderType)
+    {
+        var ids = new HashSet<string>();
+        foreach (var folder in _world.Folders.Where(f => f.FolderType == folderType))
+        {
+            foreach (var id in folder.ItemIds)
+                ids.Add(id);
+        }
+        return ids;
+    }
+
+    private void AddAssignedObjectsNode(TreeViewItem parentNode, List<string> objectIds)
+    {
+        if (objectIds.Count == 0) return;
+
+        var objectsNode = new TreeViewItem
+        {
+            Header = $"📦 Objetos ({objectIds.Count})",
+            Foreground = Brushes.LightGray,
+            FontStyle = FontStyles.Italic
+        };
+
+        foreach (var objId in objectIds)
+        {
+            var obj = _world.Objects.FirstOrDefault(o => o.Id == objId);
+            if (obj != null)
+            {
+                objectsNode.Items.Add(new TreeViewItem
+                {
+                    Header = obj.Name,
+                    Tag = obj,
+                    Foreground = Brushes.LightGray
+                });
+            }
+        }
+
+        parentNode.Items.Add(objectsNode);
+    }
+
+    private List<string> GetPlayerAssignedObjectIds()
+    {
+        var ids = new List<string>();
+        if (_world.Player.InitialInventory != null)
+            ids.AddRange(_world.Player.InitialInventory.Select(i => i.ObjectId).Where(id => !string.IsNullOrEmpty(id)));
+        if (!string.IsNullOrEmpty(_world.Player.InitialRightHandId))
+            ids.Add(_world.Player.InitialRightHandId);
+        if (!string.IsNullOrEmpty(_world.Player.InitialLeftHandId) && _world.Player.InitialLeftHandId != _world.Player.InitialRightHandId)
+            ids.Add(_world.Player.InitialLeftHandId);
+        if (!string.IsNullOrEmpty(_world.Player.InitialTorsoId))
+            ids.Add(_world.Player.InitialTorsoId);
+        return ids.Distinct().ToList();
+    }
+
+    private List<string> GetNpcAssignedObjectIds(Npc npc)
+    {
+        var ids = new List<string>();
+        if (npc.Inventory != null)
+            ids.AddRange(npc.Inventory.Select(i => i.ObjectId).Where(id => !string.IsNullOrEmpty(id)));
+        if (!string.IsNullOrEmpty(npc.EquippedRightHandId))
+            ids.Add(npc.EquippedRightHandId);
+        if (!string.IsNullOrEmpty(npc.EquippedLeftHandId) && npc.EquippedLeftHandId != npc.EquippedRightHandId)
+            ids.Add(npc.EquippedLeftHandId);
+        if (!string.IsNullOrEmpty(npc.EquippedTorsoId))
+            ids.Add(npc.EquippedTorsoId);
+        return ids.Distinct().ToList();
+    }
+
+    private List<string> GetRoomAssignedObjectIds(Room room)
+    {
+        return room.ObjectIds?.Where(id => !string.IsNullOrEmpty(id)).Distinct().ToList() ?? new List<string>();
     }
 
     private void SelectGameTreeNode()
@@ -515,17 +701,23 @@ public partial class WorldEditorWindow : Window
     }
 
     private Point? _dragStartPoint;
+    private TreeViewItem? _dragItem;
 
     private void WorldTree_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         _dragStartPoint = e.GetPosition(null);
+
+        // Encontrar el TreeViewItem bajo el cursor para el drag
+        var hit = e.OriginalSource as DependencyObject;
+        while (hit != null && hit is not TreeViewItem)
+        {
+            hit = VisualTreeHelper.GetParent(hit);
+        }
+        _dragItem = hit as TreeViewItem;
     }
 
     private void WorldTree_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
-        // Solo mostrar menú contextual en modo prueba
-        if (_testEngine == null) return;
-
         // Encontrar el TreeViewItem bajo el cursor
         var hit = e.OriginalSource as DependencyObject;
         while (hit != null && hit is not TreeViewItem)
@@ -535,19 +727,50 @@ public partial class WorldEditorWindow : Window
 
         if (hit is not TreeViewItem item) return;
 
-        // Solo para GameObjects
-        if (item.Tag is not GameObject gameObj) return;
-
         // Seleccionar el item
         item.IsSelected = true;
 
-        // Crear menú contextual con estilo oscuro
-        var menu = new ContextMenu
+        // Menú contextual para modo prueba (GameObjects)
+        if (_testEngine != null && item.Tag is GameObject gameObj)
         {
-            Background = new SolidColorBrush(Color.FromRgb(45, 45, 45)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(70, 70, 70)),
-            Foreground = Brushes.White
-        };
+            ShowTestModeContextMenu(gameObj);
+            e.Handled = true;
+            return;
+        }
+
+        // Menú contextual para modo edición (carpetas)
+        if (_testEngine == null)
+        {
+            var header = item.Header?.ToString() ?? "";
+
+            // Detectar nodos raíz que soportan carpetas
+            var headerUpper = header.ToUpper();
+            EditorFolderType? folderType = null;
+            if (headerUpper.Contains("OBJETOS")) folderType = EditorFolderType.Objects;
+            else if (headerUpper.Contains("NPCS")) folderType = EditorFolderType.Npcs;
+            else if (headerUpper.Contains("SALAS")) folderType = EditorFolderType.Rooms;
+            else if (headerUpper.Contains("MISIONES")) folderType = EditorFolderType.Quests;
+
+            // También detectar carpetas existentes
+            if (item.Tag is EditorFolder folder)
+            {
+                ShowFolderContextMenu(folder, item);
+                e.Handled = true;
+                return;
+            }
+
+            if (folderType.HasValue)
+            {
+                ShowAddFolderContextMenu(folderType.Value, null);
+                e.Handled = true;
+                return;
+            }
+        }
+    }
+
+    private void ShowTestModeContextMenu(GameObject gameObj)
+    {
+        var menu = CreateDarkContextMenu();
 
         var addToInventoryItem = new MenuItem
         {
@@ -557,7 +780,7 @@ public partial class WorldEditorWindow : Window
         };
         addToInventoryItem.Click += (_, _) =>
         {
-            if (!_testEngine.State.InventoryObjectIds.Contains(gameObj.Id))
+            if (_testEngine != null && !_testEngine.State.InventoryObjectIds.Contains(gameObj.Id))
             {
                 _testEngine.State.InventoryObjectIds.Add(gameObj.Id);
                 AppendTestOutput($"+ {gameObj.Name} añadido al inventario");
@@ -569,14 +792,248 @@ public partial class WorldEditorWindow : Window
             }
         };
         menu.Items.Add(addToInventoryItem);
+        menu.IsOpen = true;
+    }
+
+    private void ShowAddFolderContextMenu(EditorFolderType folderType, string? parentFolderId)
+    {
+        var menu = CreateDarkContextMenu();
+
+        var addFolderItem = new MenuItem
+        {
+            Header = "📁 Añadir carpeta",
+            Foreground = Brushes.White
+        };
+        addFolderItem.Click += (_, _) =>
+        {
+            var folder = new EditorFolder
+            {
+                Id = Guid.NewGuid().ToString(),
+                Name = "Nueva carpeta",
+                FolderType = folderType,
+                ParentFolderId = parentFolderId
+            };
+            _world.Folders.Add(folder);
+            BuildTree();
+
+            // Expandir el nodo padre
+            if (parentFolderId != null)
+            {
+                // Padre es otra carpeta
+                var parentFolder = _world.Folders.FirstOrDefault(f => f.Id == parentFolderId);
+                if (parentFolder != null)
+                {
+                    var parentItem = FindTreeItemByTag(WorldTree.Items, parentFolder);
+                    if (parentItem != null)
+                        parentItem.IsExpanded = true;
+                }
+            }
+            else
+            {
+                // Padre es el nodo raíz (Objetos, NPCs, Salas, Misiones)
+                ExpandRootNodeByFolderType(folderType);
+            }
+
+            // Seleccionar la carpeta recién creada y entrar en modo edición
+            var folderItem = FindTreeItemByTag(WorldTree.Items, folder);
+            if (folderItem != null)
+            {
+                folderItem.IsSelected = true;
+                // Usar Dispatcher para asegurar que el árbol está listo antes de editar
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    StartFolderNameEdit(folderItem, folder);
+                }), System.Windows.Threading.DispatcherPriority.Loaded);
+            }
+        };
+        menu.Items.Add(addFolderItem);
+        menu.IsOpen = true;
+    }
+
+    private void ShowFolderContextMenu(EditorFolder folder, TreeViewItem folderItem)
+    {
+        var menu = CreateDarkContextMenu();
+
+        var addSubfolderItem = new MenuItem
+        {
+            Header = "📁 Añadir subcarpeta",
+            Foreground = Brushes.White
+        };
+        addSubfolderItem.Click += (_, _) =>
+        {
+            var subfolder = new EditorFolder
+            {
+                Id = Guid.NewGuid().ToString(),
+                Name = "Nueva carpeta",
+                FolderType = folder.FolderType,
+                ParentFolderId = folder.Id
+            };
+            _world.Folders.Add(subfolder);
+            BuildTree();
+
+            // Expandir la carpeta padre y seleccionar la subcarpeta
+            var parentItem = FindTreeItemByTag(WorldTree.Items, folder);
+            if (parentItem != null)
+            {
+                parentItem.IsExpanded = true;
+            }
+
+            var subfolderItem = FindTreeItemByTag(WorldTree.Items, subfolder);
+            if (subfolderItem != null)
+            {
+                subfolderItem.IsSelected = true;
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    StartFolderNameEdit(subfolderItem, subfolder);
+                }), System.Windows.Threading.DispatcherPriority.Loaded);
+            }
+        };
+        menu.Items.Add(addSubfolderItem);
+
+        var renameItem = new MenuItem
+        {
+            Header = "✏️ Renombrar",
+            Foreground = Brushes.White
+        };
+        renameItem.Click += (_, _) =>
+        {
+            StartFolderNameEdit(folderItem, folder);
+        };
+        menu.Items.Add(renameItem);
+
+        var deleteItem = new MenuItem
+        {
+            Header = "🗑️ Eliminar carpeta",
+            Foreground = new SolidColorBrush(Color.FromRgb(255, 100, 100))
+        };
+        deleteItem.Click += (_, _) =>
+        {
+            DeleteFolder(folder);
+        };
+        menu.Items.Add(deleteItem);
 
         menu.IsOpen = true;
-        e.Handled = true;
+    }
+
+    private void DeleteFolderRecursive(string folderId)
+    {
+        var subfolders = _world.Folders.Where(f => f.ParentFolderId == folderId).ToList();
+        foreach (var subfolder in subfolders)
+        {
+            DeleteFolderRecursive(subfolder.Id);
+            _world.Folders.Remove(subfolder);
+        }
+    }
+
+    private ContextMenu CreateDarkContextMenu()
+    {
+        var menu = new ContextMenu
+        {
+            Background = new SolidColorBrush(Color.FromRgb(45, 45, 45)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(70, 70, 70)),
+            Foreground = Brushes.White
+        };
+
+        // Template personalizado sin columna de icon/checkbox
+        var template = new ControlTemplate(typeof(MenuItem));
+
+        var border = new FrameworkElementFactory(typeof(Border));
+        border.Name = "Border";
+        border.SetValue(Border.BackgroundProperty, new SolidColorBrush(Color.FromRgb(45, 45, 45)));
+        border.SetValue(Border.PaddingProperty, new Thickness(8, 4, 8, 4));
+
+        var contentPresenter = new FrameworkElementFactory(typeof(ContentPresenter));
+        contentPresenter.SetValue(ContentPresenter.ContentSourceProperty, "Header");
+        contentPresenter.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center);
+
+        border.AppendChild(contentPresenter);
+        template.VisualTree = border;
+
+        // Trigger para hover
+        var hoverTrigger = new Trigger { Property = MenuItem.IsHighlightedProperty, Value = true };
+        hoverTrigger.Setters.Add(new Setter(Border.BackgroundProperty, new SolidColorBrush(Color.FromRgb(62, 62, 64)), "Border"));
+        template.Triggers.Add(hoverTrigger);
+
+        var itemStyle = new Style(typeof(MenuItem));
+        itemStyle.Setters.Add(new Setter(MenuItem.ForegroundProperty, Brushes.White));
+        itemStyle.Setters.Add(new Setter(MenuItem.TemplateProperty, template));
+
+        menu.ItemContainerStyle = itemStyle;
+
+        return menu;
+    }
+
+    private void MoveItemToFolder(string itemId, EditorFolder targetFolder, EditorFolderType folderType)
+    {
+        // Quitar de cualquier carpeta anterior
+        foreach (var folder in _world.Folders.Where(f => f.FolderType == folderType))
+        {
+            folder.ItemIds.Remove(itemId);
+        }
+
+        // Añadir a la nueva carpeta
+        if (!targetFolder.ItemIds.Contains(itemId))
+        {
+            targetFolder.ItemIds.Add(itemId);
+        }
+    }
+
+    private void RemoveItemFromFolders(string itemId, EditorFolderType folderType)
+    {
+        foreach (var folder in _world.Folders.Where(f => f.FolderType == folderType))
+        {
+            folder.ItemIds.Remove(itemId);
+        }
+    }
+
+    private void ExpandRootNodeByFolderType(EditorFolderType folderType)
+    {
+        var headerKeyword = folderType switch
+        {
+            EditorFolderType.Objects => "OBJETOS",
+            EditorFolderType.Npcs => "NPCS",
+            EditorFolderType.Rooms => "SALAS",
+            EditorFolderType.Quests => "MISIONES",
+            _ => ""
+        };
+
+        foreach (TreeViewItem item in WorldTree.Items)
+        {
+            if (item.Header is string header && header.ToUpper().Contains(headerKeyword))
+            {
+                item.IsExpanded = true;
+                break;
+            }
+        }
+    }
+
+    private void SelectTreeItemByTag(object tag)
+    {
+        Dispatcher.InvokeAsync(() =>
+        {
+            var item = FindTreeItemByTag(WorldTree.Items, tag);
+            if (item != null)
+            {
+                item.IsSelected = true;
+                item.BringIntoView();
+            }
+        }, System.Windows.Threading.DispatcherPriority.Background);
+    }
+
+    private TreeViewItem? FindTreeItemByTag(ItemCollection items, object tag)
+    {
+        foreach (var i in items.OfType<TreeViewItem>())
+        {
+            if (i.Tag == tag) return i;
+            var found = FindTreeItemByTag(i.Items, tag);
+            if (found != null) return found;
+        }
+        return null;
     }
 
     private void WorldTree_PreviewMouseMove(object sender, MouseEventArgs e)
     {
-        if (e.LeftButton == MouseButtonState.Pressed && _dragStartPoint.HasValue)
+        if (e.LeftButton == MouseButtonState.Pressed && _dragStartPoint.HasValue && _dragItem != null)
         {
             Point currentPosition = e.GetPosition(null);
             Vector diff = _dragStartPoint.Value - currentPosition;
@@ -584,23 +1041,41 @@ public partial class WorldEditorWindow : Window
             // Solo iniciar drag si el movimiento es significativo (más de 5 píxeles)
             if (Math.Abs(diff.X) > 5 || Math.Abs(diff.Y) > 5)
             {
-                if (WorldTree.SelectedItem is TreeViewItem item)
+                // Usar el item capturado en MouseDown, no el seleccionado
+                var item = _dragItem;
+
+                // Permitir drag de objetos, NPCs, salas y misiones
+                if (item.Tag is GameObject gameObj)
                 {
-                    // Solo permitir drag de objetos y NPCs
-                    if (item.Tag is GameObject gameObj)
-                    {
-                        var data = new DataObject();
-                        data.SetData("GameObject", gameObj);
-                        DragDrop.DoDragDrop(WorldTree, data, DragDropEffects.Move);
-                        _dragStartPoint = null;
-                    }
-                    else if (item.Tag is Npc npc)
-                    {
-                        var data = new DataObject();
-                        data.SetData("Npc", npc);
-                        DragDrop.DoDragDrop(WorldTree, data, DragDropEffects.Move);
-                        _dragStartPoint = null;
-                    }
+                    var data = new DataObject();
+                    data.SetData("GameObject", gameObj);
+                    DragDrop.DoDragDrop(WorldTree, data, DragDropEffects.Move);
+                    _dragStartPoint = null;
+                    _dragItem = null;
+                }
+                else if (item.Tag is Npc npc)
+                {
+                    var data = new DataObject();
+                    data.SetData("Npc", npc);
+                    DragDrop.DoDragDrop(WorldTree, data, DragDropEffects.Move);
+                    _dragStartPoint = null;
+                    _dragItem = null;
+                }
+                else if (item.Tag is Room room)
+                {
+                    var data = new DataObject();
+                    data.SetData("Room", room);
+                    DragDrop.DoDragDrop(WorldTree, data, DragDropEffects.Move);
+                    _dragStartPoint = null;
+                    _dragItem = null;
+                }
+                else if (item.Tag is QuestDefinition quest)
+                {
+                    var data = new DataObject();
+                    data.SetData("Quest", quest);
+                    DragDrop.DoDragDrop(WorldTree, data, DragDropEffects.Move);
+                    _dragStartPoint = null;
+                    _dragItem = null;
                 }
             }
         }
@@ -608,7 +1083,8 @@ public partial class WorldEditorWindow : Window
 
     private void WorldTree_DragEnter(object sender, DragEventArgs e)
     {
-        if (e.Data.GetDataPresent("GameObject") || e.Data.GetDataPresent("Npc"))
+        if (e.Data.GetDataPresent("GameObject") || e.Data.GetDataPresent("Npc") ||
+            e.Data.GetDataPresent("Room") || e.Data.GetDataPresent("Quest"))
         {
             e.Effects = DragDropEffects.Move;
         }
@@ -621,7 +1097,8 @@ public partial class WorldEditorWindow : Window
 
     private void WorldTree_DragOver(object sender, DragEventArgs e)
     {
-        if (e.Data.GetDataPresent("GameObject") || e.Data.GetDataPresent("Npc"))
+        if (e.Data.GetDataPresent("GameObject") || e.Data.GetDataPresent("Npc") ||
+            e.Data.GetDataPresent("Room") || e.Data.GetDataPresent("Quest"))
         {
             // Obtener el TreeViewItem sobre el que se está arrastrando
             var targetItem = GetTreeViewItemAtPoint(WorldTree, e.GetPosition(WorldTree));
@@ -663,12 +1140,38 @@ public partial class WorldEditorWindow : Window
                         {
                             isValid = true;
                         }
+                        // Objeto → Carpeta de objetos
+                        else if (targetItem.Tag is EditorFolder folder && folder.FolderType == EditorFolderType.Objects)
+                        {
+                            isValid = true;
+                        }
                     }
                 }
                 else if (e.Data.GetDataPresent("Npc"))
                 {
                     // NPC → Sala
                     if (targetItem.Tag is Room)
+                    {
+                        isValid = true;
+                    }
+                    // NPC → Carpeta de NPCs
+                    else if (targetItem.Tag is EditorFolder folder && folder.FolderType == EditorFolderType.Npcs)
+                    {
+                        isValid = true;
+                    }
+                }
+                else if (e.Data.GetDataPresent("Room"))
+                {
+                    // Sala → Carpeta de salas
+                    if (targetItem.Tag is EditorFolder folder && folder.FolderType == EditorFolderType.Rooms)
+                    {
+                        isValid = true;
+                    }
+                }
+                else if (e.Data.GetDataPresent("Quest"))
+                {
+                    // Misión → Carpeta de misiones
+                    if (targetItem.Tag is EditorFolder folder && folder.FolderType == EditorFolderType.Quests)
                     {
                         isValid = true;
                     }
@@ -769,10 +1272,48 @@ public partial class WorldEditorWindow : Window
             else if (e.Data.GetDataPresent("Npc"))
             {
                 var draggedNpc = e.Data.GetData("Npc") as Npc;
-                if (draggedNpc != null && targetItem.Tag is Room targetRoom)
+                if (draggedNpc != null)
                 {
-                    // NPC → Sala
-                    draggedNpc.RoomId = targetRoom.Id;
+                    if (targetItem.Tag is Room targetRoom)
+                    {
+                        // NPC → Sala
+                        draggedNpc.RoomId = targetRoom.Id;
+                        changed = true;
+                    }
+                    else if (targetItem.Tag is EditorFolder folder && folder.FolderType == EditorFolderType.Npcs)
+                    {
+                        // NPC → Carpeta
+                        MoveItemToFolder(draggedNpc.Id, folder, EditorFolderType.Npcs);
+                        changed = true;
+                    }
+                }
+            }
+            else if (e.Data.GetDataPresent("Room"))
+            {
+                var draggedRoom = e.Data.GetData("Room") as Room;
+                if (draggedRoom != null && targetItem.Tag is EditorFolder folder && folder.FolderType == EditorFolderType.Rooms)
+                {
+                    MoveItemToFolder(draggedRoom.Id, folder, EditorFolderType.Rooms);
+                    changed = true;
+                }
+            }
+            else if (e.Data.GetDataPresent("Quest"))
+            {
+                var draggedQuest = e.Data.GetData("Quest") as QuestDefinition;
+                if (draggedQuest != null && targetItem.Tag is EditorFolder folder && folder.FolderType == EditorFolderType.Quests)
+                {
+                    MoveItemToFolder(draggedQuest.Id, folder, EditorFolderType.Quests);
+                    changed = true;
+                }
+            }
+
+            // Manejar drop de GameObject en carpeta
+            if (e.Data.GetDataPresent("GameObject") && targetItem.Tag is EditorFolder objFolder && objFolder.FolderType == EditorFolderType.Objects)
+            {
+                var draggedObj = e.Data.GetData("GameObject") as GameObject;
+                if (draggedObj != null)
+                {
+                    MoveItemToFolder(draggedObj.Id, objFolder, EditorFolderType.Objects);
                     changed = true;
                 }
             }
@@ -844,28 +1385,31 @@ public partial class WorldEditorWindow : Window
     {
         try
         {
+            if (_world == null) return;
+
             var point = e.GetPosition(MapPanel);
             var targetRoom = MapPanel.GetRoomAtPoint(point);
-            if (targetRoom == null || _world == null) return;
+            if (targetRoom == null)
+            {
+                e.Handled = true;
+                return;
+            }
 
+            object? droppedItem = null;
             bool changed = false;
 
             if (e.Data.GetDataPresent("GameObject"))
             {
-                var draggedObj = e.Data.GetData("GameObject") as GameObject;
-                if (draggedObj != null)
+                var gameObj = e.Data.GetData("GameObject") as GameObject;
+                if (gameObj != null)
                 {
-                    // Quitar de cualquier contenedor que lo tenga
+                    // Quitar de cualquier contenedor
                     foreach (var container in _world.Objects.Where(o => o.IsContainer))
                     {
-                        if (container.ContainedObjectIds.Contains(draggedObj.Id, StringComparer.OrdinalIgnoreCase))
-                        {
-                            container.ContainedObjectIds.Remove(draggedObj.Id);
-                        }
+                        container.ContainedObjectIds.Remove(gameObj.Id);
                     }
-
-                    // Cambiar la sala del objeto
-                    draggedObj.RoomId = targetRoom.Id;
+                    gameObj.RoomId = targetRoom.Id;
+                    droppedItem = gameObj;
                     changed = true;
                 }
             }
@@ -875,17 +1419,26 @@ public partial class WorldEditorWindow : Window
                 if (npc != null)
                 {
                     npc.RoomId = targetRoom.Id;
+                    droppedItem = npc;
                     changed = true;
                 }
             }
 
-            if (changed)
+            if (changed && droppedItem != null)
             {
                 BuildTree();
-                MapPanel.InvalidateVisual();
-                PropertyEditor.SetObject(WorldTree.SelectedItem is TreeViewItem item ? item.Tag : null);
+                SelectTreeItemByTag(droppedItem);
                 PushUndoSnapshot();
                 SetDirty(true);
+                MapPanel.InvalidateVisual();
+
+                // Forzar refresh del PropertyEditor después de que el UI se actualice
+                var itemToShow = droppedItem;
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    PropertyEditor.SetObject(null);
+                    PropertyEditor.SetObject(itemToShow);
+                }), System.Windows.Threading.DispatcherPriority.Render);
             }
 
             e.Handled = true;
@@ -2781,6 +3334,113 @@ public partial class WorldEditorWindow : Window
                 e.Handled = true;
             }
         }
+        else if (e.Key == Key.F2)
+        {
+            if (WorldTree.SelectedItem is TreeViewItem item && item.Tag is EditorFolder folder)
+            {
+                StartFolderNameEdit(item, folder);
+                e.Handled = true;
+            }
+        }
+    }
+
+    private TreeViewItem? _editingFolderItem;
+    private EditorFolder? _editingFolder;
+    private TextBox? _folderNameTextBox;
+
+    private void StartFolderNameEdit(TreeViewItem item, EditorFolder folder)
+    {
+        _editingFolderItem = item;
+        _editingFolder = folder;
+
+        // Crear TextBox para edición inline
+        _folderNameTextBox = new TextBox
+        {
+            Text = folder.Name,
+            MinWidth = 100,
+            Background = new SolidColorBrush(Color.FromRgb(45, 45, 48)),
+            Foreground = Brushes.White,
+            BorderBrush = new SolidColorBrush(Color.FromRgb(0, 122, 204)),
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(2),
+            CaretBrush = Brushes.White
+        };
+
+        _folderNameTextBox.KeyDown += FolderNameTextBox_KeyDown;
+        _folderNameTextBox.LostFocus += FolderNameTextBox_LostFocus;
+
+        // Reemplazar el header con el TextBox
+        item.Header = _folderNameTextBox;
+
+        // Seleccionar todo el texto y dar foco con prioridad alta
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            _folderNameTextBox?.SelectAll();
+            _folderNameTextBox?.Focus();
+            Keyboard.Focus(_folderNameTextBox);
+        }), System.Windows.Threading.DispatcherPriority.Input);
+    }
+
+    private void FolderNameTextBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            CommitFolderNameEdit();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Escape)
+        {
+            CancelFolderNameEdit();
+            e.Handled = true;
+        }
+    }
+
+    private void FolderNameTextBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        // Al perder el foco, confirmar la edición
+        CommitFolderNameEdit();
+    }
+
+    private void CommitFolderNameEdit()
+    {
+        if (_editingFolder == null || _editingFolderItem == null || _folderNameTextBox == null)
+            return;
+
+        var newName = _folderNameTextBox.Text.Trim();
+        if (!string.IsNullOrEmpty(newName))
+        {
+            _editingFolder.Name = newName;
+            SetDirty(true);
+        }
+
+        // Restaurar el header normal
+        _editingFolderItem.Header = $"📁 {_editingFolder.Name}";
+
+        CleanupFolderEdit();
+    }
+
+    private void CancelFolderNameEdit()
+    {
+        if (_editingFolder == null || _editingFolderItem == null)
+            return;
+
+        // Restaurar el header sin cambiar el nombre
+        _editingFolderItem.Header = $"📁 {_editingFolder.Name}";
+
+        CleanupFolderEdit();
+    }
+
+    private void CleanupFolderEdit()
+    {
+        if (_folderNameTextBox != null)
+        {
+            _folderNameTextBox.KeyDown -= FolderNameTextBox_KeyDown;
+            _folderNameTextBox.LostFocus -= FolderNameTextBox_LostFocus;
+        }
+
+        _editingFolderItem = null;
+        _editingFolder = null;
+        _folderNameTextBox = null;
     }
 
     private void HandleDeleteTreeItem(TreeViewItem item)
@@ -2805,7 +3465,23 @@ public partial class WorldEditorWindow : Window
             case Door door:
                 DeleteDoor(door);
                 break;
+            case EditorFolder folder:
+                DeleteFolder(folder);
+                break;
         }
+    }
+
+    private void DeleteFolder(EditorFolder folder)
+    {
+        if (folder is null) return;
+
+        // Mover los items de la carpeta a la raíz (liberar asociaciones)
+        folder.ItemIds.Clear();
+        // Eliminar subcarpetas recursivamente
+        DeleteFolderRecursive(folder.Id);
+        _world.Folders.Remove(folder);
+        BuildTree();
+        SetDirty(true);
     }
 
     private void DeleteRoom(Room room)

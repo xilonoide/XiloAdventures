@@ -906,6 +906,13 @@
                                   Drop="WorldTree_Drop"
                                   Background="#333333"
                                   BorderBrush="#555555">
+                            <TreeView.Resources>
+                                <!-- Sobrescribir colores de selección del sistema -->
+                                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#0078D4"/>
+                                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="White"/>
+                                <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#505050"/>
+                                <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="White"/>
+                            </TreeView.Resources>
                             <TreeView.ItemContainerStyle>
                                 <Style TargetType="TreeViewItem">
                                     <Setter Property="Foreground"
@@ -916,7 +923,7 @@
                                         <Trigger Property="IsSelected"
                                                 Value="True">
                                             <Setter Property="Background"
-                                                    Value="#505050"/>
+                                                    Value="#0078D4"/>
                                             <Setter Property="Foreground"
                                                     Value="White"/>
                                         </Trigger>

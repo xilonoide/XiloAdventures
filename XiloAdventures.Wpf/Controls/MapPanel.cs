@@ -119,10 +119,9 @@ public partial class MapPanel : Control
         Background = Brushes.Transparent;
         AllowDrop = true;
 
-        // Configurar eventos de drag and drop
+        // Configurar eventos de drag and drop (solo cursor feedback, el drop lo maneja WorldEditorWindow)
         DragEnter += MapPanel_DragEnter;
         DragOver += MapPanel_DragOver;
-        Drop += MapPanel_Drop;
 
         // Centrar en sala inicial al cambiar tamaño
         SizeChanged += MapPanel_SizeChanged;

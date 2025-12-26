@@ -131,6 +131,12 @@ public class GameObject
     public int AttackBonus { get; set; } = 0;
 
     /// <summary>
+    /// Manos requeridas para usar el arma (1 o 2). Solo para tipo Arma.
+    /// Un arma de 2 manos ocupa ambos slots de mano (derecha e izquierda).
+    /// </summary>
+    public int HandsRequired { get; set; } = 1;
+
+    /// <summary>
     /// Modificador de defensa (reducción de daño). Solo para tipo Armadura.
     /// </summary>
     public int DefenseBonus { get; set; } = 0;

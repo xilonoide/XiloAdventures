@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Text.Json.Serialization;
@@ -63,9 +62,24 @@ public class Npc
     #region Inventory and Equipment
 
     /// <summary>
-    /// Inventario del NPC.
+    /// Inventario del NPC con cantidades.
     /// </summary>
-    public List<string> InventoryObjectIds { get; set; } = new();
+    public List<InventoryItem> Inventory { get; set; } = new();
+
+    /// <summary>
+    /// ID del objeto equipado en la mano derecha (Arma o Armadura/escudo).
+    /// </summary>
+    public string? EquippedRightHandId { get; set; }
+
+    /// <summary>
+    /// ID del objeto equipado en la mano izquierda (Arma de 1 mano o Armadura/escudo).
+    /// </summary>
+    public string? EquippedLeftHandId { get; set; }
+
+    /// <summary>
+    /// ID del objeto equipado en el torso (solo Armadura).
+    /// </summary>
+    public string? EquippedTorsoId { get; set; }
 
     #endregion
 

@@ -358,7 +358,7 @@ public class CombatEngineTests
         var (world, state) = CreateCombatTestWorld();
 
         // Equip the sword
-        state.Player.EquippedWeaponId = "sword";
+        state.Player.EquippedRightHandId = "sword";
         state.InventoryObjectIds.Add("sword");
 
         var engine = new CombatEngine(state);
@@ -380,7 +380,7 @@ public class CombatEngineTests
         var (world, state) = CreateCombatTestWorld();
 
         // Equip the armor
-        state.Player.EquippedArmorId = "armor";
+        state.Player.EquippedTorsoId = "armor";
         state.InventoryObjectIds.Add("armor");
 
         var engine = new CombatEngine(state);
@@ -404,7 +404,7 @@ public class CombatEngineTests
         // Arrange
         var (world, state) = CreateCombatTestWorld();
         var sword = state.Objects.First(o => o.Id == "sword");
-        state.Player.EquippedWeaponId = "sword";
+        state.Player.EquippedRightHandId = "sword";
         state.InventoryObjectIds.Add("sword");
 
         var initialDurability = sword.CurrentDurability;
@@ -427,7 +427,7 @@ public class CombatEngineTests
         // Arrange
         var (world, state) = CreateCombatTestWorld();
         var armor = state.Objects.First(o => o.Id == "armor");
-        state.Player.EquippedArmorId = "armor";
+        state.Player.EquippedTorsoId = "armor";
         state.InventoryObjectIds.Add("armor");
 
         var engine = new CombatEngine(state);
@@ -656,7 +656,7 @@ public class CombatEngineTests
     {
         // Arrange
         var (world, state) = CreateMagicTestWorld();
-        state.Player.EquippedWeaponId = "magic_sword";
+        state.Player.EquippedRightHandId = "magic_sword";
         state.InventoryObjectIds.Add("magic_sword");
         state.Player.Intelligence = 20; // High intelligence
         state.Player.Strength = 5; // Low strength
@@ -678,7 +678,7 @@ public class CombatEngineTests
     {
         // Arrange
         var (world, state) = CreateCombatTestWorld();
-        state.Player.EquippedWeaponId = "sword";
+        state.Player.EquippedRightHandId = "sword";
         state.InventoryObjectIds.Add("sword");
         state.Player.Strength = 20; // High strength
         state.Player.Intelligence = 5; // Low intelligence
@@ -700,7 +700,7 @@ public class CombatEngineTests
     {
         // Arrange
         var (world, state) = CreateMagicTestWorld();
-        state.Player.EquippedWeaponId = "magic_sword";
+        state.Player.EquippedRightHandId = "magic_sword";
         state.InventoryObjectIds.Add("magic_sword");
 
         var engine = new CombatEngine(state);
@@ -723,7 +723,7 @@ public class CombatEngineTests
     {
         // Arrange
         var (world, state) = CreateMagicTestWorld();
-        state.Player.EquippedArmorId = "magic_robe";
+        state.Player.EquippedTorsoId = "magic_robe";
         state.InventoryObjectIds.Add("magic_robe");
         state.Player.Intelligence = 20; // High intelligence
         state.Player.Dexterity = 5; // Low dexterity
@@ -743,7 +743,7 @@ public class CombatEngineTests
     {
         // Arrange
         var (world, state) = CreateCombatTestWorld();
-        state.Player.EquippedArmorId = "armor";
+        state.Player.EquippedTorsoId = "armor";
         state.InventoryObjectIds.Add("armor");
         state.Player.Dexterity = 20; // High dexterity
         state.Player.Intelligence = 5; // Low intelligence
@@ -763,7 +763,7 @@ public class CombatEngineTests
     {
         // Arrange
         var (world, state) = CreateMagicTestWorld();
-        state.Player.EquippedArmorId = "magic_robe";
+        state.Player.EquippedTorsoId = "magic_robe";
         state.InventoryObjectIds.Add("magic_robe");
 
         var engine = new CombatEngine(state);
@@ -781,7 +781,7 @@ public class CombatEngineTests
     {
         // Arrange
         var (world, state) = CreateCombatTestWorld();
-        state.Player.EquippedArmorId = null; // No armor
+        state.Player.EquippedTorsoId = null; // No armor
         state.Player.Dexterity = 15;
 
         var engine = new CombatEngine(state);
@@ -1312,7 +1312,7 @@ public class CombatEngineTests
     {
         // Arrange
         var (world, state) = CreateCombatTestWorld();
-        state.Player.EquippedArmorId = "armor";
+        state.Player.EquippedTorsoId = "armor";
         state.InventoryObjectIds.Add("armor");
 
         var engine = new CombatEngine(state);
@@ -1353,7 +1353,7 @@ public class CombatEngineTests
     {
         // Arrange
         var (world, state) = CreateCombatTestWorld();
-        state.Player.EquippedWeaponId = "sword";
+        state.Player.EquippedRightHandId = "sword";
         state.InventoryObjectIds.Add("sword");
         state.Player.Strength = 50; // Very strong player
         var goblin = state.Npcs.First(n => n.Id == "goblin");
@@ -1438,7 +1438,7 @@ public class CombatEngineTests
     {
         // Arrange
         var (world, state) = CreateMagicAbilityTestWorld();
-        state.Player.EquippedWeaponId = "sword";
+        state.Player.EquippedRightHandId = "sword";
         state.InventoryObjectIds.Add("sword");
         state.Player.AbilityIds.Add("fireball");
         state.Player.DynamicStats.Mana = 20;
@@ -1742,7 +1742,13 @@ public class CombatEngineTests
                     Description = "Un goblin bien equipado.",
                     RoomId = "room1",
                     Visible = true,
-                    InventoryObjectIds = new List<string> { "rusty_sword", "great_axe", "leather_armor", "plate_armor" },
+                    Inventory = new List<InventoryItem>
+                    {
+                        new() { ObjectId = "rusty_sword", Quantity = 1 },
+                        new() { ObjectId = "great_axe", Quantity = 1 },
+                        new() { ObjectId = "leather_armor", Quantity = 1 },
+                        new() { ObjectId = "plate_armor", Quantity = 1 }
+                    },
                     Stats = new CombatStats
                     {
                         MaxHealth = 40,
@@ -1824,7 +1830,11 @@ public class CombatEngineTests
                     RoomId = "room1",
                     Visible = true,
                     MagicEnabled = false, // Has magic items but not innate magic
-                    InventoryObjectIds = new List<string> { "staff", "enchanted_robe" },
+                    Inventory = new List<InventoryItem>
+                    {
+                        new() { ObjectId = "staff", Quantity = 1 },
+                        new() { ObjectId = "enchanted_robe", Quantity = 1 }
+                    },
                     Stats = new CombatStats
                     {
                         MaxHealth = 25,

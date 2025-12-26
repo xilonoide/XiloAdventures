@@ -87,6 +87,10 @@ public partial class PropertyEditor : UserControl
 
     public Func<IEnumerable<QuestDefinition>>? GetQuests { get; set; }
 
+    public Func<IEnumerable<Npc>>? GetNpcs { get; set; }
+
+    public Func<PlayerDefinition?>? GetPlayerDefinition { get; set; }
+
     /// <summary>
     /// Obtiene la información del juego actual.
     /// </summary>
@@ -182,6 +186,10 @@ public partial class PropertyEditor : UserControl
         _searchableElements.Clear();
 
         if (obj == null)
+            return;
+
+        // Las carpetas del editor no tienen propiedades visibles (se editan con F2 en el árbol)
+        if (obj is EditorFolder)
             return;
 
         var props = obj.GetType()
@@ -959,12 +967,22 @@ public partial class PropertyEditor : UserControl
             return PropertyCategory.Comportamiento;
 
         // Propiedades de combate de GameObject (armas y armaduras)
-        if (obj is GameObject && (name == PN.AttackBonus || name == PN.DefenseBonus || name == PN.DamageType
+        if (obj is GameObject && (name == PN.AttackBonus || name == PN.HandsRequired || name == PN.DefenseBonus || name == PN.DamageType
             || name == PN.MaxDurability || name == PN.CurrentDurability || name == PN.InitiativeBonus))
             return PropertyCategory.Combate;
 
+        // PlayerDefinition: Inventario y equipamiento inicial
+        if (obj is PlayerDefinition && (name == PN.InitialInventory || name == PN.InitialRightHandId
+            || name == PN.InitialLeftHandId || name == PN.InitialTorsoId))
+            return PropertyCategory.Objetos;
+
+        // NPC: Inventario y equipamiento
+        if (obj is Npc && (name == PN.Inventory || name == PN.EquippedRightHandId
+            || name == PN.EquippedLeftHandId || name == PN.EquippedTorsoId))
+            return PropertyCategory.Objetos;
+
         // Otras propiedades de contenido que no son de GameObject
-        if (name == PN.InventoryObjectIds || name == PN.Objectives || name == PN.KeyObjectId
+        if (name == PN.Objectives || name == PN.KeyObjectId
             || name == PN.DoorId || name == PN.ObjectId)
             return PropertyCategory.Otros;
 
@@ -2471,13 +2489,13 @@ public partial class PropertyEditor : UserControl
 
                 editor = pb;
             }
-            // Selector múltiple de objetos para InventoryObjectIds de NPC
-            else if (obj is Npc npcForObjectList &&
-                     prop.PropertyType == typeof(List<string>) &&
-                     prop.Name == PN.InventoryObjectIds &&
+            // Editor de inventario con cantidades para Inventory de NPC o InitialInventory de PlayerDefinition
+            else if ((obj is Npc || obj is PlayerDefinition) &&
+                     prop.PropertyType == typeof(List<InventoryItem>) &&
+                     (prop.Name == PN.Inventory || prop.Name == PN.InitialInventory) &&
                      GetObjects != null)
             {
-                editor = CreateMultiSelectObjectPicker(npcForObjectList, prop);
+                editor = CreateInventoryEditor(obj, prop);
             }
             // Editor de inventario de tienda con cantidades para ShopInventory de NPC
             else if (obj is Npc npcForShop &&
@@ -2632,6 +2650,30 @@ public partial class PropertyEditor : UserControl
                     };
 
                     editor = combo;
+                }
+                // Selector de equipamiento para mano derecha (Arma o Armadura)
+                else if ((obj is PlayerDefinition || obj is Npc) &&
+                         prop.PropertyType == typeof(string) &&
+                         (prop.Name == PN.InitialRightHandId || prop.Name == PN.EquippedRightHandId) &&
+                         GetObjects != null)
+                {
+                    editor = CreateEquipmentSlotEditor(obj, prop, EquipmentSlot.RightHand);
+                }
+                // Selector de equipamiento para mano izquierda (Arma 1 mano o Armadura)
+                else if ((obj is PlayerDefinition || obj is Npc) &&
+                         prop.PropertyType == typeof(string) &&
+                         (prop.Name == PN.InitialLeftHandId || prop.Name == PN.EquippedLeftHandId) &&
+                         GetObjects != null)
+                {
+                    editor = CreateEquipmentSlotEditor(obj, prop, EquipmentSlot.LeftHand);
+                }
+                // Selector de equipamiento para torso (solo Armadura)
+                else if ((obj is PlayerDefinition || obj is Npc) &&
+                         prop.PropertyType == typeof(string) &&
+                         (prop.Name == PN.InitialTorsoId || prop.Name == PN.EquippedTorsoId) &&
+                         GetObjects != null)
+                {
+                    editor = CreateEquipmentSlotEditor(obj, prop, EquipmentSlot.Torso);
                 }
                 else
                 {
@@ -2872,11 +2914,23 @@ public partial class PropertyEditor : UserControl
         ["GameObject.CanIgnite"] = "Se puede encender",
         ["GameObject.IgniterObjectId"] = "Objeto encendedor",
         ["GameObject.CraftingRecipe"] = "Se fabrica con",
+        ["GameObject.HandsRequired"] = "Manos requeridas",
+        ["HandsRequired"] = "Manos requeridas",
+        ["AttackBonus"] = "Bonus de ataque",
+        ["DefenseBonus"] = "Bonus de defensa",
+        ["DamageType"] = "Tipo de daño",
+        ["MaxDurability"] = "Durabilidad máxima",
+        ["CurrentDurability"] = "Durabilidad actual",
+        ["InitiativeBonus"] = "Bonus de iniciativa",
 
         // NPC
         ["Npc.RoomId"] = "Sala",
         ["Npc.Dialogue"] = "Diálogo",
         ["Npc.InventoryObjectIds"] = "Objetos en inventario",
+        ["Npc.Inventory"] = "Inventario",
+        ["Npc.EquippedRightHandId"] = "Mano derecha",
+        ["Npc.EquippedLeftHandId"] = "Mano izquierda",
+        ["Npc.EquippedTorsoId"] = "Torso",
         ["Npc.Visible"] = "Visible",
         ["Npc.Stats"] = "Estadísticas",
         ["Npc.IsShopkeeper"] = "Es comerciante",
@@ -2933,6 +2987,18 @@ public partial class PropertyEditor : UserControl
         ["PlayerDefinition.InitialMoney"] = "Dinero inicial",
         ["PlayerDefinition.MaxInventoryWeight"] = "Peso máx. inventario (g)",
         ["PlayerDefinition.MaxInventoryVolume"] = "Volumen máx. inventario (cm³)",
+        ["PlayerDefinition.InitialInventory"] = "Inventario inicial",
+        ["PlayerDefinition.InitialRightHandId"] = "Mano derecha",
+        ["PlayerDefinition.InitialLeftHandId"] = "Mano izquierda",
+        ["PlayerDefinition.InitialTorsoId"] = "Torso",
+        ["InitialInventory"] = "Inventario inicial",
+        ["InitialRightHandId"] = "Mano derecha",
+        ["InitialLeftHandId"] = "Mano izquierda",
+        ["InitialTorsoId"] = "Torso",
+        ["Inventory"] = "Inventario",
+        ["EquippedRightHandId"] = "Mano derecha",
+        ["EquippedLeftHandId"] = "Mano izquierda",
+        ["EquippedTorsoId"] = "Torso",
         ["Constitution"] = "Constitución",
         ["Charisma"] = "Carisma",
         ["Age"] = "Edad",
@@ -3139,6 +3205,10 @@ public partial class PropertyEditor : UserControl
             // TextContent es subpropiedad de CanRead
             if (name == PN.TextContent)
                 return true;
+
+            // HandsRequired es subpropiedad de Type (solo para armas)
+            if (name == PN.HandsRequired)
+                return true;
         }
 
         // Propiedades de patrulla/seguimiento de NPC (subpropiedades)
@@ -3213,6 +3283,10 @@ public partial class PropertyEditor : UserControl
             // === PROPIEDADES DE COMBATE ===
             // AttackBonus solo visible si Type = Arma
             if (name == PN.AttackBonus)
+                return () => gameObject.Type == ObjectType.Arma;
+
+            // HandsRequired solo visible si Type = Arma
+            if (name == PN.HandsRequired)
                 return () => gameObject.Type == ObjectType.Arma;
 
             // DefenseBonus solo visible si Type = Armadura
@@ -4084,6 +4158,457 @@ public partial class PropertyEditor : UserControl
     }
 
     /// <summary>
+    /// Crea un editor de inventario con selección de objetos y cantidades.
+    /// Funciona para Npc.Inventory y PlayerDefinition.InitialInventory.
+    /// </summary>
+    private FrameworkElement CreateInventoryEditor(object obj, PropertyInfo prop)
+    {
+        var currentInventory = prop.GetValue(obj) as List<InventoryItem> ?? new List<InventoryItem>();
+        var allObjects = GetObjects?.Invoke()?.ToList() ?? new List<GameObject>();
+
+        // Obtener IDs de objetos equipados (excluir inventario para esta verificación)
+        var equippedObjectIds = GetUsedObjectIds(obj, excludeInventory: true);
+
+        var mainPanel = new StackPanel();
+
+        // Etiqueta de resumen
+        var summaryText = new TextBlock
+        {
+            Text = GetInventorySummary(currentInventory, allObjects),
+            Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA)),
+            FontSize = 12,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 4)
+        };
+        mainPanel.Children.Add(summaryText);
+
+        // Expander con objetos y cantidades
+        var headerText = prop.Name == PN.InitialInventory ? "Inventario inicial" : "Inventario";
+        var expander = new Expander
+        {
+            Header = $"{headerText} ({currentInventory.Count})",
+            IsExpanded = false,
+            Foreground = Brushes.White,
+            Background = new SolidColorBrush(Color.FromRgb(0x2A, 0x2A, 0x2A)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(0x4A, 0x4A, 0x4A)),
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(4)
+        };
+
+        var itemsPanel = new StackPanel { Margin = new Thickness(8, 4, 4, 4) };
+
+        if (!allObjects.Any())
+        {
+            itemsPanel.Children.Add(new TextBlock
+            {
+                Text = "(No hay objetos en el mundo)",
+                Foreground = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88)),
+                FontStyle = FontStyles.Italic
+            });
+        }
+        else
+        {
+            foreach (var gameObj in allObjects.OrderBy(o => o.Name))
+            {
+                var invItem = currentInventory.FirstOrDefault(i =>
+                    i.ObjectId.Equals(gameObj.Id, StringComparison.OrdinalIgnoreCase));
+                var isSelected = invItem != null;
+                var quantity = invItem?.Quantity ?? 1;
+
+                var itemPanel = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Margin = new Thickness(0, 2, 0, 2)
+                };
+
+                // Verificar si el objeto está equipado
+                var isEquipped = equippedObjectIds.Contains(gameObj.Id);
+
+                var checkbox = new CheckBox
+                {
+                    IsChecked = isSelected,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Tag = gameObj.Id,
+                    IsEnabled = !isEquipped
+                };
+
+                var checkLabel = new TextBlock
+                {
+                    Text = isEquipped ? $"{gameObj.Name} (equipado)" : gameObj.Name,
+                    Foreground = isEquipped ? new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88)) : Brushes.White,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(6, 0, 8, 0),
+                    Cursor = isEquipped ? Cursors.Arrow : Cursors.Hand,
+                    Width = 150,
+                    ToolTip = isEquipped ? "Este objeto está equipado" : null
+                };
+
+                var qtyLabel = new TextBlock
+                {
+                    Text = "Cant:",
+                    Foreground = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(0, 0, 4, 0),
+                    Visibility = isSelected ? Visibility.Visible : Visibility.Collapsed
+                };
+
+                var qtyInput = new TextBox
+                {
+                    Text = quantity.ToString(),
+                    Width = 50,
+                    Background = new SolidColorBrush(Color.FromRgb(0x3A, 0x3A, 0x3A)),
+                    Foreground = Brushes.White,
+                    BorderBrush = new SolidColorBrush(Color.FromRgb(0x5A, 0x5A, 0x5A)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Tag = gameObj.Id,
+                    Visibility = isSelected ? Visibility.Visible : Visibility.Collapsed
+                };
+
+                var infiniteHint = new TextBlock
+                {
+                    Text = "(-1 = ∞)",
+                    Foreground = new SolidColorBrush(Color.FromRgb(0x66, 0x66, 0x66)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(4, 0, 0, 0),
+                    FontSize = 10,
+                    Visibility = isSelected ? Visibility.Visible : Visibility.Collapsed
+                };
+
+                // Solo permitir click en la etiqueta si no está equipado
+                if (!isEquipped)
+                    checkLabel.MouseLeftButtonDown += (_, _) => checkbox.IsChecked = !checkbox.IsChecked;
+
+                // Capture variables for closures
+                var capturedProp = prop;
+                var capturedHeaderText = headerText;
+
+                checkbox.Checked += (_, _) =>
+                {
+                    try
+                    {
+                        var inventory = capturedProp.GetValue(_currentObject) as List<InventoryItem> ?? new List<InventoryItem>();
+                        var objId = checkbox.Tag as string;
+                        if (!string.IsNullOrEmpty(objId) && !inventory.Any(i =>
+                            i.ObjectId.Equals(objId, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            inventory.Add(new InventoryItem { ObjectId = objId, Quantity = 1 });
+                            capturedProp.SetValue(_currentObject, inventory);
+                            PropertyEdited?.Invoke(_currentObject!, capturedProp.Name);
+
+                            // Refrescar el editor para actualizar listas de equipamiento
+                            if (_currentObject != null)
+                                SetObject(_currentObject);
+                        }
+                    }
+                    catch { /* Ignorar errores */ }
+                };
+
+                checkbox.Unchecked += (_, _) =>
+                {
+                    try
+                    {
+                        var inventory = capturedProp.GetValue(_currentObject) as List<InventoryItem> ?? new List<InventoryItem>();
+                        var objId = checkbox.Tag as string;
+                        if (!string.IsNullOrEmpty(objId))
+                        {
+                            inventory.RemoveAll(i =>
+                                i.ObjectId.Equals(objId, StringComparison.OrdinalIgnoreCase));
+                            capturedProp.SetValue(_currentObject, inventory);
+                            PropertyEdited?.Invoke(_currentObject!, capturedProp.Name);
+
+                            // Refrescar el editor para actualizar listas de equipamiento
+                            if (_currentObject != null)
+                                SetObject(_currentObject);
+                        }
+                    }
+                    catch { /* Ignorar errores */ }
+                };
+
+                qtyInput.LostFocus += (_, _) =>
+                {
+                    try
+                    {
+                        var inventory = capturedProp.GetValue(_currentObject) as List<InventoryItem> ?? new List<InventoryItem>();
+                        var objId = qtyInput.Tag as string;
+                        if (!string.IsNullOrEmpty(objId) && int.TryParse(qtyInput.Text, out var qty))
+                        {
+                            var item = inventory.FirstOrDefault(i =>
+                                i.ObjectId.Equals(objId, StringComparison.OrdinalIgnoreCase));
+                            if (item != null && item.Quantity != qty)
+                            {
+                                item.Quantity = qty;
+                                PropertyEdited?.Invoke(_currentObject!, capturedProp.Name);
+                                summaryText.Text = GetInventorySummary(inventory, allObjects);
+                            }
+                        }
+                    }
+                    catch { /* Ignorar errores */ }
+                };
+
+                itemPanel.Children.Add(checkbox);
+                itemPanel.Children.Add(checkLabel);
+                itemPanel.Children.Add(qtyLabel);
+                itemPanel.Children.Add(qtyInput);
+                itemPanel.Children.Add(infiniteHint);
+                itemsPanel.Children.Add(itemPanel);
+            }
+        }
+
+        // Wrap en ScrollViewer
+        var scrollViewer = new ScrollViewer
+        {
+            MaxHeight = 200,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            Content = itemsPanel
+        };
+
+        expander.Content = scrollViewer;
+        mainPanel.Children.Add(expander);
+
+        return mainPanel;
+    }
+
+    /// <summary>
+    /// Genera un resumen de texto del inventario.
+    /// </summary>
+    private string GetInventorySummary(List<InventoryItem> inventory, List<GameObject> allObjects)
+    {
+        if (inventory == null || !inventory.Any())
+            return "(Vacío)";
+
+        var names = inventory
+            .Select(item =>
+            {
+                var obj = allObjects.FirstOrDefault(o =>
+                    o.Id.Equals(item.ObjectId, StringComparison.OrdinalIgnoreCase));
+                var qtyText = item.Quantity < 0 ? "∞" : item.Quantity.ToString();
+                return obj != null ? $"{obj.Name} x{qtyText}" : $"{item.ObjectId} x{qtyText}";
+            })
+            .ToList();
+
+        return string.Join(", ", names);
+    }
+
+    /// <summary>
+    /// Crea un editor de slot de equipamiento con filtrado según el tipo de slot.
+    /// - Mano derecha: Arma o Armadura
+    /// - Mano izquierda: Arma (1 mano) o Armadura
+    /// - Torso: solo Armadura
+    /// </summary>
+    private FrameworkElement CreateEquipmentSlotEditor(object obj, PropertyInfo prop, EquipmentSlot slot)
+    {
+        var allObjects = GetObjects?.Invoke()?.ToList() ?? new List<GameObject>();
+
+        // Obtener objetos ya usados (en inventario u otros slots)
+        var usedObjectIds = GetUsedObjectIds(obj, excludeSlot: slot);
+
+        // Obtener el ID actualmente seleccionado para incluirlo siempre
+        var currentId = Convert.ToString(prop.GetValue(obj)) ?? string.Empty;
+
+        // Filtrar objetos según el slot y excluir los ya usados
+        List<GameObject> validObjects;
+        string emptyOption;
+
+        switch (slot)
+        {
+            case EquipmentSlot.RightHand:
+                // Armas (cualquier número de manos)
+                validObjects = allObjects
+                    .Where(o => o.Type == ObjectType.Arma)
+                    .Where(o => !usedObjectIds.Contains(o.Id) || o.Id.Equals(currentId, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                emptyOption = "(Sin equipar)";
+                break;
+            case EquipmentSlot.LeftHand:
+                // Armas de 1 mano o Escudos
+                validObjects = allObjects
+                    .Where(o => (o.Type == ObjectType.Arma && o.HandsRequired == 1) || o.Type == ObjectType.Escudo)
+                    .Where(o => !usedObjectIds.Contains(o.Id) || o.Id.Equals(currentId, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                emptyOption = "(Sin equipar)";
+                break;
+            case EquipmentSlot.Torso:
+                // Solo armaduras de cuerpo
+                validObjects = allObjects
+                    .Where(o => o.Type == ObjectType.Armadura)
+                    .Where(o => !usedObjectIds.Contains(o.Id) || o.Id.Equals(currentId, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                emptyOption = "(Sin equipar)";
+                break;
+            default:
+                validObjects = new List<GameObject>();
+                emptyOption = "(Sin equipar)";
+                break;
+        }
+
+        // Crear lista de opciones
+        var options = new List<KeyComboItem> { new KeyComboItem { Id = "", DisplayName = emptyOption } };
+        options.AddRange(validObjects
+            .OrderBy(o => o.Name)
+            .Select(o => new KeyComboItem
+            {
+                Id = o.Id,
+                DisplayName = o.Type == ObjectType.Arma
+                    ? $"{o.Name} ({o.HandsRequired} mano{(o.HandsRequired > 1 ? "s" : "")})"
+                    : o.Name
+            }));
+
+        var combo = new ComboBox
+        {
+            Margin = new Thickness(0, 2, 0, 0),
+            DisplayMemberPath = nameof(KeyComboItem.DisplayName),
+            SelectedValuePath = nameof(KeyComboItem.Id),
+            ItemsSource = options
+        };
+
+        combo.SelectedValue = currentId;
+
+        combo.SelectionChanged += (_, _) =>
+        {
+            try
+            {
+                if (_currentObject is not { } target) return;
+                if (combo.SelectedValue is string selectedId)
+                {
+                    prop.SetValue(target, string.IsNullOrEmpty(selectedId) ? null : selectedId);
+                    PropertyEdited?.Invoke(target, prop.Name);
+
+                    // Si seleccionamos un arma de 2 manos en mano derecha, actualizar mano izquierda
+                    if (slot == EquipmentSlot.RightHand && !string.IsNullOrEmpty(selectedId))
+                    {
+                        var selectedObj = allObjects.FirstOrDefault(o =>
+                            o.Id.Equals(selectedId, StringComparison.OrdinalIgnoreCase));
+                        if (selectedObj?.Type == ObjectType.Arma && selectedObj.HandsRequired == 2)
+                        {
+                            // Establecer el mismo ID en mano izquierda
+                            string leftHandPropName = target is PlayerDefinition
+                                ? PN.InitialLeftHandId
+                                : PN.EquippedLeftHandId;
+                            var leftHandProp = target.GetType().GetProperty(leftHandPropName);
+                            if (leftHandProp != null)
+                            {
+                                leftHandProp.SetValue(target, selectedId);
+                                PropertyEdited?.Invoke(target, leftHandPropName);
+                            }
+                        }
+                    }
+
+                    // Refrescar para actualizar listas de equipamiento e inventario
+                    SetObject(target);
+                }
+            }
+            catch
+            {
+                // Ignorar errores
+            }
+        };
+
+        // Si es mano izquierda, verificar si está bloqueada por arma de 2 manos
+        if (slot == EquipmentSlot.LeftHand)
+        {
+            string rightHandPropName = obj is PlayerDefinition
+                ? PN.InitialRightHandId
+                : PN.EquippedRightHandId;
+            var rightHandProp = obj.GetType().GetProperty(rightHandPropName);
+            var rightHandId = rightHandProp?.GetValue(obj) as string;
+
+            if (!string.IsNullOrEmpty(rightHandId))
+            {
+                var rightHandObj = allObjects.FirstOrDefault(o =>
+                    o.Id.Equals(rightHandId, StringComparison.OrdinalIgnoreCase));
+                if (rightHandObj?.Type == ObjectType.Arma && rightHandObj.HandsRequired == 2)
+                {
+                    // Bloquear el combo y mostrar mensaje
+                    combo.IsEnabled = false;
+                    combo.ToolTip = $"Ocupada por arma de 2 manos: {rightHandObj.Name}";
+                }
+            }
+        }
+
+        return combo;
+    }
+
+    /// <summary>
+    /// Obtiene los IDs de objetos ya usados globalmente (en todas las entidades),
+    /// excluyendo la entidad actual siendo editada.
+    /// </summary>
+    /// <param name="currentEntity">La entidad actual (PlayerDefinition o Npc) a excluir.</param>
+    /// <param name="excludeSlot">Slot a excluir del conteo para la entidad actual.</param>
+    /// <param name="excludeInventory">Si es true, no incluir objetos del inventario de la entidad actual.</param>
+    private HashSet<string> GetUsedObjectIds(object currentEntity, EquipmentSlot? excludeSlot = null, bool excludeInventory = false)
+    {
+        var usedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // Obtener objetos usados por el jugador
+        var playerDef = GetPlayerDefinition?.Invoke();
+        if (playerDef != null)
+        {
+            bool isCurrentEntity = ReferenceEquals(currentEntity, playerDef);
+            AddPlayerUsedObjects(usedIds, playerDef, isCurrentEntity ? excludeSlot : null, isCurrentEntity && excludeInventory);
+        }
+
+        // Obtener objetos usados por todos los NPCs
+        var npcs = GetNpcs?.Invoke()?.ToList() ?? new List<Npc>();
+        foreach (var npc in npcs)
+        {
+            bool isCurrentEntity = ReferenceEquals(currentEntity, npc);
+            AddNpcUsedObjects(usedIds, npc, isCurrentEntity ? excludeSlot : null, isCurrentEntity && excludeInventory);
+        }
+
+        return usedIds;
+    }
+
+    /// <summary>
+    /// Añade los IDs de objetos usados por un jugador al conjunto.
+    /// </summary>
+    private void AddPlayerUsedObjects(HashSet<string> usedIds, PlayerDefinition player, EquipmentSlot? excludeSlot, bool excludeInventory)
+    {
+        // Inventario
+        if (!excludeInventory && player.InitialInventory != null)
+        {
+            foreach (var item in player.InitialInventory)
+                usedIds.Add(item.ObjectId);
+        }
+
+        // Equipamiento (excluyendo el slot actual si corresponde)
+        if (excludeSlot != EquipmentSlot.RightHand && !string.IsNullOrEmpty(player.InitialRightHandId))
+            usedIds.Add(player.InitialRightHandId);
+        if (excludeSlot != EquipmentSlot.LeftHand && !string.IsNullOrEmpty(player.InitialLeftHandId))
+        {
+            // Si mano izquierda es igual a mano derecha (arma 2 manos), no duplicar
+            if (player.InitialLeftHandId != player.InitialRightHandId)
+                usedIds.Add(player.InitialLeftHandId);
+        }
+        if (excludeSlot != EquipmentSlot.Torso && !string.IsNullOrEmpty(player.InitialTorsoId))
+            usedIds.Add(player.InitialTorsoId);
+    }
+
+    /// <summary>
+    /// Añade los IDs de objetos usados por un NPC al conjunto.
+    /// </summary>
+    private void AddNpcUsedObjects(HashSet<string> usedIds, Npc npc, EquipmentSlot? excludeSlot, bool excludeInventory)
+    {
+        // Inventario
+        if (!excludeInventory && npc.Inventory != null)
+        {
+            foreach (var item in npc.Inventory)
+                usedIds.Add(item.ObjectId);
+        }
+
+        // Equipamiento (excluyendo el slot actual si corresponde)
+        if (excludeSlot != EquipmentSlot.RightHand && !string.IsNullOrEmpty(npc.EquippedRightHandId))
+            usedIds.Add(npc.EquippedRightHandId);
+        if (excludeSlot != EquipmentSlot.LeftHand && !string.IsNullOrEmpty(npc.EquippedLeftHandId))
+        {
+            // Si mano izquierda es igual a mano derecha (arma 2 manos), no duplicar
+            if (npc.EquippedLeftHandId != npc.EquippedRightHandId)
+                usedIds.Add(npc.EquippedLeftHandId);
+        }
+        if (excludeSlot != EquipmentSlot.Torso && !string.IsNullOrEmpty(npc.EquippedTorsoId))
+            usedIds.Add(npc.EquippedTorsoId);
+    }
+
+    /// <summary>
     /// Diccionario de traducciones de estados de misión.
     /// </summary>
     private static readonly Dictionary<QuestStatus, string> QuestStatusTranslations = new()
@@ -4754,4 +5279,14 @@ internal class ConversationComboItem
 {
     public string Id { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Tipo de slot de equipamiento.
+/// </summary>
+internal enum EquipmentSlot
+{
+    RightHand,
+    LeftHand,
+    Torso
 }

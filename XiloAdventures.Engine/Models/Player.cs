@@ -1,6 +1,4 @@
-using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using XiloAdventures.Engine.Models.Enums;
 
 namespace XiloAdventures.Engine.Models;
@@ -62,14 +60,25 @@ public class PlayerStats
     #region Equipment
 
     /// <summary>
-    /// ID del arma equipada actualmente (null = sin arma).
+    /// ID del objeto equipado en la mano derecha (Arma o Armadura/escudo).
     /// </summary>
-    public string? EquippedWeaponId { get; set; }
+    public string? EquippedRightHandId { get; set; }
 
     /// <summary>
-    /// ID de la armadura equipada actualmente (null = sin armadura).
+    /// ID del objeto equipado en la mano izquierda (Arma de 1 mano o Armadura/escudo).
     /// </summary>
-    public string? EquippedArmorId { get; set; }
+    public string? EquippedLeftHandId { get; set; }
+
+    /// <summary>
+    /// ID del objeto equipado en el torso (solo Armadura).
+    /// </summary>
+    public string? EquippedTorsoId { get; set; }
+
+    /// <summary>
+    /// Peso corporal del jugador en kg (copiado de PlayerDefinition).
+    /// Se usa para calcular restricción de peso de armadura equipada.
+    /// </summary>
+    public int BodyWeight { get; set; } = 70;
 
     /// <summary>
     /// IDs de habilidades de combate que el jugador tiene actualmente.

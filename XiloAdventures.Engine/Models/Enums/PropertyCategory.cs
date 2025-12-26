@@ -9,6 +9,8 @@ public enum PropertyCategory
     Identificacion,
     /// <summary>Propiedades de descripción y textos.</summary>
     Descripcion,
+    /// <summary>Propiedades de objetos (inventario, equipamiento).</summary>
+    Objetos,
     /// <summary>Propiedades de sistemas del juego (combate, necesidades, etc.).</summary>
     Sistemas,
     /// <summary>Propiedades multimedia (imágenes, música, etc.).</summary>
@@ -43,6 +45,7 @@ public static class PropertyCategoryExtensions
     {
         PropertyCategory.Identificacion => "🔖 Identificación",
         PropertyCategory.Descripcion => "📝 Descripción",
+        PropertyCategory.Objetos => "📦 Objetos",
         PropertyCategory.Sistemas => "🎮 Sistemas",
         PropertyCategory.Multimedia => "🎵 Multimedia",
         PropertyCategory.Comportamiento => "⚙️ Comportamiento",

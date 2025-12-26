@@ -24,6 +24,8 @@ public enum NodeSubgroup
     Iluminacion,
     /// <summary>Nodos de objetos.</summary>
     Objetos,
+    /// <summary>Nodos de equipamiento e inventario.</summary>
+    Equipamiento,
     /// <summary>Nodos de NPCs.</summary>
     NPC,
     /// <summary>Nodos de rutas y patrullaje de NPCs.</summary>
@@ -52,6 +54,7 @@ public static class NodeSubgroupExtensions
         NodeSubgroup.Combate => "⚔️",
         NodeSubgroup.Iluminacion => "💡",
         NodeSubgroup.Objetos => "📦",
+        NodeSubgroup.Equipamiento => "🛡️",
         NodeSubgroup.NPC => "🧑",
         NodeSubgroup.Rutas => "🛤️",
         NodeSubgroup.Salas => "🏠",
@@ -72,6 +75,7 @@ public static class NodeSubgroupExtensions
         NodeSubgroup.Combate => "Combate",
         NodeSubgroup.Iluminacion => "Iluminación",
         NodeSubgroup.Objetos => "Objetos",
+        NodeSubgroup.Equipamiento => "Equipamiento",
         NodeSubgroup.NPC => "NPC",
         NodeSubgroup.Rutas => "Rutas",
         NodeSubgroup.Salas => "Salas",

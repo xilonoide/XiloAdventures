@@ -581,21 +581,37 @@ public class CombatEngine : ICombatEngine
     {
         var npc = GetCurrentEnemy();
         return _state.Objects
-            .Where(o => npc.InventoryObjectIds.Contains(o.Id) && o.Type == ObjectType.Arma)
+            .Where(o => npc.Inventory.Any(i => i.ObjectId == o.Id) && o.Type == ObjectType.Arma)
             .OrderByDescending(o => o.AttackBonus)
             .FirstOrDefault();
     }
 
     /// <summary>
-    /// Obtiene la mejor armadura del NPC de su inventario (la de mayor DefenseBonus).
+    /// Obtiene la mejor armadura o escudo del NPC (equipado o en inventario, el de mayor DefenseBonus).
     /// </summary>
     public GameObject? GetNpcBestArmor()
     {
         var npc = GetCurrentEnemy();
-        return _state.Objects
-            .Where(o => npc.InventoryObjectIds.Contains(o.Id) && o.Type == ObjectType.Armadura)
-            .OrderByDescending(o => o.DefenseBonus)
-            .FirstOrDefault();
+        var candidates = new List<GameObject>();
+
+        // Objetos equipados
+        if (!string.IsNullOrEmpty(npc.EquippedLeftHandId))
+        {
+            var shield = _state.Objects.FirstOrDefault(o => o.Id == npc.EquippedLeftHandId && o.Type == ObjectType.Escudo);
+            if (shield != null) candidates.Add(shield);
+        }
+        if (!string.IsNullOrEmpty(npc.EquippedTorsoId))
+        {
+            var armor = _state.Objects.FirstOrDefault(o => o.Id == npc.EquippedTorsoId && o.Type == ObjectType.Armadura);
+            if (armor != null) candidates.Add(armor);
+        }
+
+        // Objetos en inventario
+        candidates.AddRange(_state.Objects
+            .Where(o => npc.Inventory.Any(i => i.ObjectId == o.Id) &&
+                        (o.Type == ObjectType.Armadura || o.Type == ObjectType.Escudo)));
+
+        return candidates.OrderByDescending(o => o.DefenseBonus).FirstOrDefault();
     }
 
     /// <summary>
@@ -605,7 +621,7 @@ public class CombatEngine : ICombatEngine
     {
         var npc = GetCurrentEnemy();
         return _state.Objects
-            .Where(o => npc.InventoryObjectIds.Contains(o.Id) &&
+            .Where(o => npc.Inventory.Any(i => i.ObjectId == o.Id) &&
                         o.Type == ObjectType.Arma &&
                         o.DamageType == DamageType.Magical)
             .OrderByDescending(o => o.AttackBonus)
@@ -613,17 +629,34 @@ public class CombatEngine : ICombatEngine
     }
 
     /// <summary>
-    /// Obtiene la armadura mágica del NPC (si tiene alguna en su inventario).
+    /// Obtiene la armadura o escudo mágico del NPC (equipado o en inventario).
     /// </summary>
     public GameObject? GetNpcMagicArmor()
     {
         var npc = GetCurrentEnemy();
-        return _state.Objects
-            .Where(o => npc.InventoryObjectIds.Contains(o.Id) &&
-                        o.Type == ObjectType.Armadura &&
-                        o.DamageType == DamageType.Magical)
-            .OrderByDescending(o => o.DefenseBonus)
-            .FirstOrDefault();
+        var candidates = new List<GameObject>();
+
+        // Objetos equipados
+        if (!string.IsNullOrEmpty(npc.EquippedLeftHandId))
+        {
+            var shield = _state.Objects.FirstOrDefault(o => o.Id == npc.EquippedLeftHandId &&
+                o.Type == ObjectType.Escudo && o.DamageType == DamageType.Magical);
+            if (shield != null) candidates.Add(shield);
+        }
+        if (!string.IsNullOrEmpty(npc.EquippedTorsoId))
+        {
+            var armor = _state.Objects.FirstOrDefault(o => o.Id == npc.EquippedTorsoId &&
+                o.Type == ObjectType.Armadura && o.DamageType == DamageType.Magical);
+            if (armor != null) candidates.Add(armor);
+        }
+
+        // Objetos en inventario
+        candidates.AddRange(_state.Objects
+            .Where(o => npc.Inventory.Any(i => i.ObjectId == o.Id) &&
+                        (o.Type == ObjectType.Armadura || o.Type == ObjectType.Escudo) &&
+                        o.DamageType == DamageType.Magical));
+
+        return candidates.OrderByDescending(o => o.DefenseBonus).FirstOrDefault();
     }
 
     /// <summary>
@@ -958,17 +991,19 @@ public class CombatEngine : ICombatEngine
             // Solo cuenta la armadura EQUIPADA
             var equippedArmor = GetEquippedArmor();
 
+            // Usar el bonus total de defensa de todas las armaduras equipadas
+            equipBonus = GetTotalDefenseBonus();
+
             if (equippedArmor != null)
             {
-                // Si la armadura equipada es mágica, usar Inteligencia
+                // Si la armadura del torso es mágica, usar Inteligencia
                 statBonus = equippedArmor.DamageType == DamageType.Magical
                     ? _state.Player.Intelligence / 5
                     : _state.Player.Dexterity / 5;
-                equipBonus = equippedArmor.DefenseBonus;
             }
             else
             {
-                // Sin armadura equipada
+                // Sin armadura en torso
                 statBonus = _state.Player.Dexterity / 5;
             }
 
@@ -1163,16 +1198,57 @@ public class CombatEngine : ICombatEngine
 
     private GameObject? GetEquippedWeapon()
     {
-        var weaponId = _state.Player.EquippedWeaponId;
-        if (string.IsNullOrEmpty(weaponId)) return null;
-        return _state.Objects.FirstOrDefault(o => o.Id == weaponId);
+        // Buscar arma en mano derecha primero
+        var rightHandId = _state.Player.EquippedRightHandId;
+        if (!string.IsNullOrEmpty(rightHandId))
+        {
+            var weapon = _state.Objects.FirstOrDefault(o => o.Id == rightHandId && o.Type == ObjectType.Arma);
+            if (weapon != null) return weapon;
+        }
+
+        // Si no hay arma en mano derecha, buscar en mano izquierda
+        var leftHandId = _state.Player.EquippedLeftHandId;
+        if (!string.IsNullOrEmpty(leftHandId) && leftHandId != rightHandId)
+        {
+            var weapon = _state.Objects.FirstOrDefault(o => o.Id == leftHandId && o.Type == ObjectType.Arma);
+            if (weapon != null) return weapon;
+        }
+
+        return null;
     }
 
     private GameObject? GetEquippedArmor()
     {
-        var armorId = _state.Player.EquippedArmorId;
-        if (string.IsNullOrEmpty(armorId)) return null;
-        return _state.Objects.FirstOrDefault(o => o.Id == armorId);
+        // Obtener armadura del torso
+        var torsoId = _state.Player.EquippedTorsoId;
+        if (string.IsNullOrEmpty(torsoId)) return null;
+        return _state.Objects.FirstOrDefault(o => o.Id == torsoId && o.Type == ObjectType.Armadura);
+    }
+
+    /// <summary>
+    /// Calcula el bonus total de defensa de armaduras y escudos equipados.
+    /// </summary>
+    private int GetTotalDefenseBonus()
+    {
+        int bonus = 0;
+
+        // Mano izquierda (escudo) - solo si es diferente de mano derecha
+        if (!string.IsNullOrEmpty(_state.Player.EquippedLeftHandId) && _state.Player.EquippedLeftHandId != _state.Player.EquippedRightHandId)
+        {
+            var obj = _state.Objects.FirstOrDefault(o => o.Id == _state.Player.EquippedLeftHandId);
+            if (obj?.Type == ObjectType.Escudo)
+                bonus += obj.DefenseBonus;
+        }
+
+        // Torso (armadura de cuerpo)
+        if (!string.IsNullOrEmpty(_state.Player.EquippedTorsoId))
+        {
+            var obj = _state.Objects.FirstOrDefault(o => o.Id == _state.Player.EquippedTorsoId);
+            if (obj?.Type == ObjectType.Armadura)
+                bonus += obj.DefenseBonus;
+        }
+
+        return bonus;
     }
 
     private Npc GetCurrentEnemy()
@@ -1197,7 +1273,11 @@ public class CombatEngine : ICombatEngine
         if (weapon.CurrentDurability <= 0)
         {
             weapon.CurrentDurability = 0;
-            _state.Player.EquippedWeaponId = null;
+            // Desequipar el arma de ambas manos si es necesario
+            if (_state.Player.EquippedRightHandId == weapon.Id)
+                _state.Player.EquippedRightHandId = null;
+            if (_state.Player.EquippedLeftHandId == weapon.Id)
+                _state.Player.EquippedLeftHandId = null;
             AddLogEntry(_state.ActiveCombat!, $"¡Tu {weapon.Name} se ha roto!", true, CombatLogType.System);
         }
     }
@@ -1211,7 +1291,7 @@ public class CombatEngine : ICombatEngine
         if (armor.CurrentDurability <= 0)
         {
             armor.CurrentDurability = 0;
-            _state.Player.EquippedArmorId = null;
+            _state.Player.EquippedTorsoId = null;
             AddLogEntry(_state.ActiveCombat!, $"¡Tu {armor.Name} se ha roto!", true, CombatLogType.System);
         }
     }

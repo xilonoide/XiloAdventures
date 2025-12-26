@@ -98,6 +98,31 @@ public class PlayerDefinition
     /// </summary>
     public List<string> AbilityIds { get; set; } = new();
 
+    #region Initial Equipment and Inventory
+
+    /// <summary>
+    /// Inventario inicial del jugador con cantidades.
+    /// Los objetos se añaden según la cantidad al iniciar partida.
+    /// </summary>
+    public List<InventoryItem> InitialInventory { get; set; } = new();
+
+    /// <summary>
+    /// ID del objeto equipado inicialmente en la mano derecha (Arma o Armadura/escudo).
+    /// </summary>
+    public string? InitialRightHandId { get; set; }
+
+    /// <summary>
+    /// ID del objeto equipado inicialmente en la mano izquierda (Arma de 1 mano o Armadura/escudo).
+    /// </summary>
+    public string? InitialLeftHandId { get; set; }
+
+    /// <summary>
+    /// ID del objeto equipado inicialmente en el torso (solo Armadura).
+    /// </summary>
+    public string? InitialTorsoId { get; set; }
+
+    #endregion
+
     /// <summary>
     /// Calcula el total de puntos de características asignados.
     /// Debería ser siempre 100 para un personaje válido.
