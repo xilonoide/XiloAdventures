@@ -24,10 +24,10 @@ public partial class PromptGeneratorWindow : Window
     ""ParserDictionaryJson"": null,
     ""EncryptionKey"": ""XXXXXXXX"",
     ""EndingText"": ""Texto de felicitación por completar la aventura, acorde a la temática"",
-    ""CombatEnabled"": true,
-    ""MagicEnabled"": true,
-    ""BasicNeedsEnabled"": false,
-    ""CraftingEnabled"": false
+    ""CraftingEnabled"": {CRAFTING_ENABLED},
+    ""CombatEnabled"": {COMBAT_ENABLED},
+    ""MagicEnabled"": {MAGIC_ENABLED},
+    ""BasicNeedsEnabled"": {BASIC_NEEDS_ENABLED}
   },
   ""Player"": {
     ""Name"": ""Nombre aleatorio del protagonista"",
@@ -43,13 +43,12 @@ public partial class PromptGeneratorWindow : Window
     ""MaxInventoryWeight"": -1,
     ""MaxInventoryVolume"": -1,
     ""InitialInventory"": [
-      { ""ObjectId"": ""obj_linterna"", ""Quantity"": 1 },
-      { ""ObjectId"": ""obj_espada_inicial"", ""Quantity"": 1 }
+      { ""ObjectId"": ""obj_linterna"", ""Quantity"": 1 }{PLAYER_INITIAL_INVENTORY_EXTRA}
     ],
-    ""InitialRightHandId"": ""obj_espada_inicial"",
+    ""InitialRightHandId"": {PLAYER_INITIAL_RIGHT_HAND},
     ""InitialLeftHandId"": null,
-    ""InitialTorsoId"": ""obj_armadura_inicial"",
-    ""AbilityIds"": [""habilidad_magia_inicial""]
+    ""InitialTorsoId"": {PLAYER_INITIAL_TORSO},
+    ""AbilityIds"": [{PLAYER_ABILITY_IDS}]
   },
   ""Rooms"": [
     {
@@ -620,71 +619,16 @@ public partial class PromptGeneratorWindow : Window
 - `Conversation_BuyItem` - Comprar objeto específico. Properties: { ""ObjectId"": ""obj_id"", ""Price"": 10, ""ConfirmText"": ""¿Comprar por {precio}?"" } (salidas: Success, NotEnoughMoney, Cancelled)
 - `Conversation_SellItem` - Vender objeto específico. Properties: { ""ObjectId"": ""obj_id"", ""Price"": 5 } (salidas: Success, NoItem, Cancelled)
 
-## SISTEMAS DEL JUEGO
-
-El JSON de Game contiene flags para activar sistemas:
-
-### Sistema de Combate (CombatEnabled)
-- Activa: salud, maná, energía, combate por turnos
-- Si está activo, crea objetos de tipo arma y armadura para el jugador y NPCs
-- **Si activas combate, equipa al jugador con un arma inicial** (InitialRightHandId)
-
-### Sistema de Magia (MagicEnabled)
-- Requiere CombatEnabled=true
-- Activa: uso de maná y habilidades mágicas
-- **Si activas magia, DEBES crear habilidades en el array Abilities**
-- Asigna habilidades iniciales al jugador con AbilityIds
-- Los NPCs mágicos también pueden tener AbilityIds
-
-### Sistema de Necesidades Básicas (BasicNeedsEnabled)
-- Activa: hambre, sed, sueño
-- El jugador debe comer, beber y dormir para sobrevivir
-- Crea objetos de tipo comida y bebida
-
-### Sistema de Fabricación (CraftingEnabled)
-- Activa: crear objetos combinando ingredientes
-- Requiere definir recetas (no incluido en este prompt básico)
-
-## HABILIDADES MÁGICAS (Abilities)
-
-Si MagicEnabled=true, crea habilidades acorde a la temática:
-
-```json
-{
-  ""Id"": ""habilidad_id"",
-  ""Name"": ""Nombre de la habilidad"",
-  ""Description"": ""Descripción de lo que hace"",
-  ""AbilityType"": ""Attack"",
-  ""ManaCost"": 15,
-  ""AttackValue"": 5,
-  ""DefenseValue"": 0,
-  ""Damage"": 20,
-  ""Healing"": 0,
-  ""DamageType"": ""Magical"",
-  ""StatusEffect"": null,
-  ""StatusEffectDuration"": 0,
-  ""TargetsSelf"": false
-}
-```
-
-- **AbilityType**: ""Attack"" (ofensiva) o ""Defense"" (defensiva/curación)
-- **ManaCost**: Coste de maná para usar la habilidad
-- **AttackValue/DefenseValue**: Bonus a tiradas de ataque/defensa
-- **Damage**: Daño que causa (0 si no hace daño)
-- **Healing**: Curación que proporciona (0 si no cura)
-- **DamageType**: ""Physical"" o ""Magical""
-- **StatusEffect**: Efecto de estado que aplica (null = ninguno)
-- **TargetsSelf**: true si afecta al usuario, false si afecta al enemigo
-
-### Ejemplos de habilidades por temática:
-- **Fantasía**: Bola de Fuego, Rayo de Hielo, Curación, Escudo Mágico
-- **Horror**: Maldición, Drenar Vida, Aura de Miedo, Regeneración
-- **Sci-fi**: Rayo Láser, Escudo de Energía, Nanobots Curativos
+{SYSTEMS_INSTRUCTIONS}
 
 ## REQUISITOS DEL MUNDO
 
 Genera un mundo con temática ""{THEME}"" que contenga:
-1. **Aproximadamente {ROOM_COUNT} salas** conectadas lógicamente formando un mapa coherente
+1. **Aproximadamente {ROOM_COUNT} salas** conectadas formando un mapa coherente
+   - **⚠️ CRÍTICO: TODAS las salas DEBEN ser accesibles desde la sala inicial (StartRoomId)**
+   - **NO puede haber salas desconectadas o ""islas"" de salas aisladas del resto**
+   - Cada sala debe tener al menos una salida que conecte con el resto del mapa
+   - Verifica que siguiendo las conexiones desde StartRoomId se pueda llegar a TODAS las salas
    - Usa IsInterior=true para interiores (cuevas, edificios) y false para exteriores
    - Usa IsIlluminated=false para salas oscuras que requieren luz (antorcha, linterna)
    - MusicId=null por defecto (sin música) o ID de música si se definieron en Musics
@@ -746,6 +690,7 @@ Genera un mundo con temática ""{THEME}"" que contenga:
 ## NOTAS IMPORTANTES
 - Los IDs deben ser snake_case únicos
 - **Game.StartRoomId DEBE coincidir con el Id de una sala existente** - El jugador empieza ahí
+- **⚠️ TODAS las salas DEBEN estar conectadas entre sí** - Desde StartRoomId se debe poder llegar a cualquier sala del mapa siguiendo las salidas. NO generes grupos de salas desconectados.
 - Direcciones válidas: norte, sur, este, oeste, arriba, abajo
 
 ### Coordenadas en RoomPositions para visualización del mapa
@@ -1010,12 +955,23 @@ Genera el mundo con la temática ""{THEME}"" y puzzles lógicos acordes a esa am
         QuestsSlider.Value = Math.Max(1, roomCount / 8);          // 1 misión cada 8 salas (25% menos)
         ContainersSlider.Value = Math.Max(1, roomCount / 5);      // 1 contenedor cada 5 salas (25% menos)
 
-        // Tipos de objetos según salas
-        WeaponsSlider.Value = Math.Max(1, roomCount / 5);         // 1 arma cada 5 salas
-        ArmorsSlider.Value = Math.Max(0, (roomCount - 5) / 6);    // armaduras solo en mundos grandes
-        FoodSlider.Value = Math.Max(0, roomCount / 8);            // 1 comida cada 8 salas (50% menos)
-        DrinksSlider.Value = Math.Max(0, roomCount / 10);         // 1 bebida cada 10 salas (50% menos)
-        HelmetsSlider.Value = Math.Max(0, (roomCount - 8) / 12);  // cascos solo en mundos grandes (50% menos)
+        // Tipos de objetos según salas (respetando estado de checkboxes)
+        var combatEnabled = CombatCheckBox?.IsChecked == true;
+        var basicNeedsEnabled = BasicNeedsCheckBox?.IsChecked == true;
+
+        if (combatEnabled)
+        {
+            WeaponsSlider.Value = Math.Max(1, roomCount / 5);         // 1 arma cada 5 salas
+            ArmorsSlider.Value = Math.Max(0, (roomCount - 5) / 6);    // armaduras solo en mundos grandes
+            HelmetsSlider.Value = Math.Max(0, (roomCount - 8) / 12);  // cascos solo en mundos grandes (50% menos)
+        }
+
+        if (basicNeedsEnabled)
+        {
+            FoodSlider.Value = Math.Max(0, roomCount / 8);            // 1 comida cada 8 salas (50% menos)
+            DrinksSlider.Value = Math.Max(0, roomCount / 10);         // 1 bebida cada 10 salas (50% menos)
+        }
+
         KeysSlider.Value = Math.Max(1, roomCount / 6);            // 1 llave cada 6 salas
         TextsSlider.Value = Math.Max(0, roomCount / 10);          // 1 texto cada 10 salas (50% menos)
         OtherObjectsSlider.Value = Math.Max(1, roomCount / 6);    // objetos genéricos (50% menos)
@@ -1059,6 +1015,21 @@ Genera el mundo con la temática ""{THEME}"" y puzzles lógicos acordes a esa am
         var totalObjects = weaponCount + armorCount + foodCount + drinkCount +
                           helmetCount + keyCount + textCount + otherCount;
 
+        // Obtener valores de los checkboxes de sistemas
+        var craftingEnabled = CraftingCheckBox?.IsChecked == true;
+        var combatEnabled = CombatCheckBox?.IsChecked == true;
+        var magicEnabled = MagicCheckBox?.IsChecked == true;
+        var basicNeedsEnabled = BasicNeedsCheckBox?.IsChecked == true;
+
+        // Preparar valores condicionales del jugador según sistemas activos
+        var playerInventoryExtra = combatEnabled ? ",\n      { \"ObjectId\": \"obj_espada_inicial\", \"Quantity\": 1 }" : "";
+        var playerRightHand = combatEnabled ? "\"obj_espada_inicial\"" : "null";
+        var playerTorso = combatEnabled ? "\"obj_armadura_inicial\"" : "null";
+        var playerAbilities = magicEnabled ? "\"habilidad_magia_inicial\"" : "";
+
+        // Generar instrucciones de sistemas según checkboxes
+        var systemsInstructions = GenerateSystemsInstructions(craftingEnabled, combatEnabled, magicEnabled, basicNeedsEnabled);
+
         var prompt = PromptTemplate
             .Replace("{THEME}", theme)
             .Replace("{ROOM_COUNT}", roomCount.ToString())
@@ -1074,9 +1045,118 @@ Genera el mundo con la temática ""{THEME}"" y puzzles lógicos acordes a esa am
             .Replace("{KEY_COUNT}", keyCount.ToString())
             .Replace("{TEXT_COUNT}", textCount.ToString())
             .Replace("{OTHER_COUNT}", otherCount.ToString())
-            .Replace("{TOTAL_OBJECTS}", totalObjects.ToString());
+            .Replace("{TOTAL_OBJECTS}", totalObjects.ToString())
+            // Sistemas
+            .Replace("{CRAFTING_ENABLED}", craftingEnabled.ToString().ToLower())
+            .Replace("{COMBAT_ENABLED}", combatEnabled.ToString().ToLower())
+            .Replace("{MAGIC_ENABLED}", magicEnabled.ToString().ToLower())
+            .Replace("{BASIC_NEEDS_ENABLED}", basicNeedsEnabled.ToString().ToLower())
+            // Jugador condicional
+            .Replace("{PLAYER_INITIAL_INVENTORY_EXTRA}", playerInventoryExtra)
+            .Replace("{PLAYER_INITIAL_RIGHT_HAND}", playerRightHand)
+            .Replace("{PLAYER_INITIAL_TORSO}", playerTorso)
+            .Replace("{PLAYER_ABILITY_IDS}", playerAbilities)
+            // Instrucciones de sistemas
+            .Replace("{SYSTEMS_INSTRUCTIONS}", systemsInstructions);
 
         PromptTextBox.Text = prompt;
+    }
+
+    private string GenerateSystemsInstructions(bool crafting, bool combat, bool magic, bool basicNeeds)
+    {
+        var sb = new System.Text.StringBuilder();
+
+        sb.AppendLine("## SISTEMAS ACTIVOS EN ESTE MUNDO");
+        sb.AppendLine();
+
+        if (!crafting && !combat && !magic && !basicNeeds)
+        {
+            sb.AppendLine("**No hay sistemas especiales activos.** Este es un mundo de aventura simple sin combate ni necesidades.");
+            sb.AppendLine("- NO crees objetos de tipo arma, armadura o casco");
+            sb.AppendLine("- NO crees objetos de tipo comida o bebida");
+            sb.AppendLine("- NO crees habilidades mágicas");
+            sb.AppendLine("- El array Abilities debe estar vacío: `\"Abilities\": []`");
+            return sb.ToString();
+        }
+
+        if (crafting)
+        {
+            sb.AppendLine("### ✅ Sistema de Fabricación (CraftingEnabled=true)");
+            sb.AppendLine("- El jugador puede crear objetos combinando ingredientes");
+            sb.AppendLine("- Crea objetos que puedan usarse como ingredientes");
+            sb.AppendLine();
+        }
+
+        if (combat)
+        {
+            sb.AppendLine("### ✅ Sistema de Combate (CombatEnabled=true)");
+            sb.AppendLine("- Activa: salud, combate por turnos con NPCs hostiles");
+            sb.AppendLine("- **OBLIGATORIO**: Crea objetos de tipo arma y armadura");
+            sb.AppendLine("- **OBLIGATORIO**: Equipa al jugador con arma inicial (InitialRightHandId)");
+            sb.AppendLine("- Los NPCs pueden tener equipo y estadísticas de combate");
+            sb.AppendLine();
+        }
+        else
+        {
+            sb.AppendLine("### ❌ Sistema de Combate DESACTIVADO");
+            sb.AppendLine("- NO crees objetos de tipo arma, armadura ni casco");
+            sb.AppendLine("- NO asignes equipamiento al jugador (InitialRightHandId, InitialTorsoId = null)");
+            sb.AppendLine();
+        }
+
+        if (magic)
+        {
+            sb.AppendLine("### ✅ Sistema de Magia (MagicEnabled=true)");
+            sb.AppendLine("- Activa: uso de maná y habilidades mágicas");
+            sb.AppendLine("- **OBLIGATORIO**: Crea habilidades en el array Abilities (mínimo 3-5 habilidades)");
+            sb.AppendLine("- **OBLIGATORIO**: Asigna habilidades iniciales al jugador con AbilityIds");
+            sb.AppendLine("- Los NPCs mágicos también pueden tener AbilityIds");
+            sb.AppendLine();
+            sb.AppendLine("#### Estructura de habilidades:");
+            sb.AppendLine("```json");
+            sb.AppendLine("{");
+            sb.AppendLine("  \"Id\": \"habilidad_id\",");
+            sb.AppendLine("  \"Name\": \"Nombre de la habilidad\",");
+            sb.AppendLine("  \"Description\": \"Descripción\",");
+            sb.AppendLine("  \"AbilityType\": \"Attack\",  // Attack o Defense");
+            sb.AppendLine("  \"ManaCost\": 15,");
+            sb.AppendLine("  \"AttackValue\": 5,");
+            sb.AppendLine("  \"DefenseValue\": 0,");
+            sb.AppendLine("  \"Damage\": 20,");
+            sb.AppendLine("  \"Healing\": 0,");
+            sb.AppendLine("  \"DamageType\": \"Magical\",  // Physical o Magical");
+            sb.AppendLine("  \"StatusEffect\": null,");
+            sb.AppendLine("  \"StatusEffectDuration\": 0,");
+            sb.AppendLine("  \"TargetsSelf\": false");
+            sb.AppendLine("}");
+            sb.AppendLine("```");
+            sb.AppendLine();
+        }
+        else if (combat)
+        {
+            sb.AppendLine("### ❌ Sistema de Magia DESACTIVADO");
+            sb.AppendLine("- NO crees habilidades mágicas");
+            sb.AppendLine("- El array Abilities debe estar vacío: `\"Abilities\": []`");
+            sb.AppendLine("- El combate será solo físico (armas y armaduras)");
+            sb.AppendLine();
+        }
+
+        if (basicNeeds)
+        {
+            sb.AppendLine("### ✅ Sistema de Necesidades Básicas (BasicNeedsEnabled=true)");
+            sb.AppendLine("- Activa: hambre, sed, sueño");
+            sb.AppendLine("- El jugador debe comer, beber y dormir para sobrevivir");
+            sb.AppendLine("- **OBLIGATORIO**: Crea objetos de tipo comida y bebida distribuidos por el mundo");
+            sb.AppendLine();
+        }
+        else
+        {
+            sb.AppendLine("### ❌ Sistema de Necesidades Básicas DESACTIVADO");
+            sb.AppendLine("- NO crees objetos de tipo comida ni bebida");
+            sb.AppendLine();
+        }
+
+        return sb.ToString();
     }
 
     private void ThemeTextBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
@@ -1146,5 +1226,84 @@ Genera el mundo con la temática ""{THEME}"" y puzzles lógicos acordes a esa am
     {
         if (!_isUpdatingFromRoomCount)
             UpdatePrompt();
+    }
+
+    private void SystemCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        UpdatePrompt();
+    }
+
+    private void CombatCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (MagicCheckBox == null || WeaponsSlider == null)
+            return;
+
+        var combatEnabled = CombatCheckBox.IsChecked == true;
+
+        // Magia solo disponible si combate está activo
+        MagicCheckBox.IsEnabled = combatEnabled;
+        if (!combatEnabled)
+            MagicCheckBox.IsChecked = false;
+
+        // Habilitar/deshabilitar sliders de combate
+        UpdateCombatSlidersState(combatEnabled);
+
+        UpdatePrompt();
+    }
+
+    private void BasicNeedsCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (FoodSlider == null)
+            return;
+
+        var basicNeedsEnabled = BasicNeedsCheckBox.IsChecked == true;
+
+        // Habilitar/deshabilitar sliders de necesidades básicas
+        UpdateBasicNeedsSlidersState(basicNeedsEnabled);
+
+        UpdatePrompt();
+    }
+
+    private void UpdateCombatSlidersState(bool enabled)
+    {
+        // Color para estado deshabilitado
+        var disabledColor = new System.Windows.Media.SolidColorBrush(
+            System.Windows.Media.Color.FromRgb(0x66, 0x66, 0x66));
+        var enabledColor = new System.Windows.Media.SolidColorBrush(
+            System.Windows.Media.Color.FromRgb(0xBB, 0xBB, 0xBB));
+
+        WeaponsSlider.IsEnabled = enabled;
+        ArmorsSlider.IsEnabled = enabled;
+        HelmetsSlider.IsEnabled = enabled;
+        WeaponsLabel.Foreground = enabled ? enabledColor : disabledColor;
+        ArmorsLabel.Foreground = enabled ? enabledColor : disabledColor;
+        HelmetsLabel.Foreground = enabled ? enabledColor : disabledColor;
+
+        if (!enabled)
+        {
+            WeaponsSlider.Value = 0;
+            ArmorsSlider.Value = 0;
+            HelmetsSlider.Value = 0;
+        }
+    }
+
+    private void UpdateBasicNeedsSlidersState(bool enabled)
+    {
+        // Color para estado deshabilitado
+        var disabledColor = new System.Windows.Media.SolidColorBrush(
+            System.Windows.Media.Color.FromRgb(0x66, 0x66, 0x66));
+        var enabledColor = new System.Windows.Media.SolidColorBrush(
+            System.Windows.Media.Color.FromRgb(0xBB, 0xBB, 0xBB));
+
+        FoodSlider.IsEnabled = enabled;
+        DrinksSlider.IsEnabled = enabled;
+        FoodLabel.Foreground = enabled ? enabledColor : disabledColor;
+        DrinksLabel.Foreground = enabled ? enabledColor : disabledColor;
+
+        if (!enabled)
+        {
+            FoodSlider.Value = 0;
+            DrinksSlider.Value = 0;
+        }
     }
 }

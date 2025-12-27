@@ -46,10 +46,46 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
+                <!-- Systems checkboxes -->
+                <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,0,0,12">
+                    <CheckBox x:Name="CraftingCheckBox"
+                              Content="🔨 Fabricación"
+                              Foreground="#DDDDDD"
+                              VerticalAlignment="Center"
+                              IsChecked="True"
+                              Margin="0,0,20,0"
+                              Checked="SystemCheckBox_Changed"
+                              Unchecked="SystemCheckBox_Changed"/>
+                    <CheckBox x:Name="CombatCheckBox"
+                              Content="⚔️ Combate"
+                              Foreground="#DDDDDD"
+                              VerticalAlignment="Center"
+                              IsChecked="True"
+                              Margin="0,0,20,0"
+                              Checked="CombatCheckBox_Changed"
+                              Unchecked="CombatCheckBox_Changed"/>
+                    <CheckBox x:Name="MagicCheckBox"
+                              Content="✨ Magia"
+                              Foreground="#DDDDDD"
+                              VerticalAlignment="Center"
+                              IsChecked="True"
+                              Margin="0,0,20,0"
+                              Checked="SystemCheckBox_Changed"
+                              Unchecked="SystemCheckBox_Changed"/>
+                    <CheckBox x:Name="BasicNeedsCheckBox"
+                              Content="🍽️ Necesidades básicas"
+                              Foreground="#DDDDDD"
+                              VerticalAlignment="Center"
+                              IsChecked="True"
+                              Checked="BasicNeedsCheckBox_Changed"
+                              Unchecked="BasicNeedsCheckBox_Changed"/>
+                </StackPanel>
+
                 <!-- Theme -->
-                <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,16,8">
+                <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,16,8">
                     <TextBlock Text="Temática de la aventura"
                                FontSize="12"
                                Foreground="#DDDDDD"
@@ -70,7 +106,7 @@
                 </StackPanel>
 
                 <!-- Room count -->
-                <StackPanel Grid.Row="0" Grid.Column="1" Width="120">
+                <StackPanel Grid.Row="1" Grid.Column="1" Width="120">
                     <TextBlock Text="Nº de salas (aprox.)"
                                FontSize="12"
                                Foreground="#DDDDDD"
@@ -88,7 +124,7 @@
                 </StackPanel>
 
                 <!-- General sliders section -->
-                <Grid Grid.Row="1" Grid.ColumnSpan="2" Margin="0,12,0,8">
+                <Grid Grid.Row="2" Grid.ColumnSpan="2" Margin="0,12,0,8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
@@ -146,14 +182,14 @@
                 </Grid>
 
                 <!-- Object types sliders section -->
-                <TextBlock Grid.Row="2" Grid.ColumnSpan="2"
+                <TextBlock Grid.Row="3" Grid.ColumnSpan="2"
                            Text="Tipos de objetos:"
                            FontSize="11"
                            Foreground="#AAAAAA"
                            FontWeight="SemiBold"
                            Margin="0,8,0,12"/>
 
-                <Grid Grid.Row="3" Grid.ColumnSpan="2" Margin="0,0,0,8">
+                <Grid Grid.Row="4" Grid.ColumnSpan="2" Margin="0,0,0,8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
@@ -168,8 +204,8 @@
                     <!-- Primera fila: Armas, Armaduras, Cascos, Llaves -->
 
                     <!-- Armas slider -->
-                    <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,8">
-                        <TextBlock Text="⚔️ Armas" FontSize="10" Foreground="#BBBBBB" Margin="0,0,0,2"/>
+                    <StackPanel x:Name="WeaponsPanel" Grid.Row="0" Grid.Column="0" Margin="0,0,8,8">
+                        <TextBlock x:Name="WeaponsLabel" Text="⚔️ Armas" FontSize="10" Foreground="#BBBBBB" Margin="0,0,0,2"/>
                         <Slider x:Name="WeaponsSlider"
                                 Minimum="0"
                                 Maximum="100"
@@ -180,8 +216,8 @@
                     </StackPanel>
 
                     <!-- Armaduras slider -->
-                    <StackPanel Grid.Row="0" Grid.Column="1" Margin="8,0,8,8">
-                        <TextBlock Text="🛡️ Armaduras" FontSize="10" Foreground="#BBBBBB" Margin="0,0,0,2"/>
+                    <StackPanel x:Name="ArmorsPanel" Grid.Row="0" Grid.Column="1" Margin="8,0,8,8">
+                        <TextBlock x:Name="ArmorsLabel" Text="🛡️ Armaduras" FontSize="10" Foreground="#BBBBBB" Margin="0,0,0,2"/>
                         <Slider x:Name="ArmorsSlider"
                                 Minimum="0"
                                 Maximum="100"
@@ -192,8 +228,8 @@
                     </StackPanel>
 
                     <!-- Cascos slider -->
-                    <StackPanel Grid.Row="0" Grid.Column="2" Margin="8,0,8,8">
-                        <TextBlock Text="🪖 Cascos" FontSize="10" Foreground="#BBBBBB" Margin="0,0,0,2"/>
+                    <StackPanel x:Name="HelmetsPanel" Grid.Row="0" Grid.Column="2" Margin="8,0,8,8">
+                        <TextBlock x:Name="HelmetsLabel" Text="🪖 Cascos" FontSize="10" Foreground="#BBBBBB" Margin="0,0,0,2"/>
                         <Slider x:Name="HelmetsSlider"
                                 Minimum="0"
                                 Maximum="100"
@@ -218,8 +254,8 @@
                     <!-- Segunda fila: Comida, Bebidas, Textos, Otros -->
 
                     <!-- Comida slider -->
-                    <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,0">
-                        <TextBlock Text="🍎 Comida" FontSize="10" Foreground="#BBBBBB" Margin="0,0,0,2"/>
+                    <StackPanel x:Name="FoodPanel" Grid.Row="1" Grid.Column="0" Margin="0,0,8,0">
+                        <TextBlock x:Name="FoodLabel" Text="🍎 Comida" FontSize="10" Foreground="#BBBBBB" Margin="0,0,0,2"/>
                         <Slider x:Name="FoodSlider"
                                 Minimum="0"
                                 Maximum="100"
@@ -230,8 +266,8 @@
                     </StackPanel>
 
                     <!-- Bebida slider -->
-                    <StackPanel Grid.Row="1" Grid.Column="1" Margin="8,0,8,0">
-                        <TextBlock Text="🍺 Bebidas" FontSize="10" Foreground="#BBBBBB" Margin="0,0,0,2"/>
+                    <StackPanel x:Name="DrinksPanel" Grid.Row="1" Grid.Column="1" Margin="8,0,8,0">
+                        <TextBlock x:Name="DrinksLabel" Text="🍺 Bebidas" FontSize="10" Foreground="#BBBBBB" Margin="0,0,0,2"/>
                         <Slider x:Name="DrinksSlider"
                                 Minimum="0"
                                 Maximum="100"
